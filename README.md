@@ -1,6 +1,7 @@
 # 3DRISMHI
 The original release of 3DRISM-HI
-(c) Cao Siqin
+
+Cao Siqin, 2015-2019
 
 References:
 
