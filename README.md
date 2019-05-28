@@ -3,7 +3,7 @@ The original release of 3DRISM-HI
 
 Cao Siqin, 2015-2019
 
-References:
+# References
 
 [1] Siqin Cao, Fu Kit Sheong, and Xuhui Huang, “Reference interaction site model with hydrophobicity induced density inhomogeneity: An analytical theory to compute solvation properties of large hydrophobic solutes in the mixture of polyatomic solvent molecules”, Journal of Chemical Physics 143, 054110 (2015)
 
