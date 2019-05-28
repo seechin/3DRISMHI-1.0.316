@@ -1,0 +1,146 @@
+Installation:
+
+1. Package requirement
+FFTW3 with double precision (required)
+GROMACS (optional, for reading XTC)
+pthread (optional, for pthread paralleling)
+LIBZ (optional, for output compression)
+
+2. Configuration
+main-header.h:
+_GROMACS_               include GROMACS package to read XTC
+_LOCALPARALLEL_         enable multithread paralleling
+_LOCALPARALLEL_PTHREAD_ enable pthread paralleling. fork paralleling will be used if not defined
+_LOCALPARALLEL_FFTW_    enable FFTW paralleling by this program (one FFTW per thread, and each FFTW is performed in a single thread manner)
+_FFTWMPPARALLEL_        enable FFTW paralleling by fftw_thread. Warning: don't use _FFTWMPPARALLEL_ and _LOCALPARALLEL_FFTW_ together.
+_LIBZ_                  enable compression of output 4D data file
+_INTERACTIVE_           enable interactive interface, in which one can pause, continue or stop the calculation, modify parameters, or print results
+_TTYPROMPTCOLOR_        #undef _TTYPROMPTCOLOR_ will disable colors of error messages in TTY output
+
+3. Installation guide
+
+RISMHI3D requires the double precision version of FFTW3, so install FFTW3 before install RISMHI3D. Now suppose you have FFTW3 installed in $HOME/bin/fftw-3.3.3:
+export FFTW_path=$HOME/bin/fftw-3.3.3
+
+3.1. The basic version: single thread version, no data compression, support PDB/GRO trajectories only.
+“main-header.h” is empty
+compilation:
+  g++ rismhi3d.cpp -o rismhi3d -I$FFTW_path/include -L$FFTW_path/lib -lfftw3 -lm
+
+3.2. The parallel version (fork only): fork paralleling, no data compression, support PDB/GRO trajectories only.
+main-header.h:
+  #define _LOCALPARALLEL_
+  #define _LOCALPARALLEL_FFTW_
+compilation:
+  g++ rismhi3d.cpp -o rismhi3d -I$FFTW_path/include -L$FFTW_path/lib -lfftw3 -lm
+
+3.3. The parallel version: pthread/fork paralleling, no data compression, support PDB/GRO trajectories only.
+main-header.h:
+  #define _LOCALPARALLEL_
+  #define _LOCALPARALLEL_FFTW_
+  #define _LOCALPARALLEL_PTHREAD_
+compilation:
+  g++ rismhi3d.cpp -o rismhi3d -I$FFTW_path/include -L$FFTW_path/lib -lfftw3 -lm -lpthread
+
+3.4. Enable LIBZ compression: single thread version, LIBZ compression, support PDB/GRO trajectories only.
+main-header.h:
+  #define _LOCALPARALLEL_
+  #define _LIBZ_
+compilation:
+  g++ rismhi3d.cpp -o rismhi3d -I$FFTW_path/include -L$FFTW_path/lib -lfftw3 -lm -lz
+
+3.5.1 Enable GROMACS v4 XTC reading:
+First install GROMACS4, and source $GROMACS4_installation_folder/bin/GMXRC
+main-header.h:
+  #define _GROMACS4_
+compilation:
+  g++ rismhi3d.cpp -o rismhi3d -I$FFTW_path/include -L$FFTW_path/lib -lfftw3 -lm -I$GMXLDLIB/../include -L$GMXLDLIB -lgmx
+
+3.5.2 Enable GROMACS v5 (and after) XTC reading:
+First install GROMACS, and source $GROMACS_installation_folder/bin/GMXRC
+main-header.h:
+  #define _GROMACS_
+compilation:
+  g++ rismhi3d.cpp -o rismhi3d -I$FFTW_path/include -L$FFTW_path/lib -lfftw3 -lm -I$GMXLDLIB/../include -L$GMXLDLIB -lgromacs
+
+
+3.6. A complete version with all features: 
+First install GROMACS, and source $GROMACS_installation_folder/bin/GMXRC
+main-header.h:
+  #define   _GROMACS_
+  #define   _LOCALPARALLEL_
+    #define _LOCALPARALLEL_PTHREAD_
+    #define _LOCALPARALLEL_FFTW_
+  #define   _LIBZ_
+  #define   _INTERACTIVE_
+compliation:
+  g++ rismhi3d.cpp -o rismhi3d -I$FFTW_path/include -L$FFTW_path/lib -lfftw3 -lm -lz -lpthread -I$GMXLDLIB/../include -L$GMXLDLIB -lgmx
+
+3.x. Other tools
+Please complie gmxtop2solute, ts4sdump and gensolvent with the same option above:
+  g++ ts4sdump.cpp -o ts4sdump $OPTIONS
+  g++ gmxtop2solute.cpp -o gmxtop2solute $OPTIONS
+  g++ gensolvent.cpp -o gensolvent $OPTIONS
+
+
+
+
+
+
+
+Solvent file:
+The solvent file can be generated with the help of “gmxtop2solute” and “gensolvent”.
+
+[solvent]                     # global parameters
+ rbohr        0.1             # hardsphere radius in nm
+ ff           gaff            # forcefield type:
+      # gaff: [E]=kJ/mol, sigma-mixing: arithmetic
+      # opls: [E]=kJ/mol, sigma-mixing: geometric
+      # amber: [E]=kcal/mol, sigma-mixing: arithmetic
+ rvdw         1               # cutoff distance for LJ potential
+ rcoul        1               # switching distance for PME calculation
+ gvv          0.0001    gvv.0001nm.tip3p     # solvent-solvent pair correlation
+ zvv          0.01      zeta.01nm.tip3p      # solvent-solvent zeta correlation
+ scale.zeta   0.829539        # a factor scaling the whole zeta correlation
+ density      32.61486135     # density of each solvent molecule
+ bulkdensity  32.61486135     # bulk density of each component in their pure solvent
+ dipole       0.0488648       # optional, dipole moment in e•nm for all solvents
+ dielect      78.41           # dielectric constant for each component in their pure solvent
+ temperature  298             # temperature in K
+[atom]                        # definition of all sites
+      # idx and grp should be consecutive numbers. The same site of atoms should have the same grp number.
+      # unit of charge is e
+      # unit of sigma is nm
+      # unit of epsilon is kJ/mol or kcal/mol
+#  name      mole idx grp      charge       sigma     epsilon
+     O1     tip3p   1   1   -0.834000    0.315061    0.636386
+     H2     tip3p   2   2    0.417000    0.000000    0.000000
+     H3     tip3p   3   2    0.417000    0.000000    0.000000
+[bond]                        # definition of all bonds
+#      atom1       atom2    bond(nm)  stderr(nm)
+    tip3p.O1    tip3p.H2    0.095723    0.000408
+    tip3p.O1    tip3p.H3    0.095721    0.000411
+    tip3p.H2    tip3p.H3    0.151391    0.000409
+
+Solute file:
+
+[solute]                      # all atoms (interaction sites) of solute molecules
+# generated by: gmxtop2solute -top ala2-O2.top # can be generated from the topology file of GROMACS
+# gmxtop2solute -top topol.top -ffpath $HOME/bin/gromacs-4.5.3/share/gromacs/top # generate with GROMACS forcefield specified
+# molecule: Protein           # name of the molecule
+#  name     mole
+   HH31      ACE        1.01       0.1123     0.264953    0.0656888
+    CH3      ACE       12.01      -0.3662     0.339967      0.45773
+   HH32      ACE        1.01       0.1123     0.264953    0.0656888
+
+
+
+
+
+
+
+
+
+
+
+
