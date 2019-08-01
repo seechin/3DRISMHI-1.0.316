@@ -1,7 +1,8 @@
 # 3DRISMHI
+
 The original release of 3DRISM-HI
 
-Cao Siqin, 2015-2019
+Alpha version 0.240.1465, (c) Cao Siqin, 2015-2019
 
 # References
 
