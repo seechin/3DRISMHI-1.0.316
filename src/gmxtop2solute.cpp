@@ -1,5 +1,5 @@
 const char * software_name = "gmxtop2solute";
-const char * software_version = "a.231.1400";
+const char * software_version = "0.239.1455";
 const char * copyright_string = "(c) Cao Siqin";
 
 #include    <errno.h>
@@ -20,13 +20,12 @@ const char * copyright_string = "(c) Cao Siqin";
 #include    <sys/resource.h>
 
 #define     real    double
-#define memalloc malloc
 
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 #define PI  3.1415926535897932384626433832795
-#include    "main-header.h"
-#include    "StringX.cpp"
-#include    "main-matrix.cpp"
+#include    "header.h"
+#include    "String2.cpp"
+#include    "matrix.cpp"
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 int software_argc = 0;
 char ** software_argv = nullptr;
@@ -87,15 +86,15 @@ void cp_tensor3d(real *** src, real *** dst, int nz, int ny, int nx){
 const char * szHelp = "\
   Tool for lavender: translate gromacs topology to solute parameters\n\
   The input/output files:\n\
-    -p, -top    in        topology file, TOP\n\
-    -ffpath     in, opt   forcefield folder, multiple separated with \":\"\n\
-    -o          out, opt  output file, default: screen\n\
+    -p, -top              topology file, TOP\n\
+    -ffpath, -include     forcefield folder, multiple separated with \":\"\n\
+    -o                    output file, default: screen\n\
     -debug                show debug info\n\
     -excl                 exclude group, default: SOL\n\
     -use-atom-name        (-an) use atom name, not atom type (default)\n\
     -use-atom-type        (-at) use atom type, not atom name\n\
     -solvent-format       (-for-gensolvent) output as solvent format\n\
-    -no-bond[s]           (-nb) don't output bond information\n\
+    -bond, -no-bond[s]    show/hide bond information, default no bond\n\
     -no-index             (-ni) don't output atom and molecule index\n\
     -abbreviate           (-ab) allow #repeat commands, default off\n\
     -old-format           = -abbreviate -no-bond -no-index\n\
@@ -105,7 +104,7 @@ const char * szHelp = "\
 ";
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 bool debug = false; bool show_atom_spc_name = true; bool solvent_format = false;
-    bool abbreviate_format = false; bool allow_bond = true; bool allow_index = true;
+    bool abbreviate_format = false; bool allow_bond = false; bool allow_index = true;
 char * info_file_name = (char*)"";
 char szfn_top[MAX_PATH];
 char szfn_ffgmxt[PRE_PATHS][MAX_PATH];
@@ -120,7 +119,7 @@ int analysis_parameter_line(char * argv[], int * argi, int argc, char * script_n
     } else if (key == "-o" || key == "--o"){ if (i+1<argc){ i++; strcpy(szfn_out, argv[i]); }
     } else if (key == "-excl"){ if (i+1<argc){ i++; strcpy(excl_grp, argv[i]); }
     } else if (key == "-debug"){ debug = true;
-    } else if (key=="-ffpath" || key=="ffpath"){ if (i+1<argc){
+    } else if (key=="-ffpath" || key=="--ffpath" || key=="-ffpath" || key=="-include" || key=="--include" || key=="include"){ if (i+1<argc){
         i++; strcpy(szfn_ffpath,argv[i]); for (int j=0; j<MAX_PATH && szfn_ffpath[j]; j++) if (szfn_ffpath[j]==':') szfn_ffpath[j] = 0;
       }
     } else if (key=="-an"||key=="--an"||key=="-use-atom-name"||key=="--use-atom-name"||key=="-use_atom_name"||key=="--use_atom_name"){
@@ -133,13 +132,15 @@ int analysis_parameter_line(char * argv[], int * argi, int argc, char * script_n
         abbreviate_format = true;
     } else if (key=="-nb"||key=="--nb"||key=="-no-bond"||key=="--no-bond"||key=="-no-bonds"||key=="--no-bonds"){
         allow_bond = false;
+    } else if (key=="-bond"||key=="--bond"||key=="-bond"){
+        allow_bond = true;
     } else if (key=="-ni"||key=="--ni"||key=="-no-index"||key=="--no-index"){
         allow_index = false;
     } else if (key=="-old"||key=="--old"||key=="-old-format"||key=="--old-format"){
         abbreviate_format = true; allow_bond = allow_index = false;
     } else if (key=="-default"||key=="--default"||key=="-default-format"||key=="--default-format"){
         show_atom_spc_name = true; solvent_format = false;
-        abbreviate_format = false; allow_bond = true; allow_index = true;
+        abbreviate_format = false; allow_bond = false; allow_index = true;
     } else {
         strcpy(szfn_top, argv[i]);
     }
@@ -201,10 +202,10 @@ class AtomType { public:
 AtomType * at = nullptr; int nat = 0; int natmax = 50000;
 #define MAX_BONDS_PER_ATOM 12
 class AtomTypeX : public AtomType { public:
-    int index; int nb; int ib[MAX_BONDS_PER_ATOM];
+    int index; int iaa; int nb; int ib[MAX_BONDS_PER_ATOM];
     AtomTypeX * next;
     void init(int _index, char * _name, char * _mole, double _mass, double _charge, double _sigma, double _epsilon){
-        index = _index; nb = 0;
+        index = _index; nb = 0; iaa = 1;
         AtomType::init(_name, _mole, _mass, _charge, _sigma, _epsilon); next = nullptr;
     }
 };
@@ -236,7 +237,7 @@ bool analysis_top(char * filename, char * last_file_name, int last_line){
     if (!file){ fprintf(stderr, "%s : %s[%d] : cannot open \"%s\"\n", software_name, last_file_name, last_line, filename); return false; }
     if (debug) fprintf(stderr, "%s : debug : handling %s\n", software_name, fn);
 
-    int on_compile = 0; int imolnow = 0; int iindex = 0; int iimol = 0; int iaa = 1;
+    int on_compile = 0; int imolnow = 0; int iindex = 0; int iimol = 0; int iaa_base = -1; int iaa_now = 0;
     while (success && fgets(input, sizeof(input), file)){ nline++;
         for (int i=0; i<sizeof(input) && input[i]; i++) if (input[i] == '\r' || input[i] =='\n') input[i] = 0;
         int nw = analysis_line(input, sl, MAX_STR, true); if (nw<=0) continue ;
@@ -297,6 +298,7 @@ bool analysis_top(char * filename, char * last_file_name, int last_line){
                         //printf("Atom %s define: %s\n", sl[1].text, at[idef].name);
                         AtomTypeX * p = (AtomTypeX*) malloc(sizeof(AtomTypeX));
                         p -> init(atoi(sl[0].text), show_atom_spc_name?sl[4].text:at[idef].name, sl[3].text, at[idef].mass, at[idef].charge, at[idef].sigma, at[idef].epsilon);
+                        p->iaa = atof(sl[2].text);
                         if (nw>=6) p->charge = atof(sl[6].text);
                         if (nw>=7) p->mass = atof(sl[7].text);
 //printf("    %-12s %12f %12f %12f %12f\n", p->name, p->mass, p->charge, p->sigma, p->epsilon); printf("    %-12s %12f %12f %12f %12f\n", at[idef].name, at[idef].mass, at[idef].charge, at[idef].sigma, at[idef].epsilon);
@@ -349,7 +351,7 @@ bool analysis_top(char * filename, char * last_file_name, int last_line){
                 }
                 */
                 fprintf(fout, "# molecule: %s\n", mt[imol].name);
-                int n_atom_in_mol = 0; int n_aa_in_mol = 0;
+                int n_atom_in_mol = 0;
 
                 int count_display = nm; int count_abbreviate = 0;
                 if (abbreviate_format){ count_display = 1; count_abbreviate = nm-1; }
@@ -363,7 +365,9 @@ bool analysis_top(char * filename, char * last_file_name, int last_line){
                         } else {
                             //fprintf(fout, "%4s %4s %5.2f %12g %12g %12g\n", p->name, show_atom_spc_name?p->mole:sl[0].text, p->mass, p->charge, p->sigma, p->epsilon);
                             if (allow_index){
-                                fprintf(fout, "%6d %4s %6d %4s %5.2f %12g %12g %12g", iindex, p->name, iaa, show_atom_spc_name?p->mole:sl[0].text, p->mass, p->charge, p->sigma, p->epsilon);
+                                if (iaa_base<0) iaa_base = 0; else if (p->iaa+iaa_base < iaa_now) iaa_base = iaa_now;
+                                iaa_now = p->iaa + iaa_base;
+                                fprintf(fout, "%6d %4s %6d %4s %5.2f %12g %12g %12g", iindex, p->name, iaa_now, show_atom_spc_name?p->mole:sl[0].text, p->mass, p->charge, p->sigma, p->epsilon);
                             } else {
                                 fprintf(fout, "%4s %4s %5.2f %12g %12g %12g", p->name, show_atom_spc_name?p->mole:sl[0].text, p->mass, p->charge, p->sigma, p->epsilon);
                             }
@@ -373,10 +377,9 @@ bool analysis_top(char * filename, char * last_file_name, int last_line){
                             }
                             fprintf(fout, "\n");
                         }
-                        if (!p->next || StringNS::string(p->mole,sizeof(p->mole)) != StringNS::string(p->next->mole,sizeof(p->next->mole))){ iaa ++; n_aa_in_mol ++; }
                     }
                 }
-                if (count_abbreviate>1){ fprintf(fout, "#repeat %d atoms %d times\n", n_atom_in_mol, count_abbreviate); iindex += n_atom_in_mol*(count_abbreviate); iaa += n_aa_in_mol*(count_abbreviate); }
+                if (count_abbreviate>1){ fprintf(fout, "#repeat %d atoms %d times\n", n_atom_in_mol, count_abbreviate); iindex += n_atom_in_mol*(count_abbreviate); }
 
                 iimol+=nm;
 

@@ -321,7 +321,11 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                 } else if (cmd[ic].command_params_int[is]==IETCMD_v_Chandler_G){
                     fprintf(flog, "  Chandler_SFE         %g %g\n", arr->total_energy.Chandler_Guv[0], arr->total_energy.Chandler_Guv[1]);
                 } else if (cmd[ic].command_params_int[is]==IETCMD_v_HFE){
+                  #ifdef _EXPERIMENTAL_
+                    fprintf(flog, "  SolvationFreeEnergy  %g\n", experimental_calculate_solvation_free_energy(sys, arr));
+                  #else
                     fprintf(flog, "  SolvationFreeEnergy  %g %g\n", arr->total_energy.Chandler_Guv[0], arr->total_energy.Chandler_Guv[1]);
+                  #endif
                 } else if (cmd[ic].command_params_int[is]==IETCMD_v_rdf){
                     double rcutoff = sys->rvdw>sys->rcoul?sys->rvdw:sys->rcoul;
                     if (!arr->is_rdf_calculated){ calculate_rdf(sys, arr, rdf, rcutoff, sys->out_rdf_bins); arr->is_rdf_calculated = true; }
@@ -384,32 +388,6 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
             for (int i=0; i<sys->nav; i++){
                 if (i>=0 && i<cmd[ic].step && i<MAX_CMD_PARAMS) sys->closures[i] = cmd[ic].command_params_int[i];
                 else if (cmd[ic].step<=1) sys->closures[i] = cmd[ic].command_params_int[0];
-            }
-        } else if (arr->dd && cmd[ic].command==IETCMD_PostHI    ){
-            if (sys->debug_level>=2){ fprintf(sys->log(), "DEBUG:: cmd[%d] = post_hi[", ic+1); for (int i=0; i<cmd[ic].step && i<MAX_CMD_PARAMS; i++) fprintf(sys->log(), i==0?"%d":",%d", cmd[ic].command_params_int[i]); fprintf(sys->log(), "]\n"); }
-            for (int iv=0; iv<sys->nvm && iv<cmd[ic].step; iv++){
-                if (cmd[ic].command_params_int[iv]==IETCMD_PostHI_v_Clear){
-                    size_t N3 = arr->nx * arr->ny * arr->nz;
-                    //fprintf(sys->log(), "clear hi %d\n", ic+1);
-                    for (size_t i3=0; i3<N3; i3++) arr->dd[iv][0][0][i3] = sys->nbulk[iv];
-                }
-            }
-            for (int iv=0; iv<sys->nvm && iv<cmd[ic].step; iv++){
-                if (cmd[ic].command_params_int[iv]==IETCMD_PostHI_v_Complement){
-                    size_t N3 = arr->nx * arr->ny * arr->nz;
-                    //fprintf(sys->log(), "clear hi %d\n", ic+1);
-                    for (size_t i3=0; i3<N3; i3++){
-                        double dd_already = 0; double dd_weight = 0;
-                        for (int jv=0; jv<sys->nvm; jv++){
-                            if (cmd[ic].command_params_int[jv]==IETCMD_PostHI_v_Complement){
-                                dd_weight += sys->nbulk[jv];
-                            } else {
-                                dd_already += arr->dd[jv][0][0][i3];
-                            }
-                        }
-                        arr->dd[iv][0][0][i3] = (1 - (dd_already>1?1:dd_already)) * sys->nbulk[iv] / dd_weight;
-                    }
-                }
             }
         } else if (cmd[ic].command==IETCMD_TEST || cmd[ic].command==IETCMD_TEST_SAVE){
             if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: cmd[%d] = %s\n", ic+1, cmd[ic].command==IETCMD_TEST_SAVE?"test-and-save":"test");
@@ -633,6 +611,9 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                     }
                 }
             }
+      #ifdef _EXPERIMENTAL_
+        } else if (experimental_process_command(sys, arr, cmd, ic)){
+      #endif
         }
       // no more command and will end here
     }

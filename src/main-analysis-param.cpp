@@ -40,7 +40,6 @@ const char * szHelp2 = "\
     -rc                     interaction cutoff, default: 1\n\
     -pwd                    redirect the current working directory immediately\n\
     -log                    log file, could be stdout/con/screen/stderr\n\
-    -i[n]                   input file (in TS64 format)\n\
 ";
 #ifdef _LIBZ_
   const char * szHelpLibZ = "\
@@ -61,18 +60,12 @@ const char * szHelp3 = "\
     -do-rism-kh             perform 3DRISM-KH\n\
     -do-rismhi-d2           perform 3DRISM-HI-D2MSA\n\
     -do-rismhi-kh/pes       perform 3DRISM-HI-KH/PES\n\
+    -do-merge-pes           perform 3D-RISM&VRISM-rPLHI-PES\n\
     -do-merge-hipes         perform 3D-RISM&VRISM-HI-PES\n\
 ";
 
 const char * szHelpCommands = "\
-  Common parameters of commands:\n\
-    @begin,run-at-beginning run only at beginning (before any frame)\n\
-    @end, run-at-ending     run only at ending (after last frame)\n\
-    order/index/i=5, @5     write this command to location, begin with 1\n\
   Commands:\n\
-    [set,]param=val,...     set values of at most 20 parameters\n\
-      set: ff/uuv, lj, coul\n\
-      set: rism/original-dielect\n\
     clear/reset             clear the memory\n\
     end/stop                end current frame treatment\n\
     done/break              end current block treatment\n\
@@ -84,7 +77,6 @@ const char * szHelpCommands = "\
       other closures: D2/DH/MS, MHNC/BPGGHNC/VM/MP\n\
     cf[-a/m]=1,1,...        20 (or less) closure factors\n\
       closure/cf surfix: -a atomic, -m molecular, or specify one for all\n\
-    post-hi:keep/discard    keep or discard the HI density for molecule sites\n\
     ti[_begin],step=10      do TI for following commands till \"done/break\"\n\
   Commands:\n\
     density,dielect         20 (or less) items, each for a molecule\n\
@@ -92,10 +84,12 @@ const char * szHelpCommands = "\
     display/calc[ulate]     calculate or display quantities\n\
       display/calc: energy, Euv/Ef/LJ/Coul, Cuv, dN, TS, SFE/Guv, rdf, all\n\
     report                  generate summary of Euv/Ef, Cuv or all\n\
-    save\n\
+    save, save-at-the-end, save-at-each-frame\n\
       save: ff, lj, coul; iet, cuv, huv, dd; all; guv, rdf\n\
       pick/save-sites: the sites picked for output, default: all\n\
-    save-at-the-end, save-at-each-frame\n\
+  Command running time specifier:\n\
+    @b[egin], @e[nd]        run only at the beginning/end (before/after any frame)\n\
+    @number (e.g. @1, @5)   insert command to specified location, begin with 1\n\
 ";
 const char * szHelpMore = "\
   See: -help/-h/-ha [advanced/any_key_word/section/sections]\n\
@@ -112,15 +106,15 @@ const char * szHelpAdvanced = "\
       -amberff/-ffamber     = -Tdef 502.97 -arith-sigma\n\
       -oplsff/-ffopls[aa]   = -Tdef 120.27 -geo-sigma\n\
       -gaff/-ffgaff         = -Tdef 120.27 -arith-sigma\n\
-    -steps                  Default step numbers\n\
     -coul[omb], -es         Electricstatic field algorithm, can be:\n\
                     none/Coulomb, dielect/dm, Yukawa/YukawaFFT\n\
     -dielect                dielect const of each solvent molecule, default: 1\n\
     -dielect-hi             dielect const for Coulomb based HI theories\n\
     -ccutoff                cutoff for hybrid closures, default: 5\n\
+    -cceil                  (-gceil) = exp(ccutoff), default: 148\n\
     -rdf-grps               1-1,2-1,3-2,...\n\
     -rdf-content, -rdf-for  rdf/h/dd/c/ch, lj/f/coul/ef/ff. Default: rdf\n\
-    -rdf-bins               bins for the RDF calculation, default 50\n\
+    -rdf-bins               number of rdf bins, default 50\n\
     -dielect-y[ukawa]       dielectric const for Yukawa, default: 1\n\
     -arith[metic]-sigma     sigma combining rule: arithmetic mean\n\
     -geo[metric]-sigma      sigma combining rule: geometric mean\n\
@@ -128,9 +122,8 @@ const char * szHelpAdvanced = "\
     -default_temperature    (-Tdef) T of defining forcefield, default: 120.27\n\
     -v[bose] [0/1/2]        -detial[-level]: 0=-silent, 1=-brief, 2=-detailed\n\
     -debug[-level] 1[/0/2]  debug level: 0=-nodebug, 1=-debug, 2=-debugging\n\
-    -list, -ls              list the settings and parameters (no calculation)\n\
-    -test                   test settings and do not actually run\n\
-    -cceil                  (-gceil) = exp(ccutoff), default: 148\n\
+    -list, -ls              list settings and parameters (no calculation)\n\
+    -test                   test settings but do not actually run\n\
     -rb, Bohr-radius        minimal hardsphere radius, default: 0.052911\n\
     -rq, rcharge            size of partial charges, default: 0.052911\n\
     -[no]pbc                PBC: xy, yz, xyz (default), all, no/none\n\
@@ -140,10 +133,8 @@ const char * szHelpAdvanced = "\
       -dipole-use-original  disable any recalculation of dipoles\n\
     -significant-digits     (-sd), digits for IETS output, can be float/double\n\
     -page[-]size            page size in compression, default: 4K\n\
-    -coulomb-renorm-scaling scaling of Coulomb in hardsphere, default: 0.98\n\
+    -coulomb-renorm-scaling scaling of Coulomb in hardsphere, default: 1\n\
     -lj-renorm-scaling      scaling of LJ in hardsphere, default: 1\n\
-    -xvv-scheme             also: -xvv-level, -xvv-enhance[-scheme/level]\n\
-                            specify a wrong -xvv-scheme with -v for details\n\
     -external-electrofield  external electric field in eV/nm, default: 0 0 0\n\
     -[no-]enhance-closure   * closure enhancement, default on\n\
     -check-memory-capacity  * check memory capacity, default option\n\
@@ -223,7 +214,7 @@ const char * szHelpNote = "Note: \n\
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 int closure_from_string(StringNS::string closure_str, STKeywordTableUnit * alias, int count){
-    for (int i=0; i<count; i++){
+    for (int i=0; i<count; i++) if (alias[i].name){
         if (closure_str == alias[i].name) return alias[i].id;
     }
     return -1;
@@ -529,6 +520,10 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
             sys->mp_by_fork = true;
         #endif
    #endif
+   #ifdef _FFTWMPPARALLEL_
+    } else if (key == "-ntf" || key == "--ntf" || key == "ntf" || key == "-nt-fft" || key == "--nt-fft" || key == "nt-fft" || key == "-nt_fft" || key == "--nt_fft" || key == "nt_fft"){
+        if (i+1<argc && StringNS::is_string_number(argv[i+1])) sys->ntf = atoi(argv[++i]); if (sys->ntf<1) sys->ntf = 1; else if (sys->ntf>MAX_THREADS) sys->ntf = MAX_THREADS;
+   #endif
     } else if (key == "-np" || key == "--np" || key == "np" || key == "-fork" || key == "--fork" || key == "fork"){
         if (i+1<argc && StringNS::is_string_number(argv[i+1])) sys->nt = atoi(argv[++i]); if (sys->nt<1) sys->nt = 1; else if (sys->nt>MAX_THREADS) sys->nt = MAX_THREADS;
         sys->mp_by_fork = true;
@@ -656,7 +651,11 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
                 }
             }
         }
-//for (int ig=0; ig<sys->n_rdf_grps; ig++) printf("  RDF GROUP[%d]: %d (%s.%s) - %d (%s.%s)\n", ig, sys->rdf_grps[ig].is, sys->rdf_grps[ig].ms, sys->rdf_grps[ig].as, sys->rdf_grps[ig].iv, sys->rdf_grps[ig].mv, sys->rdf_grps[ig].av);
+    //for (int ig=0; ig<sys->n_rdf_grps; ig++) printf("  RDF GROUP[%d]: %d (%s.%s) - %d (%s.%s)\n", ig, sys->rdf_grps[ig].is, sys->rdf_grps[ig].ms, sys->rdf_grps[ig].as, sys->rdf_grps[ig].iv, sys->rdf_grps[ig].mv, sys->rdf_grps[ig].av);
+    } else if (key == "-gcutoff-liquid" || key == "gcutoff-liquid" || key == "--gcutoff-liquid" || key == "-gcutoff_liquid" || key == "gcutoff_liquid" || key == "--gcutoff_liquid" || key == "-gcutoff" || key == "gcutoff" || key == "--gcutoff"){
+        if (i+1<argc && StringNS::is_string_number(argv[i+1])){
+            sys->gcutoff_liquid_occupation = atof(argv[++i]);
+        }
     } else if (key == "-rdf-content" || key == "rdf-content" || key == "--rdf-content" || key == "-rdf_content" || key == "rdf_content" || key == "--rdf_content" || key == "-rdf-for" || key == "rdf-for" || key == "--rdf-for" || key == "-rdf_for" || key == "rdf_for" || key == "--rdf_for"){
         if (i+1<argc && argv[i+1][0]!='-'){ i++; StringNS::string rdf_content = argv[i];
             if (rdf_content == "rdf" || rdf_content == "rdf"){
@@ -852,32 +851,6 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
         }
     } else if (key == "-pseudoliquid-factor" || key == "--pseudoliquid-factor" || key == "pseudoliquid-factor" || key == "-pseudoliquid_factor" || key == "--pseudoliquid_factor" || key == "pseudoliquid_factor" || key == "-psf" || key == "--psf" || key == "psf"){
         if (i+1<argc && StringNS::is_string_number(argv[i+1])) sys->pseudoliquid_potential_r_factor = atof(argv[++i]);
-    } else if (key == "-cr" || key == "--cr" || key == "-cavity-remove" || key == "--cavity-remove" || key == "-cavity_remove" || key == "--cavity_remove" || key == "-cavity-remove-correction" || key == "--cavity-remove-correction" || key == "-cavity_remove_correction" || key == "--cavity_remove_correction" || key == "-cavity-removal-correction" || key == "--cavity-removal-correction" || key == "-cavity_removal_correction" || key == "--cavity_removal_correction"){
-        sys->cavity_removal_correction = true;
-        if (i+1<argc && argv[i+1][0]!='-'){ i++; StringNS::string kl[20]; int nkl = StringNS::analysis_csv_line(argv[i], kl, 20, true, true);
-            for (int k=0; k<nkl; k++){
-                if (kl[k]=="on"){
-                    sys->cavity_removal_correction = true;
-                } else if (kl[k]=="off" || kl[k]=="no" || kl[k]=="none"){
-                    sys->cavity_removal_correction = false;
-                } else if (kl[k].length>=7 && (StringNS::string(kl[k].text,7) == "factor=")){
-                    if (StringNS::is_string_number(&kl[k].text[7])) sys->cavity_removal_factor = atof(&kl[k].text[7]);
-                } else if (kl[k].length>=4 && (StringNS::string(kl[k].text,4) == "crf=")){
-                    if (StringNS::is_string_number(&kl[k].text[4])) sys->cavity_removal_factor = atof(&kl[k].text[4]);
-                } else if (kl[k].length>=7 && (StringNS::string(kl[k].text,7) == "cutoff=")){
-                    if (StringNS::is_string_number(&kl[k].text[7])) sys->cavity_ucutoff = atof(&kl[k].text[7]);
-                } else if (kl[k].length>=12 && (StringNS::string(kl[k].text,12) == "size-factor=" || StringNS::string(kl[k].text,5) == "size_factor=")){
-                    if (StringNS::is_string_number(&kl[k].text[12])) sys->cavity_size_factor = atof(&kl[k].text[12]);
-                } else if (kl[k].length>=3 && (StringNS::string(kl[k].text,3) == "sf=")){
-                    if (StringNS::is_string_number(&kl[k].text[3])) sys->cavity_size_factor = atof(&kl[k].text[3]);
-                } else {
-                    fprintf(sys->log(), "%s : %s[%d] : invalid option for -cr : %s\n", software_name, get_second_fn(script_name), script_line, kl[k].text); ret = 1;
-                }
-            }
-        }
-        //printf("\33[31mcavity_removal:%s -crf %g -sf %g cutoff %g (next %s)\n\33[0m", sys->cavity_removal_correction?"on":"off", sys->cavity_removal_factor, sys->cavity_size_factor, sys->ucutoff_hs, argv[i]);
-    } else if (key == "-no-cr" || key == "--no-cr" || key == "-no_cr" || key == "--no_cr" || key == "-no-cavity-remove" || key == "--no-cavity-remove" || key == "-no_cavity_remove" || key == "--no_cavity_remove" || key == "-no-cavity-remove-correction" || key == "--no-cavity-remove-correction" || key == "-no_cavity_remove_correction" || key == "--no_cavity_remove_correction" || key == "-no-cavity-removal-correction" || key == "--no-cavity-removal-correction" || key == "-no_cavity_removal_correction" || key == "--no_cavity_removal_correction"){
-        sys->cavity_removal_correction = false;
     } else if (key == "-T" || key == "--T" || key == "temperature" || key == "-temperature" || key == "--temperature"){
         if (i+1<argc && StringNS::is_string_number(argv[i+1])) sys->temperature = atof(argv[++i]);
     } else if (key == "-Tdef" || key == "--Tdef" || key == "default-temperature" || key == "-default-temperature" || key == "--default-temperature" || key == "default_temperature" || key == "-default_temperature" || key == "--default_temperature"){ sys->default_temperature = atof(argv[++i]);
@@ -941,62 +914,6 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
                 sys->renorm_lj_in_hs[j] = sys->renorm_lj_in_hs[0];
             }
             //printf("\33[31msys->renorm_coulomb_in_hs[%d] =", n_renorm_coulomb_in_hs); for (int k=0; k<n_renorm_coulomb_in_hs || k<4; k++) printf(" %g", sys->renorm_coulomb_in_hs[k]); printf("\n\33[0m");
-        }
-    } else if (key=="-xvv-scheme" || key=="--xvv-scheme" || key=="xvv-scheme" || key=="-xvv_scheme" || key=="--xvv_scheme" || key=="xvv_scheme" ||
-            key=="-xvv-level" || key=="--xvv-level" || key=="xvv-level" || key=="-xvv_level" || key=="--xvv_level" || key=="xvv_level" ||
-            key=="-xvv-enhance" || key=="--xvv-enhance" || key=="xvv-enhance" || key=="-xvv_enhance" || key=="--xvv_enhance" || key=="xvv_enhance" ||
-            key=="-xvv-enhance-level" || key=="--xvv-enhance-level" || key=="xvv-enhance-level" || key=="-xvv_enhance_level" || key=="--xvv_enhance_level" || key=="xvv_enhance_level" ||
-            key=="-xvv-enhance-scheme" || key=="--xvv-enhance-scheme" || key=="xvv-enhance-scheme" || key=="-xvv_enhance_scheme" || key=="--xvv_enhance_scheme" || key=="xvv_enhance_scheme"){
-        if (i+1<argc && (StringNS::is_string_number(argv[i+1]) || argv[i+1][0] != '-')){
-            i++; StringNS::string kl[10]; int nkl = StringNS::analysis_csv_line(argv[i], kl, 10, true, true);
-            for (int ixvv=0; ixvv<nkl&&ixvv<2; ixvv++){
-            //if (i+1<argc && (StringNS::is_string_number(argv[i+1]) || argv[i+1][0] != '-')){
-            //if (i+1<argc && StringNS::is_string_number(argv[i+1])){
-            //    sys->xvv_enhance_level = atoi(argv[++i]);
-            //} else if (i+1<argc && argv[i+1][0] != '-'){
-                static STKeywordTableUnit str_enhancement_strings [] = {
-                    {  0, "no" },  {  0, "none" },
-                    {  1, "a" },   {  1, "atom" },    {  1, "atomic" },
-                    {  2, "e" },   {  2, "extreme" },
-                    {  3, "m" },   {  3, "mole" },    {  3, "molecule" },    {  3, "molecular" },
-                    {  4, "v" },   {  4, "average" }, {  4, "averaged" },
-                    { 10, "so" },  { 10, "shift-only" },
-                    { 11, "sa" },  { 11, "shift-atom" }, { 11, "shift-atomic" },
-                    { 12, "se" },  { 12, "shift-extreme" },
-                    { 13, "sm" },  { 13, "shift-mole" }, { 13, "shift-molecule" }, { 13, "shift-molecular" },
-                    { 14, "sv" },  { 14, "shift-average" }, { 14, "shift-averaged" },
-                    { 15, "si" },  { 15, "shift" }, { 15, "shift-insert" }, { 15, "amber" },
-                    { 20, "to" },  { 20, "extend-only" },
-                    { 21, "ta" },  { 21, "extend-atom" }, { 21, "extend-atomic" },
-                    { 22, "te" },  { 22, "extend-extreme" },
-                    { 23, "tm" },  { 23, "extend-mole" }, { 23, "extend-molecule" }, { 23, "extend-molecular" },
-                    { 24, "tv" },  { 24, "extend-average" }, { 24, "extend-averaged" },
-                    { 25, "ti" },  { 25, "extend" }, { 25, "extend-insert" },
-                    { 30, "xo" },  { 30, "extra-only" }, { 30, "extraporlate-only" },
-                    { 31, "xa" },  { 31, "extra-atom" }, { 31, "extra-atomic" }, { 31, "extraporlate-atom" }, { 31, "extraporlate-atomic" },
-                    { 32, "xe" },  { 32, "extra-extreme" }, { 32, "extraporlate-extreme" },
-                    { 33, "xm" },  { 33, "extra-mole" }, { 33, "extra-molecule" }, { 33, "extra-molecular" }, { 33, "extraporlate-mole" }, { 33, "extraporlate-molecule" }, { 33, "extraporlate-molecular" },
-                    { 34, "xv" },  { 34, "extra-average" }, { 34, "extra-averaged" }, { 34, "extraporlate-average" }, { 34, "extraporlate-averaged" },
-                    { 35, "xi" },  { 35, "extra" }, { 35, "extra-insert" }, { 35, "extraporlate" }, { 35, "extraporlate-insert" }
-
-                };
-                StringNS::string enhance_string = kl[ixvv]; int enhance_id = StringNS::is_string_number(enhance_string)? atoi(enhance_string.text) : -1;
-                int enhance_here = -1; for (int j=0; enhance_here<0 && j<sizeof(str_enhancement_strings)/sizeof(str_enhancement_strings[0]); j++) if (enhance_id==str_enhancement_strings[j].id || enhance_string==str_enhancement_strings[j].name) enhance_here = str_enhancement_strings[j].id;
-                if (enhance_here>=0){
-                    for (int j=ixvv; j<2; j++) sys->xvv_enhance_level[j] = enhance_here;
-                } else {
-                    fprintf(sys->log(), "%s : %s[%d] : unknown xvv scheme \"%s\"", software_name, get_second_fn(script_name), script_line, kl[ixvv].text);
-                    if (sys->detail_level>=2){
-                        fprintf(sys->log(), " (supported shemes:"); for (int i=0; i<sizeof(str_enhancement_strings)/sizeof(str_enhancement_strings[0]); i++){
-                            if (i+2>=sizeof(str_enhancement_strings)/sizeof(str_enhancement_strings[0]) || str_enhancement_strings[i].id!=str_enhancement_strings[i+1].id) fprintf(sys->log(), " %d/%s", str_enhancement_strings[i].id, str_enhancement_strings[i].name);
-                        }; fprintf(sys->log(), ")\n");
-                    } else {
-                        fprintf(sys->log(), " (-v for supported schemes)\n");
-                    }
-                    ret = 1;
-                }
-            }
-//printf("xvv-scheme %d,%d\n", sys->xvv_enhance_level[0], sys->xvv_enhance_level[1]);
         }
     } else if (key=="-hlr-no-hi" || key=="--hlr-no-hi" || key=="hlr-no-hi" || key=="-hlr_no_hi" || key=="--hlr_no_hi" || key=="-hlr_no_hi"){
         sys->hlr_no_hi = true;
@@ -1158,20 +1075,12 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
         if (i+1<argc && argv[i+1][0] != '-'){ i++; StringNS::string key2 = argv[i];
             if (key2 == "theta"){
                 sys->guvmal = GUVMAL_THETA; sys->ucutoff_hs = 5;
-            } else if (key2 == "thetacc" || key2 == "cc"){
-                sys->guvmal = GUVMAL_THETACC; sys->ucutoff_hs = 5;
             } else if (key2.length>=6 && (StringNS::string(key2.text,6) == "theta@")){
                 sys->guvmal = GUVMAL_THETA; sys->ucutoff_hs = 5;
                 if (StringNS::is_string_number(&argv[i][6])) sys->ucutoff_hs = atof(&argv[i][6]);
             } else if (key2.length>=10 && (StringNS::string(key2.text,10) == "theta@uuv>")){
                 sys->guvmal = GUVMAL_THETA; sys->ucutoff_hs = 5;
                 if (StringNS::is_string_number(&argv[i][10])) sys->ucutoff_hs = atof(&argv[i][10]);
-            } else if (key2.length>=6 && (StringNS::string(key2.text,6) == "thetacc@")){
-                sys->guvmal = GUVMAL_THETACC; sys->ucutoff_hs = 5;
-                if (StringNS::is_string_number(&argv[i][8])) sys->ucutoff_hs = atof(&argv[i][8]);
-            } else if (key2.length>=6 && (StringNS::string(key2.text,6) == "cc@")){
-                sys->guvmal = GUVMAL_THETACC; sys->ucutoff_hs = 5;
-                if (StringNS::is_string_number(&argv[i][3])) sys->ucutoff_hs = atof(&argv[i][3]);
             } else if (key2 == "guv"){
                 sys->guvmal = GUVMAL_GUV; sys->ucutoff_hs = 0;
             } else { fprintf(sys->log(), "%s : %s[%d] : unknown HI.guvm algorithm \"%s\"\n", software_name, get_second_fn(script_name), script_line, argv[i]); ret = 1; }
@@ -1240,6 +1149,8 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
         ret = analysis_parameter_line(sys, "-cmd hshi closure=kh rism", script_name, script_line, script_path);
     } else if (key == "-do-rismhi-pes" || key == "-do-pes-rismhi" || key == "-do-pesrismhi"){
         ret = analysis_parameter_line(sys, "-cmd hshi closure=pes rism", script_name, script_line, script_path);
+    } else if (key == "-do-merge-pes" || key == "-do-merged-pes" || key == "-do-merging-pes"){
+        ret = analysis_parameter_line(sys, "-cmd rqnhi closure=pes rism vrism,merge=sm -rlocal-coul 0.5", script_name, script_line, script_path);
     } else if (key == "-do-merge-hipes" || key == "-do-merged-hipes" || key == "-do-merging-hipes"){
         ret = analysis_parameter_line(sys, "-cmd hshi closure=pes rism vrism,merge=sm -rlocal-coul 0.5", script_name, script_line, script_path);
    // ---------------------------------------------------------------------------------
@@ -1398,7 +1309,11 @@ int analysis_params(IET_Param * sys, int argc, char * argv[]){
             if (error & 8 && error & 2048)  printf("%s", szHelpSecRISM3D_HI);
             if (error & 16) printf("%s", szHelpSecATOM);
             if (error & 32) printf("%s", szHelpSecRISM3DS);
+          #ifdef _EXPERIMENTAL_
+            if (error & 4)  printf("%s%s%s", szHelpAdvanced, szHelpAdvancedOthers, szHelpExperimental);
+          #else
             if (error & 4)  printf("%s%s", szHelpAdvanced, szHelpAdvancedOthers);
+          #endif
             if (error & 4)  printf("%s", szHelpNote);
             if (error & 512 && help_search_str){
                 const char * helps[] = { szHelp1, szHelpXTC, szHelpMP, szHelp2, szHelpLibZ, szHelp3, szHelpCommands, szHelpMore, szHelpAdvanced, szHelpAdvancedOthers,
@@ -1669,6 +1584,7 @@ int analysis_params_post(IET_Param * sys){
 
 int check_hi_diis_default_steps(IET_Param * sys){ if (sys->ndiis_hi<=0) sys->ndiis_hi = 5; return sys->ndiis_hi; }
 int check_rism_diis_default_steps(IET_Param * sys){ if (sys->ndiis_rism<=0) sys->ndiis_rism = 5; return sys->ndiis_rism; }
+
 bool analysis_command(IET_Param * sys, char * line, const char * line_orig, const char * script_name, int script_line, int first_char_offset){
     bool success = true; int cmd_type = -1;
     IET_command cmd; memset(&cmd, 0, sizeof(IET_command)); int cmd_location = sys->ncmd + 1;
@@ -1676,494 +1592,421 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
     int last_cmd_type = cmd_type; int last_param_num = cmd.step;
 
     StringNS::string sl[200];
-      int key_c_index[200]; int n_key_c_index = 0; memset(&key_c_index, 0, sizeof(key_c_index));
-      bool is_key[200]; memset(&is_key, 0, sizeof(is_key));
-    int linelen = strlen(line); for (int i=0; i<linelen && line[i]; i++) if (line[i]=='='||line[i]==':'){ line[i]=','; if (n_key_c_index<200) key_c_index[n_key_c_index++] = i; } else if (line[i]=='/') line[i]=',';
-    int nw = analysis_csv_line(line, sl, 200, true, true);
-    for (int i=0; i<n_key_c_index; i++) if (key_c_index[i]>=0 && key_c_index[i]<linelen) line[key_c_index[i]] = '=';
+    int nw = analysis_word_line(line, sl, 200);
 
     int i_param_list = 0;
-    for (int i=0; i<nw; i++){
-    // global settings for command
-        if (sl[i].text[0]=='@'){
-          StringNS::string at_location; at_location.text = &sl[i].text[1]; at_location.length = sl[i].length - 1;
-          if (at_location.length>0){
-            if (StringNS::is_string_number(at_location)){
-                cmd_location = atoi(&sl[i].text[1]);
-            } else if (at_location=="begin" || at_location=="beginning"){
-                cmd.time_to_run = 1;
-            } else if (at_location=="end" || at_location=="ending"){
-                cmd.time_to_run = -1;
-            } else {
-                char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
-                fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : unrecognizable locating: \"%s\"%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
-                success = false; sl[i].text[sl[i].length] = cc;
-            }
-          }
-        } else if (sl[i]=="run-at-begin"||sl[i]=="run_at_begin"||sl[i]=="run-at-beginning"||sl[i]=="run_at_beginning"||sl[i]=="run-at-the-beginning"||sl[i]=="run_at_the_beginning"){
-            cmd.time_to_run = 1;
-        } else if (sl[i]=="run-at-end"||sl[i]=="run_at_end"||sl[i]=="run-at-the-end"||sl[i]=="run_at_the_end"||sl[i]=="run-at-ending"||sl[i]=="run_at_ending"||sl[i]=="run-at-the-end"||sl[i]=="run_at_the_end"){
-            cmd.time_to_run = -1;
-      // noop
-        } else if (sl[i]=="nop" || sl[i]=="noop"){
+
+  // analysis commands
+    if (nw>0){
+        if (sl[0]=="nop" || sl[0]=="noop"){
             cmd_type = 0; cmd.command = IETCMD_NOP; cmd.step = 1;
-        } else if (sl[i]=="nohi"){
+        } else if (sl[0]=="nohi"){
             cmd_type = 0; cmd.command = IETCMD_NOP; cmd.step = 1;
-        } else if (sl[i]=="norism"){
+        } else if (sl[0]=="norism"){
             cmd_type = 0; cmd.command = IETCMD_NOP; cmd.step = 1;
-    // I/O operations
-        } else if (sl[i]=="clear"){ cmd_type = 0; cmd.command = IETCMD_CLEAR; cmd.step = 1;
-        } else if (sl[i]=="reset"){ cmd_type = 0; cmd.command = IETCMD_RESET; cmd.step = 1;
-        } else if (sl[i]=="end" || sl[i]=="stop" || sl[i]=="exit"){
+      // cmd: I/O operations
+        } else if (sl[0]=="clear"){ cmd_type = 0; cmd.command = IETCMD_CLEAR; cmd.step = 1;
+        } else if (sl[0]=="reset"){ cmd_type = 0; cmd.command = IETCMD_RESET; cmd.step = 1;
+        } else if (sl[0]=="end" || sl[0]=="stop" || sl[0]=="exit"){
             cmd_type = 0; cmd.command = IETCMD_END; cmd.step = 1;
-        } else if (sl[i]=="done" || sl[i]=="break" || sl[i]=="return"){
+        } else if (sl[0]=="done" || sl[0]=="break" || sl[0]=="return"){
             cmd_type = 0; cmd.command = IETCMD_DONE; cmd.step = 1;
-        } else if (sl[i]=="set"){       cmd_type = 1; cmd.command = IETCMD_SET;
-        } else if (sl[i]=="let"){       cmd_type = 1; cmd.command = IETCMD_SET;
-        } else if (sl[i]=="scale"){     cmd_type = 2; cmd.command = IETCMD_SCALE;
-        } else if (sl[i]=="load"){
+        } else if (sl[0]=="set"){       cmd_type = 1; cmd.command = IETCMD_SET;
+        } else if (sl[0]=="let"){       cmd_type = 1; cmd.command = IETCMD_SET;
+        } else if (sl[0]=="scale"){     cmd_type = 2; cmd.command = IETCMD_SCALE;
+        } else if (sl[0]=="load"){
             cmd_type = 5; cmd.command = IETCMD_LOAD; cmd.time_to_run = 0;
-            //fprintf(sys->log(), "%s : %s[%d][%ld] : warning : \"%s\" redirected to \"load-at-the-beginning\"\n", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text);
-        } else if (sl[i]=="load-at-each-frame" || sl[i]=="load_at_each_frame"){
+            //fprintf(sys->log(), "%s : %s[%d][%ld] : warning : \"%s\" redirected to \"load-at-the-beginning\"\n", software_name, script_name, script_line, 1+sl[0].text-line+first_char_offset, sl[0].text);
+        } else if (sl[0]=="load-at-each-frame" || sl[0]=="load_at_each_frame"){
             cmd_type = 5; cmd.command = IETCMD_LOAD; cmd.time_to_run = 0;
-        } else if (sl[i]=="load-at-beginning" || sl[i]=="load_at_beginning" || sl[i]=="load-at-the-beginning" || sl[i]=="load_at_the_beginning"){
+        } else if (sl[0]=="load-at-beginning" || sl[0]=="load_at_beginning" || sl[0]=="load-at-the-beginning" || sl[0]=="load_at_the_beginning"){
             cmd_type = 5; cmd.command = IETCMD_LOAD; cmd.time_to_run = 1;
-        } else if (sl[i]=="save-filter" || sl[i]=="save_filter" || sl[i]=="save-site" || sl[i]=="save-sites" || sl[i]=="save_site" || sl[i]=="save_sites" || sl[i]=="pick" || sl[i]=="pick-site" || sl[i]=="pick-sites" || sl[i]=="pick_site" || sl[i]=="pick_sites"){
+        } else if (sl[0]=="save-filter" || sl[0]=="save_filter" || sl[0]=="save-site" || sl[0]=="save-sites" || sl[0]=="save_site" || sl[0]=="save_sites" || sl[0]=="pick" || sl[0]=="pick-site" || sl[0]=="pick-sites" || sl[0]=="pick_site" || sl[0]=="pick_sites"){
             cmd_type = 61; cmd.command = IETCMD_SAVE_FILTER; cmd.time_to_run = 0;
-        } else if (sl[i]=="save"){
+        } else if (sl[0]=="save"){
             cmd_type = 6; cmd.command = IETCMD_SAVE; cmd.time_to_run = 0;
-            //fprintf(sys->log(), "%s : %s[%d][%ld] : warning : \"%s\" redirected to \"save-at-the-end\"\n", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text);
-        } else if (sl[i]=="save-at-ending" || sl[i]=="save_at_ending" || sl[i]=="save-at-the-end" || sl[i]=="save_at_the_end"){
+            //fprintf(sys->log(), "%s : %s[%d][%ld] : warning : \"%s\" redirected to \"save-at-the-end\"\n", software_name, script_name, script_line, 1+sl[0].text-line+first_char_offset, sl[0].text);
+        } else if (sl[0]=="save-at-ending" || sl[0]=="save_at_ending" || sl[0]=="save-at-the-end" || sl[0]=="save_at_the_end"){
             cmd_type = 6; cmd.command = IETCMD_SAVE; cmd.time_to_run = -1;
-        } else if (sl[i]=="save-at-each-frame" || sl[i]=="save_at_each_frame"){
+        } else if (sl[0]=="save-at-each-frame" || sl[0]=="save_at_each_frame"){
             cmd_type = 6; cmd.command = IETCMD_SAVE; cmd.time_to_run = 0;
-        } else if (sl[i]=="calculate"){ cmd_type = 7; cmd.command = IETCMD_DISPLAY;
-        } else if (sl[i]=="calc"){      cmd_type = 7; cmd.command = IETCMD_DISPLAY;
-        } else if (sl[i]=="display"){   cmd_type = 7; cmd.command = IETCMD_DISPLAY;
-        } else if (sl[i]=="report"){    cmd_type = 7; cmd.command = IETCMD_REPORT;
-        } else if (sl[i]=="report-at-the-end"||sl[i]=="report_at_the_end"||sl[i]=="report-at-end"||sl[i]=="report_at_the_end"||sl[i]=="report-at-ending"||sl[i]=="report_at_ending"){
+        } else if (sl[0]=="calculate"){ cmd_type = 7; cmd.command = IETCMD_DISPLAY;
+        } else if (sl[0]=="calc"){      cmd_type = 7; cmd.command = IETCMD_DISPLAY;
+        } else if (sl[0]=="display"){   cmd_type = 7; cmd.command = IETCMD_DISPLAY;
+        } else if (sl[0]=="display-final"||sl[0]=="display_final"||sl[0]=="final-display"||sl[0]=="final_display"||sl[0]=="display-at-the-end"||sl[0]=="display_at_the_end"||sl[0]=="display-at-end"||sl[0]=="display_at_the_end"||sl[0]=="display-at-ending"||sl[0]=="display_at_ending"){
+            cmd_type = 7; cmd.command = IETCMD_DISPLAY; cmd.time_to_run = -1;
+        } else if (sl[0]=="report"){    cmd_type = 7; cmd.command = IETCMD_REPORT;
+        } else if (sl[0]=="report-final"||sl[0]=="report_final"||sl[0]=="final-report"||sl[0]=="final_report"||sl[0]=="report-at-the-end"||sl[0]=="report_at_the_end"||sl[0]=="report-at-end"||sl[0]=="report_at_the_end"||sl[0]=="report-at-ending"||sl[0]=="report_at_ending"){
             cmd_type = 7; cmd.command = IETCMD_REPORT; cmd.time_to_run = -1;
-    // kernel calculation: HI, IET
-        } else if (sl[i]=="build-force-field" || sl[i]=="build_force_field" || sl[i]=="build-ff" || sl[i]=="build_ff" || sl[i]=="rebuild-force-field" || sl[i]=="rebuild_force_field" || sl[i]=="rebuild-ff" || sl[i]=="rebuild_ff"){
+      // cmd: kernel calculation: HI, IET
+        } else if (sl[0]=="build-force-field" || sl[0]=="build_force_field" || sl[0]=="build-ff" || sl[0]=="build_ff" || sl[0]=="rebuild-force-field" || sl[0]=="rebuild_force_field" || sl[0]=="rebuild-ff" || sl[0]=="rebuild_ff"){
             cmd_type = 13; cmd.command = IETCMD_BUILD_FF; cmd.step = 1;
-        } else if (sl[i]=="hi"){        cmd_type = 10; cmd.command = 2000+HIAL_HSHI;      cmd.step = sys->stepmax_hi;
+        } else if (sl[0]=="hi"){        cmd_type = 10; cmd.command = 2000+HIAL_HSHI;      cmd.step = sys->stepmax_hi;
             check_hi_diis_default_steps(sys);
-            //fprintf(sys->log(), "%s : %s[%d][%ld] : warning : \"%s\" redirected to \"hshi\"\n", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text);
-        } else if (sl[i]=="hshi"){      cmd_type = 10; cmd.command = 2000+HIAL_HSHI;      cmd.step = sys->stepmax_hi;
+            //fprintf(sys->log(), "%s : %s[%d][%ld] : warning : \"%s\" redirected to \"hshi\"\n", software_name, script_name, script_line, 1+sl[0].text-line+first_char_offset, sl[0].text);
+        } else if (sl[0]=="hshi"){      cmd_type = 10; cmd.command = 2000+HIAL_HSHI;      cmd.step = sys->stepmax_hi;
             check_hi_diis_default_steps(sys);
-        } else if (sl[i]=="ehshi"){     cmd_type = 10; cmd.command = 2000+HIAL_EHSHI;      cmd.step = sys->stepmax_hi;
-            check_hi_diis_default_steps(sys);
-        } else if (sl[i]=="cfhi" || sl[i]=="cutoffhi"){
+        } else if (sl[0]=="cfhi" || sl[0]=="cutoffhi"){
             cmd_type = 10; cmd.command = 2000+HIAL_CUTOFF;    cmd.step = sys->stepmax_hi;
             check_hi_diis_default_steps(sys);
-        } else if (sl[i]=="ichi" || sl[i]=="icutoffhi" || sl[i]=="inversecutoffhi"){
+        } else if (sl[0]=="ichi" || sl[0]=="icutoffhi" || sl[0]=="inversecutoffhi"){
             cmd_type = 10; cmd.command = 2000+HIAL_ICUTOFF;   cmd.step = sys->stepmax_hi;
             check_hi_diis_default_steps(sys);
-        } else if (sl[i]=="dphi"){      cmd_type = 10; cmd.command = 2000+HIAL_DPHI;      cmd.step = sys->stepmax_hi;
+        } else if (sl[0]=="dphi"){      cmd_type = 10; cmd.command = 2000+HIAL_DPHI;      cmd.step = sys->stepmax_hi;
             check_hi_diis_default_steps(sys);
-        } else if (sl[i]=="dnhi"){      cmd_type = 10; cmd.command = 2000+HIAL_DNHI;      cmd.step = sys->stepmax_hi;
+        } else if (sl[0]=="dnhi"){      cmd_type = 10; cmd.command = 2000+HIAL_DNHI;      cmd.step = sys->stepmax_hi;
             check_hi_diis_default_steps(sys);
-        } else if (sl[i]=="qnhi"){      cmd_type = 10; cmd.command = 2000+HIAL_PLHI;      cmd.step = sys->stepmax_hi;
+        } else if (sl[0]=="qnhi"){      cmd_type = 10; cmd.command = 2000+HIAL_PLHI;      cmd.step = sys->stepmax_hi;
             check_hi_diis_default_steps(sys);
-        } else if (sl[i]=="phi" || sl[i]=="pshi" || sl[i]=="plhi" || sl[i]=="psedoliquid-hi" || sl[i]=="psedoliquid_hi"){
+        } else if (sl[0]=="phi" || sl[0]=="pshi" || sl[0]=="plhi" || sl[0]=="psedoliquid-hi" || sl[0]=="psedoliquid_hi"){
             cmd_type = 10; cmd.command = 2000+HIAL_PLHI;      cmd.step = sys->stepmax_hi;
             check_hi_diis_default_steps(sys);
-        } else if (sl[i]=="rqnhi" || sl[i]=="rphi" || sl[i]=="rpshi" || sl[i]=="rplhi" || sl[i]=="restrained-psedoliquid-hi" || sl[i]=="restrained_psedoliquid_hi"){
+        } else if (sl[0]=="rqnhi" || sl[0]=="rphi" || sl[0]=="rpshi" || sl[0]=="rplhi" || sl[0]=="restrained-psedoliquid-hi" || sl[0]=="restrained_psedoliquid_hi"){
             cmd_type = 10; cmd.command = 2000+HIAL_RES_PLHI;  cmd.step = sys->stepmax_hi;
             check_hi_diis_default_steps(sys);
-        } else if (sl[i]=="init-rism"){
+        } else if (sl[0]=="init-rism"){
             cmd_type = 12; cmd.command = 1500+IETAL_NONE;
-        } else if (sl[i]=="ssoz"){      cmd_type = 12; cmd.command = 1500+IETAL_SSOZ;   cmd.step = sys->stepmax_rism;
+        } else if (sl[0]=="ssoz"){      cmd_type = 12; cmd.command = 1500+IETAL_SSOZ;   cmd.step = sys->stepmax_rism;
             check_rism_diis_default_steps(sys);
             sys->cmd_flag_rism_ever_performed = true;
-        } else if (sl[i]=="rism"){      cmd_type = 12; cmd.command = 1500+IETAL_RRISM;  cmd.step = sys->stepmax_rism;
+        } else if (sl[0]=="rism"){      cmd_type = 12; cmd.command = 1500+IETAL_RRISM;  cmd.step = sys->stepmax_rism;
             check_rism_diis_default_steps(sys);
             sys->cmd_flag_rism_ever_performed = true;
-        } else if (sl[i]=="vrism"){      cmd_type = 12; cmd.command = 1500+IETAL_VRISM; cmd.step = sys->stepmax_rism;
+        } else if (sl[0]=="vrism"){      cmd_type = 12; cmd.command = 1500+IETAL_VRISM; cmd.step = sys->stepmax_rism;
             check_rism_diis_default_steps(sys); cmd.command_params_int[0] = 0;
             sys->cmd_flag_rism_ever_performed = true;
-        } else if (sl[i]=="irism"){      cmd_type = 12; cmd.command = 1500+IETAL_IRISM; cmd.step = sys->stepmax_rism;
+        } else if (sl[0]=="irism"){      cmd_type = 12; cmd.command = 1500+IETAL_IRISM; cmd.step = sys->stepmax_rism;
             check_rism_diis_default_steps(sys);
             sys->cmd_flag_rism_ever_performed = true;
-        } else if (sl[i]=="ti" || sl[i]=="tibegin" || sl[i]=="ti_begin" || sl[i]=="ti-begin"){
+        } else if (sl[0]=="ti" || sl[0]=="tibegin" || sl[0]=="ti_begin" || sl[0]=="ti-begin"){
             cmd_type = 14; cmd.command = IETCMD_TI; cmd.step = 10;
             sys->cmd_flag_energy_ever_display = true;
-    // set values of arrays
-        } else if (sl[i]=="closure"){   cmd_type = 21; cmd.command = IETCMD_CLOSURE;
-        } else if (sl[i]=="closure-a" || sl[i]=="closure_a"){ cmd_type = 21; cmd.command = IETCMD_CLOSURE_A;
-        } else if (sl[i]=="closure-m" || sl[i]=="closure_m"){ cmd_type = 21; cmd.command = IETCMD_CLOSURE;
-        } else if (sl[i]=="cf"){        cmd_type = 22; cmd.command = IETCMD_CF;
-        } else if (sl[i]=="closure-factor" || sl[i]=="closure_factor"){ cmd_type = 22; cmd.command = IETCMD_CF;
-        } else if (sl[i]=="closure-factor-a" || sl[i]=="closure_factor_a"){ cmd_type = 22; cmd.command = IETCMD_CF_A;
-        } else if (sl[i]=="cf-a" || sl[i]=="cf_a"){ cmd_type = 22; cmd.command = IETCMD_CF_A;
-        } else if (sl[i]=="closure-factor-m" || sl[i]=="closure_factor_m"){ cmd_type = 22; cmd.command = IETCMD_CF;
-        } else if (sl[i]=="cf-m" || sl[i]=="cf_m"){ cmd_type = 22; cmd.command = IETCMD_CF;
-        } else if (sl[i]=="density"){   cmd_type = 23; cmd.command = IETCMD_density;
-        } else if (sl[i]=="dielect"){   cmd_type = 24; cmd.command = IETCMD_dielect;
-        } else if (sl[i]=="post-hi" || sl[i]=="post_hi" || sl[i]=="hi-post" || sl[i]=="hi_post"){ cmd_type = IETCMD_PostHI; cmd.command = IETCMD_PostHI;
-        } else if (sl[i]=="test"){ cmd_type = IETCMD_TEST; cmd.command = IETCMD_TEST;
-        } else if (sl[i]=="test-and-save"){ cmd_type = IETCMD_TEST_SAVE; cmd.command = IETCMD_TEST_SAVE;
-    // parameter line in "a=b" format
-        } else if (sl[i].text[sl[i].length] == '='){
-          if (sl[i]=="order" || sl[i]=="i" || sl[i]=="index"){
-            if (i+1<nw && StringNS::is_string_number(sl[i+1])){ i++; cmd_location = atoi(sl[i].text); }
-          } else if (cmd.command==IETCMD_SET){
-            //if ((sl[i]=="temperature"||sl[i]=="T"||sl[i]=="Coulomb"||sl[i]=="dion"||sl[i]=="dielect-y"||sl[i]=="dielect_y"||sl[i]=="rbohr")){
-            if ((sl[i]=="ff"||sl[i]=="uuv"||sl[i]=="lj"||sl[i]=="coul"||sl[i]=="coulomb")){
-              if (i+1<nw && StringNS::is_string_number(sl[i+1])){
-                if (i_param_list<MAX_CMD_PARAMS){
-                    /*if (sl[i]=="temperature")   cmd.command_params_int[i_param_list] = IETCMD_v_temperature;
-                    else if (sl[i]=="T")        cmd.command_params_int[i_param_list] = IETCMD_v_temperature;
-                    else if (sl[i]=="Coulomb")  cmd.command_params_int[i_param_list] = IETCMD_v_Coulomb;
-                    else if (sl[i]=="dion")     cmd.command_params_int[i_param_list] = IETCMD_v_dion;
-                    else if (sl[i]=="dielect-y")cmd.command_params_int[i_param_list] = IETCMD_v_dielect_y;
-                    else if (sl[i]=="dielect_y")cmd.command_params_int[i_param_list] = IETCMD_v_dielect_y;
-                    else if (sl[i]=="rbohr")    cmd.command_params_int[i_param_list] = IETCMD_v_rbohr;*/
-                    if (sl[i]=="ff")            cmd.command_params_int[i_param_list] = IETCMD_v_uuv;
-                    else if (sl[i]=="uuv")      cmd.command_params_int[i_param_list] = IETCMD_v_uuv;
-                    else if (sl[i]=="lj")       cmd.command_params_int[i_param_list] = IETCMD_v_ulj;
-                    else if (sl[i]=="coul")     cmd.command_params_int[i_param_list] = IETCMD_v_ucoul;
-                    else if (sl[i]=="coulomb")  cmd.command_params_int[i_param_list] = IETCMD_v_ucoul;
-                }
-                i++; cmd.command_params_double[i_param_list] = atof(sl[i].text); i_param_list++;
-                cmd.step = i_param_list;
-              }
-            } else {
-                char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
-                fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined variable \"%s\"%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
-                success = false; sl[i].text[sl[i].length] = cc;
-            }
-          } else if (cmd.command==IETCMD_SCALE){
-            if ((sl[i]=="uuv"||sl[i]=="ff"||sl[i]=="lj"||sl[i]=="coul"||sl[i]=="nh"||sl[i]=="nhlj"||sl[i]=="nhcoul")){
-              if (i+1<nw && StringNS::is_string_number(sl[i+1])){
-                if (i_param_list<MAX_CMD_PARAMS){
-                    if (sl[i]=="uuv")           cmd.command_params_int[i_param_list] = IETCMD_v_uuv;
-                    else if (sl[i]=="ff")       cmd.command_params_int[i_param_list] = IETCMD_v_uuv;
-                    else if (sl[i]=="lj")       cmd.command_params_int[i_param_list] = IETCMD_v_ulj;
-                    else if (sl[i]=="coul")     cmd.command_params_int[i_param_list] = IETCMD_v_ucoul;
-                    //else if (sl[i]=="nh")       cmd.command_params_int[i_param_list] = IETCMD_v_unh;
-                    //else if (sl[i]=="nhlj")     cmd.command_params_int[i_param_list] = IETCMD_v_unhlj;
-                    //else if (sl[i]=="nhcoud")   cmd.command_params_int[i_param_list] = IETCMD_v_unhcoul;
-                }
-                i++; cmd.command_params_double[i_param_list] = atof(sl[i].text); i_param_list++;
-                cmd.step = i_param_list;
-              }
-            } else {
-                char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
-                fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined variable \"%s\" for scaling%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
-                success = false; sl[i].text[sl[i].length] = cc;
-            }
-          } else if (cmd_type==10){ // HI
-            if ((sl[i]=="step" || sl[i]=="steps")){
-                if (i+1<nw && StringNS::is_string_number(sl[i+1])){
-                    cmd.step = atoi(sl[i+1].text);
-                    i++;
-                }
-            } else if (sl[i]=="factor" || sl[i]=="hf" || sl[i]=="hif" || sl[i]=="hi-factor" || sl[i]=="hi_factor"){
-                memset(cmd.command_params_int, 0, sizeof(cmd.command_params_int));
-                int icpi = 0; while (icpi<MAX_CMD_PARAMS && i+1<nw && StringNS::is_string_number(sl[i+1])){
-                    cmd.command_params_int[icpi] = 1;
-                    cmd.command_params_double[icpi] = atof(sl[i+1].text);
-                    i++; icpi ++;
-                }
-            } else {
-                char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
-                fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined variable \"%s\" for %s%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, HIAL_name[cmd.command], sys->is_log_tty?color_string_end:"");
-                success = false; sl[i].text[sl[i].length] = cc;
-            }
-          } else if (cmd_type==12){ // RISM
-              if (sl[i]=="step" || sl[i]=="steps"){
-                  if (i+1<nw&&StringNS::is_string_number(sl[i+1])){ if (StringNS::is_string_number(sl[i+1])) cmd.step = atoi(sl[i+1].text); i++; }
-              } else if (cmd.command == 1500+IETAL_VRISM && sl[i]=="merge"){
-                  if (i+1<nw){ i++;
-                      if (sl[i]=="default"){
-                          cmd.command_params_int[0] = 0;
-                      } else if (sl[i]=="none" || sl[i]=="no"){
-                          cmd.command_params_int[0] = -1;
-                      } else if (sl[i]=="local" || sl[i]=="clr"){
-                          cmd.command_params_int[0] = 1;
-                      } else if (sl[i]=="hlr"){
-                          cmd.command_params_int[0] = 2;
-                      } else if (sl[i]=="smoothed" || sl[i]=="smooth" || sl[i]=="sm"){
-                          cmd.command_params_int[0] = 3;
-                      } else if (sl[i]=="-smoothed" || sl[i]=="-smooth" || sl[i]=="-sm"){
-                          cmd.command_params_int[0] = 4;
-                      } else if (sl[i]=="yukawa" || sl[i]=="y"){
-                          cmd.command_params_int[0] = 5;
-                      } else if (sl[i]=="-yukawa" || sl[i]=="-y"){
-                          cmd.command_params_int[0] = 6;
-                      } else {
-                          fprintf(sys->log(), "%s%s : %s[%d][%ld] : error : undefined method \"%s\" for VRISM merging%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
-                          success = false;
-                      }
-                  }
-              } else {
-                  char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
-                  fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined variable \"%s\" for RISM%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
-                  success = false; sl[i].text[sl[i].length] = cc;
-              }
-          } else if (cmd_type==14){ // TI
-              if (sl[i]=="step" || sl[i]=="steps"){
-                  if (i+1<nw&&StringNS::is_string_number(sl[i+1])){ if (StringNS::is_string_number(sl[i+1])) cmd.step = atoi(sl[i+1].text); i++; }
-              } else {
-                  char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
-                  fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined variable \"%s\" for TI%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
-                  success = false; sl[i].text[sl[i].length] = cc;
-              }
-          } else {
-              char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
-              fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined variable \"%s\"%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
-              success = false; sl[i].text[sl[i].length] = cc;
-          }
-    // parameter line in general format
-        } else if (cmd.command==IETCMD_SET){
-            if (sl[i]=="rism-dielect"){     if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_rism_dielect;
-            } else {
-                char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
-                fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined variable \"%s\" to set%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
-                success = false; sl[i].text[sl[i].length] = cc;
-            }
-            cmd.step = i_param_list;
-        } else if (cmd.command==IETCMD_LOAD){
-            if (sl[i]=="lj"){               if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_ulj;
-            } else if (sl[i]=="coul"){      if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
-                if (i_param_list+2<MAX_CMD_PARAMS){
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul2;
-                } else {
-                    fprintf(sys->log(), "%s%s : %s[%d] = save liquid structures : error : too many things to load%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, sys->is_log_tty?color_string_end:""); success = false;
-                }
-            } else if (sl[i]=="cuv"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_cuv;
-            } else if (sl[i]=="huv"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_huv;
-            } else if (sl[i]=="hlr"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_hlr;
-            } else if (sl[i]=="dd"){        if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_dd;
-            } else if (sl[i]=="nphi"){      if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = -IETCMD_v_dd;
-            } else if (sl[i]=="ff"){
-                if (i_param_list+3<MAX_CMD_PARAMS){
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_ulj;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul2;
-                } else {
-                    fprintf(sys->log(), "%s%s : %s[%d] = save liquid structures : error : too many things to load%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, sys->is_log_tty?color_string_end:""); success = false;
-                }
-            } else if (sl[i]=="iet"){
-                if (i_param_list+3<MAX_CMD_PARAMS){
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_huv;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_cuv;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_dd;
-                } else {
-                    fprintf(sys->log(), "%s%s : %s[%d] = save liquid structures : error : too many things to load%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, sys->is_log_tty?color_string_end:""); success = false;
-                }
-            } else {
-                char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
-                fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : \"%s\" undefined in loading%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
-                success = false; sl[i].text[sl[i].length] = cc;
-            }
-            cmd.step = i_param_list;
-        } else if (cmd.command==IETCMD_SAVE_FILTER){    // 0: unintialized; <0: everything
-            if (sl[i]=="all"){
-                i_param_list = 0; cmd.command_params_int[i_param_list++] = -1;
-            } else if (StringNS::is_string_number(sl[i])){
-                if (i_param_list+1 < MAX_CMD_PARAMS){
-                    cmd.command_params_int[i_param_list++] = atoi(sl[i].text);
-                } else {
-                    fprintf(sys->log(), "%s%s : %s[%d] = save-filter : error : too many savings%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, sys->is_log_tty?color_string_end:""); success = false;
-                }
-            } else {
-                char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
-                fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined saving term \"%s\"%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
-                success = false; sl[i].text[sl[i].length] = cc;
-            }
-           cmd.step = i_param_list;
-        } else if (cmd.command==IETCMD_SAVE){
-            if (sl[i]=="nothing"){
-            } else if (sl[i]=="all"||sl[i]=="everything"||sl[i]=="anything"||sl[i]=="checkpoint"){
-                if (i_param_list+13 < MAX_CMD_PARAMS){
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_cmd;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_ulj;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul2;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_rmin;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_uuv;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_ulr;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_cuv;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_clr;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_huv;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_hlr;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_dd;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_guv;
-                } else {
-                    fprintf(sys->log(), "%s%s : %s[%d] = save all : error : too many things to save%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, sys->is_log_tty?color_string_end:""); success = false;
-                }
-            } else if (sl[i]=="potential"||sl[i]=="potentials"||sl[i]=="force-field"||sl[i]=="force_field"||sl[i]=="ff"){
-                if (i_param_list+3 < MAX_CMD_PARAMS){
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_ulj;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul2;
-                } else {
-                    fprintf(sys->log(), "%s%s : %s[%d] = save potentials : error : too many things to save%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, sys->is_log_tty?color_string_end:""); success = false;
-                }
-            } else if (sl[i]=="iet"||sl[i]=="liquid"||sl[i]=="liquid-structure"||sl[i]=="liquid_structure"||sl[i]=="liquid-struct"||sl[i]=="liquid_struct"){
-                if (i_param_list+4 < MAX_CMD_PARAMS){
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_cuv;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_huv;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_dd;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_guv;
-                } else {
-                    fprintf(sys->log(), "%s%s : %s[%d] = save liquid structures : error : too many things to save%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, sys->is_log_tty?color_string_end:""); success = false;
-                }
-            } else if (sl[i]=="cmd"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_cmd;
-            } else if (sl[i]=="command"){   if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_cmd;
-            } else if (sl[i]=="lj"){        if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_ulj;
-            } else if (sl[i]=="coul" || sl[i]=="coulomb"){
-                if (i_param_list < MAX_CMD_PARAMS)  cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
-            } else if (sl[i]=="electrostatic-field" || sl[i]=="electrostatic_field" || sl[i]=="electric-field" || sl[i]=="electric_field" || sl[i]=="ef"){
-                if (i_param_list < MAX_CMD_PARAMS)  cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul2;
-            } else if (sl[i]=="cuv"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_cuv;
-            } else if (sl[i]=="huv"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_huv;
-            } else if (sl[i]=="hlr"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_hlr;
-            } else if (sl[i]=="dd"){        if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_dd;
-            } else if (sl[i]=="ddp"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_ddp;
-            } else if (sl[i]=="nphi"){      if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = -IETCMD_v_dd;
-            } else if (sl[i]=="density"){   if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_guv;
-            } else if (sl[i]=="guv"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_guv;
-            } else if (sl[i]=="rdf"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_rdf;
-                sys->cmd_flag_rdf_ever_display = true;
-            } else if (sl[i]=="rmin" || sl[i]=="min-dist" || sl[i]=="min_dist" || sl[i]=="mindist"){
-                if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_rmin;
-            } else {
-                char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
-                fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : \"%s\" undefined in saving%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
-                success = false; sl[i].text[sl[i].length] = cc;
-            }
-            cmd.step = i_param_list;
-        } else if (cmd.command==IETCMD_DISPLAY){
-            if (sl[i]=="all"||sl[i]=="everything"||sl[i]=="anything"){
-                if (i_param_list+10 < MAX_CMD_PARAMS){
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_DeltaN;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_DeltaN0;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_TS;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_ulj;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_Euv;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_Ef;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_cuv;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_Chandler_G;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_HFE;
-                } else {
-                    fprintf(sys->log(), "%s%s : %s[%d] = display all : error : too many things to display%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, sys->is_log_tty?color_string_end:""); success = false;
-                }
-            } else if (sl[i]=="rdf"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_rdf;
-                sys->cmd_flag_rdf_ever_display = true;
-            } else if (sl[i]=="lj"){        if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_ulj;
-            } else if (sl[i]=="coul"){      if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
-            } else if (sl[i]=="Euv"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_Euv;
-            } else if (sl[i]=="Ef"){        if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_Ef;
-            } else if (sl[i]=="energy"){    if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_EuvDetail;
-            } else if (sl[i]=="Cuv"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_cuv;
-            } else if (sl[i]=="dN"){        if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_DeltaN;
-            } else if (sl[i]=="dN0"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_DeltaN0;
-            } else if (sl[i]=="TS"){        if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_TS;
-            } else if (sl[i]=="entropy"){   if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_TS;
-            } else if (sl[i]=="HFE"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_HFE;
-            } else if (sl[i]=="SFE"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_HFE;
-            } else if (sl[i]=="Chandler"){  if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_Chandler_G;
-            } else {
-                char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
-                fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : \"%s\" undefined in displaying%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
-                success = false; sl[i].text[sl[i].length] = cc;
-            }
-            cmd.step = i_param_list;
-        } else if (cmd.command==IETCMD_REPORT){
-            if (sl[i]=="all"||sl[i]=="everything"||sl[i]=="anything"){
-                if (i_param_list+2 < MAX_CMD_PARAMS){
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_EuvDetail;
-                    sys->cmd_flag_energy_ever_display = true;
-                    cmd.command_params_int[i_param_list++] = IETCMD_v_cuv;
-                } else {
-                    fprintf(sys->log(), "%s%s : %s[%d] = display all : error : too many things to display%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, sys->is_log_tty?color_string_end:""); success = false;
-                }
-            } else if (sl[i]=="Euv"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_Euv;
-                sys->cmd_flag_energy_ever_display = true;
-            } else if (sl[i]=="Ef"){        if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_Ef;
-            } else if (sl[i]=="energy"){    if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_EuvDetail;
-                sys->cmd_flag_energy_ever_display = true;
-            } else if (sl[i]=="Cuv"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_cuv;
-            } else if (sl[i]=="rdf"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_rdf;
-                sys->cmd_flag_rdf_ever_display = true;
-            } else {
-                char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
-                fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : \"%s\" undefined in displaying%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
-                success = false; sl[i].text[sl[i].length] = cc;
-            }
-            cmd.step = i_param_list;
-        } else if (cmd.command==IETCMD_TEST || cmd.command==IETCMD_TEST_SAVE){ // test
-            if (sl[i]=="coul" || sl[i]=="coulomb"){
-                if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
-            } else if (sl[i]=="hlr"){
-                if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_hlr;
-            } else if (sl[i]=="yukawa"){
-                if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_Yukawa;
-            } else if (sl[i]=="local-coul" || sl[i]=="local_coul" || sl[i]=="local-coulomb" || sl[i]=="local_coulomb"){
-                if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_LocalCoulomb;
-            } else {
-                char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
-                fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined variable \"%s\" for test%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
-                success = false; sl[i].text[sl[i].length] = cc;
-            }
-            cmd.step = i_param_list;
-        } else if (cmd.command==IETCMD_CLOSURE || cmd.command==IETCMD_CLOSURE_A){
-            int this_closure = closure_from_string(sl[i], CLOSURE_alias, sizeof(CLOSURE_alias)/sizeof(CLOSURE_alias[0]));
-            #ifdef _EXPERIMENTAL_
-                if (this_closure<0) this_closure = closure_from_string(sl[i], CLOSURE_alias_experimental, sizeof(CLOSURE_alias_experimental)/sizeof(CLOSURE_alias_experimental[0]));
-            #endif
-            if (this_closure<0){
-                fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : unrecognizable closure \"%s\"%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
-                success = false;
-            }
-            if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = this_closure;
-            cmd.step = i_param_list;
-        } else if (cmd.command==IETCMD_PostHI){
-            int post_hi_method = IETCMD_PostHI_v_None;
-            if (sl[i]=="none" || sl[i]=="keep" || sl[i]=="hi"){
-                post_hi_method = IETCMD_PostHI_v_None;
-            } else if (sl[i]=="remove" || sl[i]=="discard" || sl[i]=="constant" || sl[i]=="const"){
-                post_hi_method = IETCMD_PostHI_v_Clear;
-            } else if (sl[i]=="complement" || sl[i]=="complementary"){
-                post_hi_method = IETCMD_PostHI_v_Complement;
-            }
-            if (i_param_list+1 < MAX_CMD_PARAMS){
-                cmd.command_params_int[i_param_list++] = post_hi_method;
-            } else {
-                fprintf(sys->log(), "%s%s : %s[%d] = post-hi : error : too many identifiers%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, sys->is_log_tty?color_string_end:""); success = false;
-            }
-            cmd.step = i_param_list;
-        } else if (cmd.command==IETCMD_density || cmd.command==IETCMD_dielect || cmd.command==IETCMD_CF || cmd.command==IETCMD_CF_A){
-            if (StringNS::is_string_number(sl[i])) if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_double[i_param_list++] = atof(sl[i].text);
-            cmd.step = i_param_list;
-    // done
+      // cmd: set values of arrays
+        } else if (sl[0]=="closure"){   cmd_type = 21; cmd.command = IETCMD_CLOSURE;
+        } else if (sl[0]=="closure-a" || sl[0]=="closure_a"){ cmd_type = 21; cmd.command = IETCMD_CLOSURE_A;
+        } else if (sl[0]=="closure-m" || sl[0]=="closure_m"){ cmd_type = 21; cmd.command = IETCMD_CLOSURE;
+        } else if (sl[0]=="cf"){        cmd_type = 22; cmd.command = IETCMD_CF;
+        } else if (sl[0]=="closure-factor" || sl[0]=="closure_factor"){ cmd_type = 22; cmd.command = IETCMD_CF;
+        } else if (sl[0]=="closure-factor-a" || sl[0]=="closure_factor_a"){ cmd_type = 22; cmd.command = IETCMD_CF_A;
+        } else if (sl[0]=="cf-a" || sl[0]=="cf_a"){ cmd_type = 22; cmd.command = IETCMD_CF_A;
+        } else if (sl[0]=="closure-factor-m" || sl[0]=="closure_factor_m"){ cmd_type = 22; cmd.command = IETCMD_CF;
+        } else if (sl[0]=="cf-m" || sl[0]=="cf_m"){ cmd_type = 22; cmd.command = IETCMD_CF;
+        } else if (sl[0]=="density"){   cmd_type = 23; cmd.command = IETCMD_density;
+        } else if (sl[0]=="dielect"){   cmd_type = 24; cmd.command = IETCMD_dielect;
+        } else if (sl[0]=="test"){ cmd_type = IETCMD_TEST; cmd.command = IETCMD_TEST;
+        } else if (sl[0]=="test-and-save"){ cmd_type = IETCMD_TEST_SAVE; cmd.command = IETCMD_TEST_SAVE;
+      // cmd: experimental
+      #ifdef _EXPERIMENTAL_
+        } else if (experimental_analysis_command(sl[0], i_param_list, cmd, cmd_type, sys->log(), sys->is_log_tty, script_name, script_line)){
+      #endif
+      // cmd: done
         } else {
-            fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : cannot recognize \"%s\"%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
+            char buffer[512]; memset(buffer, 0, sizeof(buffer)); memcpy(buffer, sl[0].text, sl[0].length>sizeof(buffer)-1?sizeof(buffer)-1:sl[0].length);
+            fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined command \"%s\"%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[0].text-line+first_char_offset, buffer, sys->is_log_tty?color_string_end:"");
             success = false;
-            cmd_type = -1;
-        }
-      // check correctness
-        if (cmd_type != last_cmd_type && last_param_num > 0){
-            char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
-            fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : \"%s\" : command cannot be redefined%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
-            success = false; sl[i].text[sl[i].length] = cc;
-        }
-        last_cmd_type = cmd_type; last_param_num = cmd.step;
-      // show more information about syntex error
-        if (!success && sys->debug_level>=1){
-        }
-
-        if (!success && (sl[i].text[sl[i].length]==':'||sl[i].text[sl[i].length]=='=')){
-            if (i<nw) i++;
         }
     }
-    sys->insert_command(&cmd, cmd_location-1);
-//int ic = sys->ncmd-1; printf("sys->cmd=%d, location=%d\n", sys->cmd[ic].command, ic); for (int i=0; i<MAX_CMD_PARAMS; i++) if (sys->cmd[ic].command_params_int[i] || sys->cmd[ic].command_params_double[i]) printf("     param[%d] = %12d %15g\n", i, sys->cmd[ic].command_params_int[i], sys->cmd[ic].command_params_double[i]);
+
+
+  // analysis parameters of commands
+    if (success && nw>1){
+        //printf(" (%d, type %d) parameter list:", cmd.command, cmd_type); for (int i=1; i<nw; i++){ char buffer[512]; memset(buffer, 0, sizeof(buffer)); memcpy(buffer, sl[i].text, sl[i].length>sizeof(buffer)-1?sizeof(buffer)-1:sl[i].length); printf(" [%s]", buffer); } printf ("\n");
+        for (int i=1; i<nw; i++) if (sl[i].length>0){
+            if (sl[i].text[-1]=='@'){
+                StringNS::string at_location; at_location.text = &sl[i].text[0]; at_location.length = sl[i].length - 0;
+                if (at_location.length>0){
+                    if (StringNS::is_string_number(at_location)){
+                        cmd_location = atoi(&sl[i].text[1]);
+                    } else if (at_location=="b" || at_location=="begin" || at_location=="beginning"){
+                        cmd.time_to_run = 1;
+                    } else if (at_location=="e" || at_location=="end" || at_location=="ending" || at_location=="final"){
+                        cmd.time_to_run = -1;
+                    } else {
+                        char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
+                        fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : unrecognizable location: \"%s\"%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
+                        success = false; sl[i].text[sl[i].length] = cc;
+                    }
+                }
+            } else if (cmd_type==10){ // HI
+                if ((sl[i]=="step" || sl[i]=="steps")){
+                    if (i+1<nw && StringNS::is_string_number(sl[i+1])){
+                        cmd.step = atoi(sl[i+1].text);
+                        i++;
+                    }
+                } else if (sl[i]=="factor" || sl[i]=="hf" || sl[i]=="hif" || sl[i]=="hi-factor" || sl[i]=="hi_factor"){
+                    memset(cmd.command_params_int, 0, sizeof(cmd.command_params_int));
+                    int icpi = 0; while (icpi<MAX_CMD_PARAMS && i+1<nw && StringNS::is_string_number(sl[i+1])){
+                        cmd.command_params_int[icpi] = 1;
+                        cmd.command_params_double[icpi] = atof(sl[i+1].text);
+                        i++; icpi ++;
+                    }
+                } else {
+                    char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
+                    fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined variable \"%s\" for %s%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, HIAL_name[cmd.command], sys->is_log_tty?color_string_end:"");
+                    success = false; sl[i].text[sl[i].length] = cc;
+                }
+            } else if (cmd_type==12){ // RISM
+                if (sl[i]=="step" || sl[i]=="steps"){
+                    if (i+1<nw&&StringNS::is_string_number(sl[i+1])){ if (StringNS::is_string_number(sl[i+1])) cmd.step = atoi(sl[i+1].text); i++; }
+                } else if (cmd.command == 1500+IETAL_VRISM && sl[i]=="merge"){
+                    if (i+1<nw){ i++;
+                        if (sl[i]=="default"){
+                            cmd.command_params_int[0] = 0;
+                        } else if (sl[i]=="none" || sl[i]=="no"){
+                            cmd.command_params_int[0] = -1;
+                        } else if (sl[i]=="local" || sl[i]=="clr"){
+                            cmd.command_params_int[0] = 1;
+                        } else if (sl[i]=="hlr"){
+                            cmd.command_params_int[0] = 2;
+                        } else if (sl[i]=="smoothed" || sl[i]=="smooth" || sl[i]=="sm"){
+                            cmd.command_params_int[0] = 3;
+                        } else if (sl[i]=="-smoothed" || sl[i]=="-smooth" || sl[i]=="-sm"){
+                            cmd.command_params_int[0] = 4;
+                        } else if (sl[i]=="yukawa" || sl[i]=="y"){
+                            cmd.command_params_int[0] = 5;
+                        } else if (sl[i]=="-yukawa" || sl[i]=="-y"){
+                            cmd.command_params_int[0] = 6;
+                        } else {
+                            fprintf(sys->log(), "%s%s : %s[%d][%ld] : error : undefined method \"%s\" for VRISM merging%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
+                            success = false;
+                        }
+                    }
+                } else {
+                    char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
+                    fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined variable \"%s\" for RISM%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
+                    success = false; sl[i].text[sl[i].length] = cc;
+                }
+            } else if (cmd_type==14){ // TI
+                if (sl[i]=="step" || sl[i]=="steps"){
+                    if (i+1<nw&&StringNS::is_string_number(sl[i+1])){ if (StringNS::is_string_number(sl[i+1])) cmd.step = atoi(sl[i+1].text); i++; }
+                } else {
+                    char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
+                    fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined variable \"%s\" for TI%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
+                    success = false; sl[i].text[sl[i].length] = cc;
+                }
+                // parameter line in general format
+            } else if (cmd.command==IETCMD_SET){
+                if (sl[i]=="rism-dielect"){     if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_rism_dielect;
+                } else {
+                    char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
+                    fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined variable \"%s\" to set%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
+                    success = false; sl[i].text[sl[i].length] = cc;
+                }
+                cmd.step = i_param_list;
+            } else if (cmd.command==IETCMD_LOAD){
+                if (sl[i]=="lj"){               if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_ulj;
+                } else if (sl[i]=="coul"){      if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
+                    if (i_param_list+2<MAX_CMD_PARAMS){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul2;
+                    } else {
+                        fprintf(sys->log(), "%s%s : %s[%d] = save liquid structures : error : too many things to load%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, sys->is_log_tty?color_string_end:""); success = false;
+                    }
+                } else if (sl[i]=="cuv"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_cuv;
+                } else if (sl[i]=="huv"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_huv;
+                } else if (sl[i]=="hlr"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_hlr;
+                } else if (sl[i]=="dd"){        if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_dd;
+                } else if (sl[i]=="nphi"){      if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = -IETCMD_v_dd;
+                } else if (sl[i]=="ff"){
+                    if (i_param_list+3<MAX_CMD_PARAMS){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_ulj;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul2;
+                    } else {
+                        fprintf(sys->log(), "%s%s : %s[%d] = save liquid structures : error : too many things to load%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, sys->is_log_tty?color_string_end:""); success = false;
+                    }
+                } else if (sl[i]=="iet"){
+                    if (i_param_list+3<MAX_CMD_PARAMS){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_huv;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_cuv;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_dd;
+                    } else {
+                        fprintf(sys->log(), "%s%s : %s[%d] = save liquid structures : error : too many things to load%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, sys->is_log_tty?color_string_end:""); success = false;
+                    }
+                } else {
+                    char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
+                    fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : \"%s\" undefined in loading%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
+                    success = false; sl[i].text[sl[i].length] = cc;
+                }
+                cmd.step = i_param_list;
+            } else if (cmd.command==IETCMD_SAVE_FILTER){    // 0: unintialized; <0: everything
+                if (sl[i]=="all"){
+                    i_param_list = 0; cmd.command_params_int[i_param_list++] = -1;
+                } else if (StringNS::is_string_number(sl[i])){
+                    if (i_param_list+1 < MAX_CMD_PARAMS){
+                        cmd.command_params_int[i_param_list++] = atoi(sl[i].text);
+                    } else {
+                        fprintf(sys->log(), "%s%s : %s[%d] = save-filter : error : too many savings%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, sys->is_log_tty?color_string_end:""); success = false;
+                    }
+                } else {
+                    char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
+                    fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined saving term \"%s\"%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
+                    success = false; sl[i].text[sl[i].length] = cc;
+                }
+                cmd.step = i_param_list;
+            } else if (cmd.command==IETCMD_SAVE){
+                if (sl[i]=="nothing"){
+                } else if (sl[i]=="all"||sl[i]=="everything"||sl[i]=="anything"||sl[i]=="checkpoint"){
+                    if (i_param_list+13 < MAX_CMD_PARAMS){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_cmd;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_ulj;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul2;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_rmin;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_uuv;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_ulr;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_cuv;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_clr;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_huv;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_hlr;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_dd;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_guv;
+                    } else {
+                        fprintf(sys->log(), "%s%s : %s[%d] = save all : error : too many things to save%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, sys->is_log_tty?color_string_end:""); success = false;
+                    }
+                } else if (sl[i]=="potential"||sl[i]=="potentials"||sl[i]=="force-field"||sl[i]=="force_field"||sl[i]=="ff"){
+                    if (i_param_list+3 < MAX_CMD_PARAMS){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_ulj;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul2;
+                    } else {
+                        fprintf(sys->log(), "%s%s : %s[%d] = save potentials : error : too many things to save%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, sys->is_log_tty?color_string_end:""); success = false;
+                    }
+                } else if (sl[i]=="iet"||sl[i]=="liquid"||sl[i]=="liquid-structure"||sl[i]=="liquid_structure"||sl[i]=="liquid-struct"||sl[i]=="liquid_struct"){
+                    if (i_param_list+4 < MAX_CMD_PARAMS){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_cuv;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_huv;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_dd;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_guv;
+                    } else {
+                        fprintf(sys->log(), "%s%s : %s[%d] = save liquid structures : error : too many things to save%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, sys->is_log_tty?color_string_end:""); success = false;
+                    }
+                } else if (sl[i]=="cmd"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_cmd;
+                } else if (sl[i]=="command"){   if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_cmd;
+                } else if (sl[i]=="lj"){        if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_ulj;
+                } else if (sl[i]=="coul" || sl[i]=="coulomb"){
+                    if (i_param_list < MAX_CMD_PARAMS)  cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
+                } else if (sl[i]=="electrostatic-field" || sl[i]=="electrostatic_field" || sl[i]=="electric-field" || sl[i]=="electric_field" || sl[i]=="ef"){
+                    if (i_param_list < MAX_CMD_PARAMS)  cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul2;
+                } else if (sl[i]=="cuv"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_cuv;
+                } else if (sl[i]=="huv"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_huv;
+                } else if (sl[i]=="hlr"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_hlr;
+                } else if (sl[i]=="dd"){        if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_dd;
+                } else if (sl[i]=="ddp"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_ddp;
+                } else if (sl[i]=="nphi"){      if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = -IETCMD_v_dd;
+                } else if (sl[i]=="density"){   if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_guv;
+                } else if (sl[i]=="guv"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_guv;
+                } else if (sl[i]=="rdf"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_rdf;
+                    sys->cmd_flag_rdf_ever_display = true;
+                } else if (sl[i]=="rmin" || sl[i]=="min-dist" || sl[i]=="min_dist" || sl[i]=="mindist"){
+                    if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_rmin;
+                } else {
+                    char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
+                    fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : \"%s\" undefined in saving%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
+                    success = false; sl[i].text[sl[i].length] = cc;
+                }
+                cmd.step = i_param_list;
+            } else if (cmd.command==IETCMD_DISPLAY){
+                if (sl[i]=="all"||sl[i]=="everything"||sl[i]=="anything"){
+                    if (i_param_list+10 < MAX_CMD_PARAMS){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_DeltaN;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_DeltaN0;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_TS;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_ulj;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_Euv;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_Ef;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_cuv;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_Chandler_G;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_HFE;
+                    } else {
+                        fprintf(sys->log(), "%s%s : %s[%d] = display all : error : too many things to display%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, sys->is_log_tty?color_string_end:""); success = false;
+                    }
+                } else if (sl[i]=="rdf"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_rdf;
+                    sys->cmd_flag_rdf_ever_display = true;
+                } else if (sl[i]=="lj"){        if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_ulj;
+                } else if (sl[i]=="coul"){      if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
+                } else if (sl[i]=="Euv"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_Euv;
+                } else if (sl[i]=="Ef"){        if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_Ef;
+                } else if (sl[i]=="energy"){    if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_EuvDetail;
+                } else if (sl[i]=="Cuv"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_cuv;
+                } else if (sl[i]=="dN"){        if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_DeltaN;
+                } else if (sl[i]=="dN0"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_DeltaN0;
+                } else if (sl[i]=="TS"){        if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_TS;
+                } else if (sl[i]=="entropy"){   if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_TS;
+                } else if (sl[i]=="HFE"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_HFE;
+                } else if (sl[i]=="SFE"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_HFE;
+                } else if (sl[i]=="Chandler"){  if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_Chandler_G;
+                } else {
+                    char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
+                    fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : \"%s\" undefined in displaying%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
+                    success = false; sl[i].text[sl[i].length] = cc;
+                }
+                cmd.step = i_param_list;
+            } else if (cmd.command==IETCMD_REPORT){
+                if (sl[i]=="all"||sl[i]=="everything"||sl[i]=="anything"){
+                    if (i_param_list+2 < MAX_CMD_PARAMS){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_EuvDetail;
+                        sys->cmd_flag_energy_ever_display = true;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_cuv;
+                    } else {
+                        fprintf(sys->log(), "%s%s : %s[%d] = display all : error : too many things to display%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, sys->is_log_tty?color_string_end:""); success = false;
+                    }
+                } else if (sl[i]=="Euv"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_Euv;
+                    sys->cmd_flag_energy_ever_display = true;
+                } else if (sl[i]=="Ef"){        if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_Ef;
+                } else if (sl[i]=="energy"){    if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_EuvDetail;
+                    sys->cmd_flag_energy_ever_display = true;
+                } else if (sl[i]=="Cuv"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_cuv;
+                } else if (sl[i]=="rdf"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_rdf;
+                    sys->cmd_flag_rdf_ever_display = true;
+                } else {
+                    char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
+                    fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : \"%s\" undefined in displaying%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
+                    success = false; sl[i].text[sl[i].length] = cc;
+                }
+                cmd.step = i_param_list;
+            } else if (cmd.command==IETCMD_TEST || cmd.command==IETCMD_TEST_SAVE){ // test
+                if (sl[i]=="coul" || sl[i]=="coulomb"){
+                    if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
+                } else if (sl[i]=="hlr"){
+                    if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_hlr;
+                } else if (sl[i]=="yukawa"){
+                    if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_Yukawa;
+                } else if (sl[i]=="local-coul" || sl[i]=="local_coul" || sl[i]=="local-coulomb" || sl[i]=="local_coulomb"){
+                    if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_LocalCoulomb;
+                } else {
+                    char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
+                    fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined variable \"%s\" for test%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
+                    success = false; sl[i].text[sl[i].length] = cc;
+                }
+                cmd.step = i_param_list;
+            } else if (cmd.command==IETCMD_CLOSURE || cmd.command==IETCMD_CLOSURE_A){
+                int this_closure = closure_from_string(sl[i], CLOSURE_alias, n_CLOSURE_alias);
+                if (this_closure<0){
+                    fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined closure \"%s\"%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
+                    success = false;
+                }
+                if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = this_closure;
+                cmd.step = i_param_list;
+            } else if (cmd.command==IETCMD_density || cmd.command==IETCMD_dielect || cmd.command==IETCMD_CF || cmd.command==IETCMD_CF_A){
+                if (StringNS::is_string_number(sl[i])) if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_double[i_param_list++] = atof(sl[i].text);
+                cmd.step = i_param_list;
+          // experimental
+          #ifdef _EXPERIMENTAL_
+            } else if (experimental_analysis_command_params(sl, nw, i, i_param_list, cmd, cmd_type, sys->log(), sys->is_log_tty, script_name, script_line)){
+          #endif
+          // done
+            } else {
+                char buffer[512]; memset(buffer, 0, sizeof(buffer)); memcpy(buffer, sl[i].text, sl[i].length>sizeof(buffer)-1?sizeof(buffer)-1:sl[i].length);
+                fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : cannot recognize \"%s\"%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, buffer, sys->is_log_tty?color_string_end:"");
+                success = false;
+                cmd_type = -1;
+            }
+        }
+    }
+
+    if (nw>0 && success) sys->insert_command(&cmd, cmd_location-1); //int ic = sys->ncmd-1; printf("sys->cmd=%d, location=%d\n", sys->cmd[ic].command, ic); for (int i=0; i<MAX_CMD_PARAMS; i++) if (sys->cmd[ic].command_params_int[i] || sys->cmd[ic].command_params_double[i]) printf("     param[%d] = %12d %15g\n", i, sys->cmd[ic].command_params_int[i], sys->cmd[ic].command_params_double[i]);
 
     return success;
 }

@@ -60,16 +60,16 @@ class RDF_data { public:
 //-----------------------------   HI Equation Solver   ----------------------------
 //---------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------
-#ifndef _EXPERIMENTAL_
-    class IET_Param_Exp {};
-#endif
 class HIEquationSolver {
   private:
     bool trim;
     int count;
     double * xa, * ya;
   public:
-    double lse_a, lse_b; IET_Param_Exp ex;
+    double lse_a, lse_b;
+    #ifdef _EXPERIMENTAL_
+        IET_Param_Exp ex;
+    #endif
   public:
     void set_trim(){ trim = true; }
     void unset_trim(){ trim = false; }
@@ -77,7 +77,7 @@ class HIEquationSolver {
       #ifdef _EXPERIMENTAL_
         return ex.HIEquationSolver_f_exp(x, lse_a, lse_b);
       #else
-        double pre = lse_b * lse_a * exp((1-1/x)/lse_a); return ln(x+1e-15) + pre;
+        double pre = lse_b * lse_a * exp((1-1/x)/lse_a); return ln((x+1e-15) / 1) + pre;
       #endif
     }
     void dispose(){
@@ -100,10 +100,17 @@ class HIEquationSolver {
             ex.init();
         #endif
     }
-    void set_param(double _lse_a, double _lse_b, IET_Param_Exp * _ex, double _inf=0, double _sup=2, bool _set_trim=true){
-        lse_a = _lse_a; lse_b = _lse_b; memcpy(&ex, _ex, sizeof(ex));
-        trim = _set_trim; prepare(_inf, _sup);
-    }
+    #ifdef _EXPERIMENTAL_
+        void set_param(double _lse_a, double _lse_b, IET_Param_Exp * _ex, double _inf=0, double _sup=2, bool _set_trim=true){
+            lse_a = _lse_a; lse_b = _lse_b; memcpy(&ex, _ex, sizeof(ex));
+            trim = _set_trim; prepare(_inf, _sup);
+        }
+    #else
+        void set_param(double _lse_a, double _lse_b, double _inf=0, double _sup=2, bool _set_trim=true){
+            lse_a = _lse_a; lse_b = _lse_b;
+            trim = _set_trim; prepare(_inf, _sup);
+        }
+    #endif
     double getx_ds(double y, double xinf, double xsup, double err){
         double inf = xinf; double sup = xsup;
         while (sup-inf>err){
@@ -252,7 +259,7 @@ class IET_Param {
   public:   // task params
     FILE * flog; bool is_log_tty; int argc; char ** argv;
     const char * library_path;
-    int nt; bool mp_by_fork; int nice_level; int mp_tasks[MAX_THREADS]; pid_t pid;
+    int nt, ntf; bool mp_by_fork; int nice_level; int mp_tasks[MAX_THREADS]; pid_t pid;
       __REAL__ * mp_pointers[2][MP_TASK_PARAMS]; size_t mp_sizes[MP_TASK_PARAMS];
     bool suspend_calculation; bool is_suspend_calculation; bool listonly, listall;
   public:   // force field global params
@@ -266,7 +273,6 @@ class IET_Param {
       bool dielect_from_dipole, dipole_from_dielect;
     int esal; bool perform_pme;
       double debye_rate[MAX_SOL]; int n_debye_rate; double debye_kappa[MAX_DEBYE_TERMS];
-    bool cavity_removal_correction; double cavity_size_factor; double cavity_removal_factor; double cavity_ucutoff;
     double temperature, default_temperature;
     double scale_lj, scale_coul, scale_hs;
   public:   // conformation and trajectory params
@@ -288,18 +294,21 @@ class IET_Param {
       int nmvb; double bulk_density_mv[MAX_SOL];
     double dipole_mv[MAX_SOL]; int ndipole;
     double zeta_scaling_factor[MAX_SOL]; int n_zeta_scaling_factor;
-    int xvv_enhance_level[2];
   public:   // solutes
     SoluteAtomSite * as; int nas; int nasmax; // solutes
     PDBAtomSet traj; // trajectory of solutes
   public:   // HI params
     double llambda[MAX_SOL]; int nllambda; // ln\lambda is the integral constants
-    double lse_a, lse_b; int calc_ab_automatically, calc_nbulk_automatically; IET_Param_Exp ex;
+    double lse_a, lse_b; int calc_ab_automatically, calc_nbulk_automatically;
     double nbulk[MAX_SOL]; int nnbulk; // atomised mole fraction
     double ccutoff_hi;
+    #ifdef _EXPERIMENTAL_
+      IET_Param_Exp ex; // experimental features
+    #endif
   public:   // SCF iteration tolerances
     __REAL__ errtolhi, errtolrism, maxerrrism; __REAL__ delhi, delrism; int ndiis_rism, ndiis_hi;
   public:   // output
+    double gcutoff_liquid_occupation;
     int out_rdf_bins; RDFGroup rdf_grps[MAX_RDF_GRPS]; int n_rdf_grps; int rdf_content;
   public:   // experimental features
     bool hlr_no_hi;
@@ -343,7 +352,7 @@ class IET_Param {
         argc = _argc; argv = _argv;
         flog = stderr; is_log_tty = true;
         library_path = nullptr;
-        nt = 1; nice_level = 0; for (int i=0; i<MAX_THREADS; i++) mp_tasks[i] = 0; pid = getpid();
+        nt = 1; ntf = 1; nice_level = 0; for (int i=0; i<MAX_THREADS; i++) mp_tasks[i] = 0; pid = getpid();
           memset(mp_pointers, 0, sizeof(mp_pointers)); memset(mp_sizes, 0, sizeof(mp_sizes));
         #ifdef _LOCALPARALLEL_PTHREAD_
             mp_by_fork = false;
@@ -356,7 +365,7 @@ class IET_Param {
         listonly = false; listall = false;
 
         for (int i=0; i<MAX_SOL; i++){ closures[i] = CLOSURE_HNC; closure_factors[i] = 1; }
-        for (int i=0; i<MAX_SOL; i++){ renorm_coulomb_in_hs[i] = 0.98; renorm_lj_in_hs[i] = 1; }
+        for (int i=0; i<MAX_SOL; i++){ renorm_coulomb_in_hs[i] = 1; renorm_lj_in_hs[i] = 1; }
         drrism = drhi = 0; nr[0] = nr[1] = nr[2] = 0; nv = nvm = 0;
         output_significant_digits = 160;
         rbohr = 0.052911; rbcharge = 0; epsilon_bohr = 1/MACHINE_REASONABLE_ERROR;
@@ -367,7 +376,6 @@ class IET_Param {
         esal = CoulAL_Coulomb; perform_pme = true;
             for (int i=0; i<MAX_SOL; i++) debye_rate[i] = 0; n_debye_rate = MAX_SOL; for (int i=0; i<MAX_DEBYE_TERMS; i++) debye_kappa[i] = 0;
         gvv_specification = 0; transpose_vv = false; xvv_k_shift = 0; xvv_extend = 0;
-        cavity_removal_correction = false; cavity_size_factor = 1; cavity_removal_factor = 1;
         temperature = 298; default_temperature = 120.27;
         traj.count = 0; traj.atom = nullptr; traj.box = Vector(0,0,0);
         as = nullptr; nas = nasmax = nav = nmv = nmvb = 0; memset(av, 0, sizeof(av));
@@ -387,23 +395,23 @@ class IET_Param {
 
         stepmax_hi = 100;
         errtolhi = check_error_tol(0); delhi = 1; ndiis_hi = 0;
-        hial = HIAL_NONE; guvmal = GUVMAL_THETA; ucutoff_hs = 5; cavity_ucutoff = 100;
+        hial = HIAL_NONE; guvmal = GUVMAL_THETA; ucutoff_hs = 5;
         nmvam = 0; density_hi = 33.4;
         ndipole = 0;
-        xvv_enhance_level[0] = xvv_enhance_level[1] = 15;
         for (int i=0; i<MAX_SOL; i++) zeta_scaling_factor[i] = 1; n_zeta_scaling_factor = 0;
         for (int i=0; i<MAX_SOL; i++) llambda[i] = 0; nllambda = 0; nbulk[0] = 1; nnbulk = 0;
         ccutoff_hi = 5;
-        lse_a = 0.3; lse_b = 51.8; calc_ab_automatically = 2; calc_nbulk_automatically = false;
+        lse_a = 0.3; lse_b = 54; calc_ab_automatically = 2; calc_nbulk_automatically = false;
         #ifdef _EXPERIMENTAL_
             ex.init();
         #endif
 
+        gcutoff_liquid_occupation = MACHINE_REASONABLE_ERROR;
         out_rdf_bins = 50; n_rdf_grps = 0; memset(rdf_grps, 0, sizeof(rdf_grps)); rdf_content = 0;
 
         hlr_no_hi = false;
         use_homogeneous_rism = false;
-        closure_enhance_level = 0;
+        closure_enhance_level = 1;
         external_electrostatic_field = Vector(0, 0, 0); do_external_electrostatic_field = false;
 
         atom_list = nullptr; n_atom_list = nmax_atom_list = 0;

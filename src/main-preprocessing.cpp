@@ -262,22 +262,25 @@ bool generate_solvent_xvv(IET_Param * sys, IET_arrays * arr, char * filename, in
         arr->ld_kernel = init_tensor3d<__REAL__>(sys->nvm, sys->nvm, xvv_length);
         clear_tensor3d(arr->ld_kernel, sys->nvm*sys->nvm*xvv_length);
         for (int ivm=0; ivm<sys->nvm; ivm++){
-            double density = sys->bulk_density_mv[sys->av[ivm].iaa];
-            double rmol = pow(fabs(1.0/sys->bulk_density_mv[ivm]/4.0*3.0/PI), 1.0/3) * sys->cavity_size_factor;
+            //double density = sys->bulk_density_mv[sys->av[ivm].iaa];
+            double density = sys->bulk_density_mv[ivm];
+            double rmol = pow(fabs(1.0/sys->bulk_density_mv[ivm]/4.0*3.0/PI), 1.0/3);
 
             /*
-            for (int i=0; i<xvv_length; i++) arr->ld_kernel[ivm][ivm][i] =  i*dr<=rmol? 1 : 0;
-            for (int i=0; i<xvv_length; i++) fftin[i] = arr->ld_kernel[ivm][ivm][i] * (i+1)*dr;
+            for (int i=0; i<xvv_length; i++) fftin[i] = (i*dr<=rmol? 1 : 0) * (i+1)*dr;
             fftw_execute(plan);
-            for (int i=0; i<xvv_length; i++) arr->ld_kernel[ivm][ivm][i] = fftout[i] * factor1 / ((i+1)*dk) * density;
-            */
+            for (int i=0; i<xvv_length-1; i++) arr->ld_kernel[ivm][ivm][i+1] = fftout[i] * factor1 / ((i+1)*dk) * density;
+            arr->ld_kernel[ivm][ivm][0] = 1;
+            //*/
 
+            ///*
             for (int i=0; i<xvv_length; i++){
                 //double k = (i+1)*dk; if (k<MACHINE_REASONABLE_ERROR) k = MACHINE_REASONABLE_ERROR;
                 double k = i*dk;
                 double ksigma = k*rmol;
                 arr->ld_kernel[ivm][ivm][i] = k==0? 1 : (4*PI*(sin(ksigma) - ksigma*cos(ksigma))/k/k/k)*density;
             }
+            //*/
         }
     }
 
@@ -684,175 +687,31 @@ int map_rdf_grps_to_pairs(IET_Param * sys, RDF_data * buffer=nullptr, bool echo_
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-// solvent correlation enhancement
-void do_xvv_enhancement_m(IET_Param * sys, __REAL__ *** wvv, __REAL__ *** nhkvv, int n_nhkvv){
-  // nhkvv enhancement: rescale the density of solvent molecules
-    double factor_gvv[MAX_SOL]; int n_factor_gvv[MAX_SOL]; for (int iv=0; iv<sys->nv; iv++){ factor_gvv[iv] = 0; n_factor_gvv[iv] = 0; }
-    for (int iv=0; iv<sys->nv; iv++) for (int jv=iv; jv<sys->nv; jv++){
-        factor_gvv[sys->av[iv].iaa] += nhkvv[iv][jv][0] / wvv[iv][jv][0]; n_factor_gvv[sys->av[iv].iaa] ++;
-        //factor_gvv[sys->av[jv].iaa] += sqrt(fabs(nhkvv[iv][jv][0] / sys->av[jv].multi)); n_factor_gvv[sys->av[jv].iaa] ++;
-        //fprintf(sys->log(), "???? %12f\n", nhkvv[iv][jv][0] / sys->av[jv].multi);
-    }
-    for (int iv=0; iv<sys->nv; iv++){
-        if (factor_gvv[iv]==0 || n_factor_gvv[iv]==0) factor_gvv[iv] = 0; else factor_gvv[iv] = -1.0 / (factor_gvv[iv] / n_factor_gvv[iv]);
-    }
-    for (int iv=0; iv<sys->nv; iv++) for (int jv=0; jv<sys->nv; jv++){
-        for (int i=0; i<n_nhkvv; i++) nhkvv[iv][jv][i] *= factor_gvv[sys->av[iv].iaa];
-    }
-}
-void do_xvv_enhancement_v(IET_Param * sys, __REAL__ *** wvv, __REAL__ *** nhkvv, int n_nhkvv){
-  // nhkvv enhancement: rescale the density of solvent molecules
-    double nhkvv_0 = 0; double n_nhkvv_0 = 0;
-    for (int iv=0; iv<sys->nv; iv++) for (int jv=iv; jv<sys->nv; jv++){
-        nhkvv_0 += nhkvv[iv][jv][0] / sys->av[jv].multi; n_nhkvv_0 ++;
-        //factor_gvv[sys->av[jv].iaa] += sqrt(fabs(nhkvv[iv][jv][0] / sys->av[jv].multi)); n_factor_gvv[sys->av[jv].iaa] ++;
-        //fprintf(sys->log(), "???? %12f\n", nhkvv[iv][jv][0] / sys->av[jv].multi);
-    }
-    double nhkvv_0_average = n_nhkvv_0==0? 1 : nhkvv_0 / n_nhkvv_0;
-    for (int iv=0; iv<sys->nv; iv++) for (int jv=0; jv<sys->nv; jv++){
-        for (int i=0; i<n_nhkvv; i++) nhkvv[iv][jv][i] *= nhkvv_0_average / (nhkvv[iv][jv][0]/sys->av[jv].multi);
-    }
-}
 
-void do_xvv_enhancement_a(IET_Param * sys, __REAL__ *** wvv, __REAL__ *** nhkvv, int n_nhkvv){
-  // scale nhkvv[0] to -wvv[0]
-    // nhkvv enhancement
-    for (int iv=0; iv<sys->nv; iv++) for (int jv=0; jv<sys->nv; jv++){
-        double enhance_factor = nhkvv[iv][jv][0] / wvv[iv][jv][0];
-        enhance_factor = -1 / enhance_factor;
-        for (int i=0; i<n_nhkvv; i++) nhkvv[iv][jv][i] *= enhance_factor;
-    }
-}
-void do_xvv_enhancement_ae(IET_Param * sys, __REAL__ *** wvv, __REAL__ *** nhkvv, int n_nhkvv){
-  // scale wvv[0] to multi, scale nhkvv[0] to -multi
-    for (int iv=0; iv<sys->nv; iv++) for (int jv=0; jv<sys->nv; jv++){
-        //printf("[%d][%d]: wvv[0], %12f nhvv[0] %f, ref %12f\n", iv, jv, wvv[iv][jv][0], nhkvv[iv][jv][0], sys->av[jv].multi*1.0);
-        double nhkvv_inter_coupling = - 1 + sys->density_mv[sys->av[jv].iaa] * (1/sys->bulk_density_mv[sys->av[jv].iaa] - 1/sys->bulk_density_mv[sys->av[iv].iaa]);
-        double enhance_factor_wvv = wvv[iv][jv][0]==0? 1 : sys->av[jv].multi / wvv[iv][jv][0];
-        double enhance_factor_nhkvv = sys->av[jv].multi / nhkvv[iv][jv][0] * nhkvv_inter_coupling;
-        for (int i=0; i<n_nhkvv; i++){
-            wvv[iv][jv][i] *= enhance_factor_wvv;
-            nhkvv[iv][jv][i] *= enhance_factor_nhkvv;
-        }
-    }
-}
-void do_xvv_enhancement_i(IET_Param * sys, __REAL__ *** wvv, __REAL__ *** nhkvv){
-    for (int iv=0; iv<sys->nv; iv++) for (int jv=0; jv<sys->nv; jv++){
-        //printf("[%d][%d]: wvv[0], %12f nhvv[0] %f, ref %12f\n", iv, jv, wvv[iv][jv][0], nhkvv[iv][jv][0], sys->av[jv].multi*1.0);
-        double nhkvv_inter_coupling = - 1 + sys->density_mv[sys->av[jv].iaa] * (1/sys->bulk_density_mv[sys->av[jv].iaa] - 1/sys->bulk_density_mv[sys->av[iv].iaa]);
-        double enhance_factor_wvv = wvv[iv][jv][0]==0? 1 : sys->av[jv].multi / wvv[iv][jv][0];
-        wvv[iv][jv][0] *= enhance_factor_wvv;
-        nhkvv[iv][jv][0] = -wvv[iv][jv][0];
-    }
-}
-
-void do_xvv_shift(IET_Param * sys, __REAL__ *** wvv, int n_wvv, __REAL__ *** nhkvv, int n_nhkvv){
-    for (int iv=0; iv<sys->nv; iv++) for (int jv=0; jv<sys->nv; jv++){
-        for (int i=n_wvv; i>0; i--) wvv[iv][jv][i] = wvv[iv][jv][i-1];
-        wvv[iv][jv][0] = wvv[iv][jv][n_wvv+1];
-        for (int i=n_nhkvv; i>0; i--) nhkvv[iv][jv][i] = nhkvv[iv][jv][i-1];
-        nhkvv[iv][jv][0] = nhkvv[iv][jv][n_nhkvv+1];
-    }
-}
-void do_xvv_extraporlation(IET_Param * sys, __REAL__ *** wvv, __REAL__ *** nhkvv, int algorithm_extraporlation=0){
-    if (algorithm_extraporlation==1){ // xvv[0] copy xvv[1]
+#ifndef _EXPERIMENTAL_
+    void shift_xvv_by_1(IET_Param * sys, __REAL__ *** wvv, int n_wvv, __REAL__ *** nhkvv, int n_nhkvv){
         for (int iv=0; iv<sys->nv; iv++) for (int jv=0; jv<sys->nv; jv++){
-            wvv[iv][jv][0] = wvv[iv][jv][1];
-            nhkvv[iv][jv][0] = nhkvv[iv][jv][1];
+            for (int i=n_wvv; i>0; i--) wvv[iv][jv][i] = wvv[iv][jv][i-1];
+            wvv[iv][jv][0] = wvv[iv][jv][n_wvv+1];
+            for (int i=n_nhkvv; i>0; i--) nhkvv[iv][jv][i] = nhkvv[iv][jv][i-1];
+            nhkvv[iv][jv][0] = nhkvv[iv][jv][n_nhkvv+1];
         }
-    } else if (algorithm_extraporlation==2){ // xvv[0] by xvv[1]-xvv[2] extrapolation
+    }
+    void insert_xvv_at_0(IET_Param * sys, __REAL__ *** wvv, __REAL__ *** nhkvv){
         for (int iv=0; iv<sys->nv; iv++) for (int jv=0; jv<sys->nv; jv++){
-            wvv[iv][jv][0] = 2*wvv[iv][jv][1]-wvv[iv][jv][2];
-            nhkvv[iv][jv][0] = 2*nhkvv[iv][jv][1]-nhkvv[iv][jv][2];
+            double nhkvv_inter_coupling = - 1 + sys->density_mv[sys->av[jv].iaa] * (1/sys->bulk_density_mv[sys->av[jv].iaa] - 1/sys->bulk_density_mv[sys->av[iv].iaa]);
+            double enhance_factor_wvv = wvv[iv][jv][0]==0? 1 : sys->av[jv].multi / wvv[iv][jv][0];
+            wvv[iv][jv][0] *= enhance_factor_wvv;
+            nhkvv[iv][jv][0] = -wvv[iv][jv][0];
         }
     }
+#endif
 
-}
-
-void perform_xvv_enhancement(IET_Param * sys, int enhance_algorithm, __REAL__ *** enhance_wvv, int n_wvv, __REAL__ *** enhance_nhkvv, int n_nhkvv){
-  // find what and how to do enhancement
-    //__REAL__ *** enhance_wvv = arr->wvv;
-    //__REAL__ *** enhance_nhkvv = arr->nhkvv;
-    //int enhance_algorithm = sys->xvv_enhance_level>0?sys->xvv_enhance_level:-sys->xvv_enhance_level;
-    /*if (sys->xvv_enhance_level<0){
-        arr->wvv_hlr = duplate_tensor3d(arr->wvv, arr->nv, arr->nv, arr->n_wvv+2);
-        arr->nhkvv_hlr = duplate_tensor3d(arr->nhkvv, arr->nv, arr->nv, arr->n_nhkvv+2);
-        enhance_wvv = arr->wvv_hlr;
-        enhance_nhkvv = arr->nhkvv_hlr;
-    }*/
-
-
-    int algorithm_basic = enhance_algorithm % 10;
-    int algorithm_shift = (enhance_algorithm / 10)  % 10;
-    const char * str_algorithm_basic = nullptr;
-    const char * str_algorithm_shift = nullptr;
-
-  // 1. perform shift and extrapolation
-    if (algorithm_shift!=0){
-        do_xvv_shift(sys, enhance_wvv, n_wvv, enhance_nhkvv, n_nhkvv); str_algorithm_shift = "shift";
-        if (algorithm_shift==2){
-            do_xvv_extraporlation(sys, enhance_wvv, enhance_nhkvv, 1); str_algorithm_shift = "shift, extend";
-        } else if (algorithm_shift==3){
-            do_xvv_extraporlation(sys, enhance_wvv, enhance_nhkvv, 2); str_algorithm_shift = "shift, extraporlate";
-        }
-    }
-  // 2. do fundamental enhancement
-    if (algorithm_basic!=0){
-        if (algorithm_basic==1){
-            do_xvv_enhancement_a(sys, enhance_wvv, enhance_nhkvv, n_nhkvv); str_algorithm_basic = "atomic";
-        } else if (algorithm_basic==2){
-            do_xvv_enhancement_ae(sys, enhance_wvv, enhance_nhkvv, n_nhkvv); str_algorithm_basic = "extreme";
-        } else if (algorithm_basic==3){
-            do_xvv_enhancement_m(sys, enhance_wvv, enhance_nhkvv, n_nhkvv); str_algorithm_basic = "molecular";
-        } else if (algorithm_basic==4){
-            do_xvv_enhancement_v(sys, enhance_wvv, enhance_nhkvv, n_nhkvv); str_algorithm_basic = "averaged";
-        } else if (algorithm_basic==5){
-            //do_xvv_enhancement_ae(sys, enhance_wvv, enhance_nhkvv, 1); str_algorithm_basic = "insert";
-            do_xvv_enhancement_i(sys, enhance_wvv, enhance_nhkvv); str_algorithm_basic = "insert";
-        }
-    }
-  // 3. special treatment
-    if (enhance_algorithm==15){ str_algorithm_shift = nullptr; str_algorithm_basic = "amber"; }
-
-    if (sys->debug_level>=1 && (str_algorithm_shift || str_algorithm_basic)) fprintf(sys->log(), "debug:: perform_xvv_enhancement(%s%s%s)\n", str_algorithm_shift?str_algorithm_shift:"", str_algorithm_shift&&str_algorithm_basic?", ":"", str_algorithm_basic?str_algorithm_basic:"");
-    for (int iv=0; iv<sys->nv; iv++) for (int jv=0; jv<sys->nv; jv++){
-        if (sys->debug_level>=2){
-            fprintf(sys->log(), "DEBUG:: (wvv,nhkvv)[%d][%d] = (%.3f,%.3f)", iv+1, jv+1, enhance_wvv[iv][jv][0],enhance_nhkvv[iv][jv][0]);
-            if (n_wvv>1 && n_nhkvv>1) fprintf(sys->log(), ", (%.3f,%.3f)", enhance_wvv[iv][jv][1],enhance_nhkvv[iv][jv][1]);
-            if (n_wvv>2 && n_nhkvv>2) fprintf(sys->log(), ", (%.3f,%.3f)", enhance_wvv[iv][jv][2],enhance_nhkvv[iv][jv][2]);
-            if (n_wvv>3 && n_nhkvv>3) fprintf(sys->log(), ", (%.3f,%.3f)", enhance_wvv[iv][jv][3],enhance_nhkvv[iv][jv][3]);
-            if (n_wvv>4 && n_nhkvv>4) fprintf(sys->log(), ", (%.3f,%.3f)", enhance_wvv[iv][jv][4],enhance_nhkvv[iv][jv][4]);
-            fprintf(sys->log(), (n_wvv>4&&n_nhkvv>4)? " ... [%s.%s][%s.%s]\n":" [%s.%s][%s.%s]\n", sys->av[iv].mole, sys->av[iv].name, sys->av[jv].mole, sys->av[jv].name);
-        }
-    }
-
-}
-/*void perform_xvv_pre_scaling(IET_Param * sys, __REAL__ *** nhkvv, int n_nhkvv){
-    int icol = 0;
-    for (int iv=0; iv<sys->nv && icol<sys->n_hvv_pre_scaling; iv++) for (int jv=0; jv<sys->nv && icol<sys->n_hvv_pre_scaling; jv++){
-        for (int k=0; k<n_nhkvv; k++) nhkvv[iv][jv][k] *= sys->hvv_pre_scaling[icol];
-        icol ++;
-    }
-}
-    if (sys->n_hvv_pre_scaling>0){
-        if (sys->debug_level>=1){
-            fprintf(sys->log(), "%s : debug:: perform_xvv_pre_scaling(", software_name);
-            for (int i=0; i<sys->n_hvv_pre_scaling; i++) fprintf(sys->log(), i==0?"%g":",%g", sys->hvv_pre_scaling[i]);
-            fprintf(sys->log(), ")\n");
-        }
-        perform_xvv_pre_scaling(sys, arr->nhkvv, arr->n_nhkvv+2);
-    }
-*/
 void perform_xvv_enhancement(IET_Param * sys, IET_arrays * arr){
-
-    if (sys->xvv_enhance_level[0]==sys->xvv_enhance_level[1]){
-        perform_xvv_enhancement(sys, sys->xvv_enhance_level[0], arr->wvv, arr->n_wvv, arr->nhkvv, arr->n_nhkvv);
-    } else {
-        arr->wvv_hlr = duplate_tensor3d(arr->wvv, arr->nv, arr->nv, arr->n_wvv+2);
-        arr->nhkvv_hlr = duplate_tensor3d(arr->nhkvv, arr->nv, arr->nv, arr->n_nhkvv+2);
-        if (sys->debug_level>=1) fprintf(sys->log(), "debug:: perform_xvv_enhancement for hsr\n");
-        perform_xvv_enhancement(sys, sys->xvv_enhance_level[0], arr->wvv, arr->n_wvv, arr->nhkvv, arr->n_nhkvv);
-        if (sys->debug_level>=1) fprintf(sys->log(), "debug:: perform_xvv_enhancement for hlr\n");
-        perform_xvv_enhancement(sys, sys->xvv_enhance_level[1], arr->wvv_hlr, arr->n_wvv, arr->nhkvv_hlr, arr->n_nhkvv);
-    }
+  #ifdef _EXPERIMENTAL_
+    perform_xvv_eenhancement(sys, arr);
+  #else
+    shift_xvv_by_1(sys, arr->wvv, arr->n_wvv, arr->nhkvv, arr->n_nhkvv);
+    insert_xvv_at_0(sys, arr->wvv, arr->nhkvv);
+  #endif
 }

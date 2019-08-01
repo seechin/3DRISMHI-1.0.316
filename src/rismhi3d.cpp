@@ -1,5 +1,5 @@
 const char * software_name = "rismhi3d";
-const char * software_version = "a.231.1400";
+const char * software_version = "a.240.1465";
 const char * copyright_string = "(c) Cao Siqin";
 
 #define     __REAL__    double
@@ -12,7 +12,7 @@ const char * copyright_string = "(c) Cao Siqin";
 #define MAX_DIIS                    100     // Max DIIS steps
 #define MAX_INCLUDE_RECURSIVE       20      // maximum include recursive levels
 
-#include    "main-header.h"
+#include    "header.h"
 #if defined(_GROMACS4_) || defined(_GROMACS5_) || defined(_GROMACS2016_) || defined(_GROMACS2018_)
   #define _GROMACS_
 #endif
@@ -98,7 +98,7 @@ const char * copyright_string = "(c) Cao Siqin";
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 #include    "crc32_zlib.h"
 #include    "Element.h"
-#include    "StringX.cpp"
+#include    "String2.cpp"
 #include    "Vector.cpp"
 #include    "PDBAtom.cpp"
 #include    "read_frame_abr.cpp"
@@ -163,7 +163,7 @@ STKeywordTableUnit CoulAL_alias [] = {
 #define CLOSURE_MP              24
 #define CLOSURE_MHNC            25
 const char * CLOSURE_name[100];
-STKeywordTableUnit CLOSURE_alias[] = {
+STKeywordTableUnit CLOSURE_alias[200] = {
   // key names here
     { CLOSURE_NONE              , "none" },
     { CLOSURE_HNC               , "HNC" },
@@ -207,6 +207,7 @@ STKeywordTableUnit CLOSURE_alias[] = {
     { CLOSURE_MS                , "Martynov-Sarkisov" },
     { CLOSURE_BPGGHNC           , "BPGG" }
 };
+int n_CLOSURE_alias = sizeof(CLOSURE_alias)/sizeof(CLOSURE_alias[0]);
 #define IETAL_NONE      0
 #define IETAL_SSOZ      1
 #define IETAL_RRISM     2
@@ -216,18 +217,16 @@ const char * IETAL_name[] = { "", "SSOZ", "RISM", "VRISM", "IRISM" };
 #define HIAL_NONE       0
 #define HIAL_CUTOFF     1
 #define HIAL_ICUTOFF    2
-#define HIAL_EHSHI      3
 #define HIAL_HI         4
 #define HIAL_HSHI       4
 #define HIAL_DPHI       5
 #define HIAL_DNHI       6
 #define HIAL_PLHI       7
 #define HIAL_RES_PLHI   8
-const char * HIAL_name[9] = { "", "CutoffHI", "iCutoffHI", "EHSHI", "HSHI", "DPHI", "DNHI", "PLHI", "rPLHI" };
+const char * HIAL_name[9] = { "", "CutoffHI", "iCutoffHI", "", "HSHI", "DPHI", "DNHI", "PLHI", "rPLHI" };
 #define GUVMAL_THETA    1
-#define GUVMAL_THETACC  2
-#define GUVMAL_GUV      3
-const char * GUVMAL_name[4] = { "", "Theta", "CC", "guv" };
+#define GUVMAL_GUV      2
+const char * GUVMAL_name[3] = { "", "Theta", "guv" };
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 // for BG: integration pathway
 #define PERFORM_3DBG_PATHWAY_LJ         1
@@ -257,7 +256,6 @@ const char * GUVMAL_name[4] = { "", "Theta", "CC", "guv" };
 #define IETCMD_density      26
 #define IETCMD_BUILD_FF     27
 #define IETCMD_TI           28
-#define IETCMD_PostHI       29
 #define IETCMD_TEST         98
 #define IETCMD_TEST_SAVE    99
 #define IETCMD_v_box            100
@@ -298,9 +296,6 @@ const char * GUVMAL_name[4] = { "", "Theta", "CC", "guv" };
 #define	IETCMD_v_CuvRep         245
 #define IETCMD_v_Mayer          246
 #define IETCMD_v_ddp            247
-#define IETCMD_PostHI_v_None        251
-#define IETCMD_PostHI_v_Clear       252
-#define IETCMD_PostHI_v_Complement  253
 // test commands
 #define IETCMD_v_Yukawa         3001
 #define IETCMD_v_LocalCoulomb   3002
@@ -333,11 +328,11 @@ char szfn_out[MAX_PATH]; FILE * file_out = nullptr;
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 #include    "main-array.h"
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+#include    "main-compress.cpp"
 #ifdef _EXPERIMENTAL_
     #include "main-experimental.cpp"
 #endif
-//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-#include    "main-compress.cpp"
 #include    "main-analysis-param.cpp"
 #include    "main-preprocessing.cpp"
 #include    "main-build-ff.cpp"
@@ -505,7 +500,7 @@ int main(int argc, char * argv[]){
         if (!b_read_solvent_xvv || !b_read_solvent_zeta || !b_analysis_post) success = false;
     }
     if (success && arr->nhkvv){
-        if (sys->xvv_enhance_level[0] || sys->xvv_enhance_level[1]) perform_xvv_enhancement(sys, arr);
+        perform_xvv_enhancement(sys, arr);
     }
     if (success && sys->debug_level>=3 && sys->listonly){
         debug_display_solvent_xvv(sys, arr, sys->nv);

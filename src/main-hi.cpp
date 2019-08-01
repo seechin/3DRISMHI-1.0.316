@@ -68,71 +68,23 @@ void subroutine_hi_solver(IET_Param * sys, IET_arrays * arr, int id){
 
 void prepare_hi_guv(IET_Param * sys, IET_arrays * arr, bool first_run=true){
     // step 1: prepare guvm
-      if (sys->guvmal == GUVMAL_THETA || sys->guvmal == GUVMAL_THETACC || first_run){
-          for (int iv=0; iv<sys->nvm; iv++) for (int iz=0; iz<arr->nz; iz++) for (int iy=0; iy<arr->ny; iy++) for (int ix=0; ix<arr->nx; ix++){
-              double U = atomised_molecule_uv_potential(sys, arr, iv, ix, iy ,iz);
-              if (U >= sys->ucutoff_hs) arr->guvm[iv][iz][iy][ix] = 0; else arr->guvm[iv][iz][iy][ix] = 1;
-          }
+        if (sys->guvmal == GUVMAL_GUV){
+            for (int i=0; i<sys->nvm; i++){ int guvmi = sys->vmmapi[i][0];
+                for (int j=sys->vmmapi[i][0]; j<sys->vmmapi[i][1]; j++) if (sys->av[sys->vmmap[j]].is_key) guvmi = sys->vmmap[j];
+                size_t N3 = arr->nx * arr->ny * arr->nz;
+                for (size_t i3=0; i3<N3; i3++) arr->guvm[i][0][0][i3] = arr->huv[guvmi][0][0][i3] + 1;
+            }
+        } else {
+        //} else if (sys->guvmal == GUVMAL_THETA || first_run*/){
+            for (int iv=0; iv<sys->nvm; iv++) for (int iz=0; iz<arr->nz; iz++) for (int iy=0; iy<arr->ny; iy++) for (int ix=0; ix<arr->nx; ix++){
+                double U = atomised_molecule_uv_potential(sys, arr, iv, ix, iy ,iz);
+                if (U >= sys->ucutoff_hs) arr->guvm[iv][iz][iy][ix] = 0; else arr->guvm[iv][iz][iy][ix] = 1;
+            }
 
-          /*if (sys->guvmal == GUVMAL_THETACC){
-              int N3 = arr->nx*arr->ny*arr->nz; double rc = sys->rvdw; if (rc>sys->rcoul) rc = sys->rcoul; double rc2 = rc*rc;
-              __REAL__ **** cache1 = arr->rismhi_cache[2]; __REAL__ **** cache2 = arr->rismhi_cache[3];
-
-              perform_3rx1k_convolution(&arr->fftw_mp, arr->guvm, arr->nx, arr->ny, arr->nz, arr->box, sys->nvm, sys->nvm, arr->ld_kernel, arr->dk_nhkvv, sys->xvv_k_shift, arr->n_nhkvv, cache1, arr->fftin, arr->fftout, arr->planf, arr->planb, true);
-              for (int iv=0; iv<sys->nvm; iv++){
-                  double ld_bulk = 0; double n_ld_bulk = 0;
-                  for (size_t i3=0; i3<N3; i3++) if (!(arr->r2uvmin[0][0][i3]<rc2 && arr->r2uvmin[0][0][i3]>=0)){
-                      n_ld_bulk ++; ld_bulk += cache1[iv][0][0][i3];
-                  }
-                  if (n_ld_bulk>0) ld_bulk /= n_ld_bulk;
-                  if (ld_bulk!=0) for (size_t i3=0; i3<N3; i3++){
-                      cache1[iv][0][0][i3] /= ld_bulk;
-                      if (cache1[iv][0][0][i3]<0.99) cache1[iv][0][0][i3] = 0; else cache1[iv][0][0][i3] = 1;
-                  }
-              }
-
-              perform_3rx1k_convolution(&arr->fftw_mp, cache1, arr->nx, arr->ny, arr->nz, arr->box, sys->nvm, sys->nvm, arr->ld_kernel, arr->dk_nhkvv, sys->xvv_k_shift, arr->n_nhkvv, cache2, arr->fftin, arr->fftout, arr->planf, arr->planb, true);
-              for (int iv=0; iv<sys->nvm; iv++){
-                  double ld_bulk = 0; double n_ld_bulk = 0;
-                  for (size_t i3=0; i3<N3; i3++) if (!(arr->r2uvmin[0][0][i3]<rc2 && arr->r2uvmin[0][0][i3]>=0)){
-                      n_ld_bulk ++; ld_bulk += cache2[iv][0][0][i3];
-                  }
-                  if (n_ld_bulk>0) ld_bulk /= n_ld_bulk;
-                  if (ld_bulk!=0) for (size_t i3=0; i3<N3; i3++){
-                      cache2[iv][0][0][i3] /= ld_bulk;
-                  }
-              }
-
-              for (int iv=0; iv<sys->nvm; iv++) for (size_t i3=0; i3<N3; i3++) arr->guvm[iv][0][0][i3] *= cache2[iv][0][0][i3];
-
-  //FILE * file_out = nullptr; char fn[MAX_PATH]; strcpy(fn, "local_density_2"); append_save_data(&file_out, fn, sys->log(), "ld", "", arr->nx, arr->ny, arr->nz, arr->nvm, &cache2[0][0][0][0], 1, sys); if (file_out) fclose(file_out);
-
-          }*/
-
-      } else if (sys->guvmal == GUVMAL_GUV){
-          for (int i=0; i<sys->nvm; i++){ int guvmi = sys->vmmapi[i][0];
-              for (int j=sys->vmmapi[i][0]; j<sys->vmmapi[i][1]; j++) if (sys->av[sys->vmmap[j]].is_key) guvmi = sys->vmmap[j];
-              size_t N3 = arr->nx * arr->ny * arr->nz;
-              for (size_t i3=0; i3<N3; i3++) arr->guvm[i][0][0][i3] = arr->huv[guvmi][0][0][i3] + 1;
-          }
+          #ifdef _EXPERIMENTAL_
+            post_prepare_guv(sys, arr);
+          #endif
       }
-      /*if (sys->hial == HIAL_EHSHI){
-          size_t N3 = arr->nx*arr->ny*arr->nz; int N4 = sys->nvm*N3;
-          __REAL__ **** cache1 = arr->rismhi_cache[2]; __REAL__ **** cache2 = arr->rismhi_cache[3];
-          if (sys->nt<=1){
-              perform_3rx1k_convolution(arr->guvm, arr->nx, arr->ny, arr->nz, arr->box, sys->nvm, sys->nvm, arr->zeta, arr->dk_zeta, sys->xvv_k_shift, arr->n_zeta, cache1, arr->fftin, arr->fftout, arr->planf, arr->planb, true);
-          } else {
-              perform_3rx1k_convolution(&arr->fftw_mp, arr->guvm, arr->nx, arr->ny, arr->nz, arr->box, sys->nvm, sys->nvm, arr->zeta, arr->dk_zeta, sys->xvv_k_shift, arr->n_zeta, cache1, arr->fftin, arr->fftout, arr->planf, arr->planb, true);
-          }
-          for (int ivm=0; ivm<sys->nvm; ivm++){
-              for (size_t i3=0; i3<N3; i3++){
-                  cache1[ivm][0][0][i3] /= arr->zeta[ivm][ivm][0]; if (cache1[ivm][0][0][i3]<0) cache1[ivm][0][0][i3] = 0; if (cache1[ivm][0][0][i3]>1) cache1[ivm][0][0][i3] = 1;
-                  //cache1[ivm][0][0][i3] *= arr->guvm[ivm][0][0][i3];
-                  arr->guvm[ivm][0][0][i3] *= cache1[ivm][0][0][i3];
-              }
-          }
-  //FILE * file_out = nullptr; char fn[MAX_PATH]; strcpy(fn, "local_density"); append_save_data(&file_out, fn, sys->log(), "ld", "", arr->nx, arr->ny, arr->nz, arr->nvm, &cache1[0][0][0][0], 1, sys); if (file_out) fclose(file_out);
-  }*/
 }
 
 bool prepare_phi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, double * hi_param, int n_hi_param, bool guess_init_n=true){
@@ -144,25 +96,7 @@ bool prepare_phi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, do
     if (sys->hial == HIAL_HSHI){
         if (arr->phi&&arr->phi[0]) clear_tensor4d(arr->phi, N4m);
         if (arr->nphi&&arr->nphi[0]) clear_tensor4d(arr->nphi, N4m);
-    } else if (sys->hial == HIAL_EHSHI){
-        /*for (int ivm=0; ivm<sys->nvm; ivm++){
-            for (size_t i3=0; i3<N3; i3++){
-                if (atomised_molecule_uv_potential(sys, arr, ivm, i3) > sys->ccutoff_hi){
-                    //arr->dd[ivm][0][0][i3] = 0;
-                    arr->phi[ivm][0][0][i3] = sys->ccutoff_hi;
-                } else arr->phi[ivm][0][0][i3] = 0;
-            }
-        }
-        if (arr->nphi&&arr->nphi[0]) clear_tensor4d(arr->nphi, N4m);*/
-        //for (size_t i4=0; i4<N4m; i4++) arr->guvm[0][0][0][i4] *= arr->dd[0][0][0][i4];
-
-        for (int ivm=0; ivm<sys->nvm; ivm++){
-            for (size_t i3=0; i3<N3; i3++) if (arr->r2uvmin[0][0][i3]<=0) arr->dd[ivm][0][0][i3] = 1; else arr->dd[ivm][0][0][i3] = 0;
-        }
-
-        if (arr->phi&&arr->phi[0]) clear_tensor4d(arr->phi, N4m);
-        if (arr->nphi&&arr->nphi[0]) clear_tensor4d(arr->nphi, N4m);
-    } else if (sys->hial==HIAL_DPHI){
+    } else if (sys->hial==HIAL_DPHI){   // dipole HI
         if (arr->phi && arr->phi[0]){
             double beta = sys->default_temperature/sys->temperature;
             //double nphi_unit = fabs(arr->zeta[0][0][0] *sys->density_mv[0]);
@@ -174,8 +108,6 @@ bool prepare_phi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, do
                     arr->phi[ivm][0][0][i3] = beta * pE / sys->dielect_hi;
                 }
             }
-//compress_data("phi.tensor4d", "nphi", flog, sys->nv, arr->nx, arr->ny, arr->nz, &arr->nphi[0][0][0][0], sys->err_output_uv);
-//FILE * fout = nullptr; append_save_data(&fout, "debug-out.ts4s", sys->flog, "nPhi", nullptr, arr->nx, arr->ny, arr->nz, arr->nv, &arr->nphi[0][0][0][0], 0.0, sys); if(fout) fclose(fout); fprintf(stderr, "arr->zeta[0][0][0] = %g\n", arr->zeta[0][0][0]); if (fout) fclose(fout);
         }
         if (arr->nphi&&arr->nphi[0]) clear_tensor4d(arr->nphi, N4m);
     } else if (sys->hial==HIAL_DNHI){
@@ -190,8 +122,6 @@ bool prepare_phi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, do
                     arr->nphi[ivm][0][0][i3] = beta * pE / sys->dielect_hi / nphi_unit; if (arr->nphi[ivm][0][0][i3]>1) arr->nphi[ivm][0][0][i3] = 1;
                 }
             }
-//compress_data("phi.tensor4d", "nphi", flog, sys->nv, arr->nx, arr->ny, arr->nz, &arr->nphi[0][0][0][0], sys->err_output_uv);
-//FILE * fout = nullptr; append_save_data(&fout, "debug-out.ts4s", sys->flog, "nPhi", nullptr, arr->nx, arr->ny, arr->nz, arr->nv, &arr->nphi[0][0][0][0], 0.0, sys); if(fout) fclose(fout); fprintf(stderr, "arr->zeta[0][0][0] = %g\n", arr->zeta[0][0][0]);
         }
         if (arr->phi&&arr->phi[0]) clear_tensor4d(arr->phi, N4m);
     } else if (sys->hial==HIAL_PLHI || sys->hial==HIAL_RES_PLHI){
@@ -230,7 +160,7 @@ bool prepare_phi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, do
         }
         fprintf(flog, "  %s : done with ", HIAL_name[sys->hial]); for (int i=0; i<sys->nvm; i++) fprintf(flog, i==0?"%g":",%g", dd_initialized_value[i]); fprintf(flog, "\n");
         return true;
-    } else if (sys->hial==HIAL_ICUTOFF){  // cutoff
+    } else if (sys->hial==HIAL_ICUTOFF){  // inversed cutoff
         double beta = sys->default_temperature/sys->temperature; double dd_initialized_value[MAX_SOL];
         for (int ivm=0; ivm<sys->nvm; ivm++){
             dd_initialized_value[ivm] = (ivm<n_hi_param&&hi_param_indicator&&hi_param_indicator[ivm]&&hi_param)? hi_param[ivm] : 0;
@@ -266,10 +196,6 @@ bool perform_hi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, dou
     bool success = false;
     size_t N3 = arr->nx * arr->ny * arr->nz; size_t N4 = sys->nv * N3; size_t N4m = sys->nvm * N3;
 
-  //printf("HI=%s(%f), guvm=%s(%f), phi=%s, lse_A,B=%f,%s%f\33[0m\n", HIAL_name[sys->hial], sys->hial_const, GUVMAL_name[sys->guvmal], sys->ucutoff_hs, PHIAL_name[sys->phial], sys->lse_a, sys->calc_b_automatically?"\33[0;37m":"", sys->lse_b);
-  //printf("  lnλ:\t"); for (int i=0; i<sys->nvm; i++)printf(" %12f",sys->llambda[i]); printf("\n");
-  //printf("  n3:\t"); for (int i=0; i<sys->nvm; i++)printf(" %12f",sys->nbulk[i]); printf("\n");
-  //printf("  <ζ>i:\t"); double mu_all = 0; for (int i=0; i<sys->nvm; i++){ double mu=0; for (int j=0; j<sys->nvm; j++) mu += sys->nbulk[j] * sys->density_hi * arr->zeta[i][j][0]; mu_all += mu * sys->nbulk[i]; printf(" %12f", mu); }; printf(" -> %12f\n", mu_all);
   // step 1: prepare guvm
     prepare_hi_guv(sys, arr, first_run);
   // step 2: preparation, majorly phi
@@ -282,31 +208,15 @@ bool perform_hi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, dou
     for (int iv=0; iv<sys->nvm; iv++){
         for (int j=0; j<sys->nvm; j++){
             llambda[iv] += sys->nbulk[j] * arr->zeta[iv][j][0] * sys->density_hi;
-            //printf("    %12f : %12g %12g %12g %12g\n", llambda[iv], sys->nbulk[j], arr->zeta[iv][j][0], sys->density_hi, sys->nbulk[j] * arr->zeta[iv][j][0] * sys->density_hi);
         }
         llambda[iv] += arr->solver_hi.f(1) + log(sys->nbulk[iv]);
-        //printf("extra llambda[%d] = %12f\n", iv, llambda[iv]);
-    }
+    }; if (sys->debug_level>=3){ fprintf(flog, "DEBUG:: llambda ="); for (int iv=0; iv<sys->nvm; iv++) fprintf(flog, " %g", llambda[iv]); fprintf(flog, "\n"); }
   // step 5. HI loop
-    //size_t flog_pointer = 0;
     for (int istep=0; istep<sys->stepmax_hi; istep++){
         while (sys->suspend_calculation){ usleep(100); sys->is_suspend_calculation = true; continue; }
         sys->is_suspend_calculation = false;
-        //if (flog && flog!=stderr && flog!=stdout) flog_pointer = ftell(flog);
-        double lt[MAX_SOL]; //double lts = 0;
       // 5.1. calculate potential -> arr->ddpot_hi
-//lap_timer_livm();
-        calculate_potential_HI(arr->ddpot_hi, arr->dd, arr->zeta, arr->guvm, arr->phi, llambda, arr->res, arr->ddpot_hi, sys, arr); //for (int iz=0; iz<arr->nz; iz++) for (int iy=0; iy<arr->ny; iy++) for (int ix=0; ix<arr->nx; ix++) printf("%12f  #\n", arr->ddpot_hi[0][iz][iy][ix]);
-        // post handling of potential: connectivity, bulk, boundary condition, so on
-      // 5.2. calculate new dimensionless density -> arr->res
-      //      including total particle number check
-      /*#ifdef _LOCALPARALLEL_
-        int id = fork_here(sys->nt); size_t N3 = arr->nx*arr->ny*arr->nz;
-//printf("\33[1;35m  fork start: %d, max: %d\33[0m\n", id, sys->nt);
-        int idjamin = N3 / sys->nt * id; int idjamax = N3 / sys->nt * (id+1); if (id+1 >= sys->nt) idjamax = N3;
-        for (size_t i3=idjamin; i3<idjamax; i3++){
-            int iz = i3 / (arr->nx*arr->ny); int iy = (i3 / arr->nx) % arr->ny; int ix = i3 % arr->nx;
-      #else*/
+        calculate_potential_HI(arr->ddpot_hi, arr->dd, arr->zeta, arr->guvm, arr->phi, llambda, arr->res, arr->ddpot_hi, sys, arr);
       #ifdef _LOCALPARALLEL_
         for (int i=1; i<sys->nt; i++) sys->mp_tasks[i] = MPTASK_HI_SOLVER;
         subroutine_hi_solver(sys, arr, 0);
@@ -314,10 +224,6 @@ bool perform_hi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, dou
       #else
         subroutine_hi_solver(sys, arr, 0);
       #endif
-      // 5.2.2 total particle number check -> lt[]
-        /*lts = 0; for (int iv=0; iv<sys->nvm; iv++){
-            lt[iv] = 0; for (int iz=0; iz<arr->nz; iz++) for (int iy=0; iy<arr->ny; iy++) for (int ix=0; ix<arr->nx; ix++) lt[iv] += arr->res[iv][iz][iy][ix]; lts += lt[iv];
-        } for (int iv=0; iv<sys->nvm; iv++) lt[iv] /= lts; lts /= (arr->nx * arr->ny * arr->nz);*/
       // 5.3. step forward and loop control
         lap_timer_livm();
         double err = 0;
@@ -340,18 +246,13 @@ bool perform_hi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, dou
         if (flog && (sys->detail_level>=1 || stop_loop)){
             fprintf(flog, fabs(err)<1e-4?"  %s step %d, stdev: %.1e":"  %s step %d, stdev: %.5f", HIAL_name[sys->hial], istep+1, err);
             if (sys->ndiis_hi>1) fprintf(flog, " (DIISx%d)", arr->diis_hi.ndiis);
-            //fprintf(flog, " (<n>=%.2f:", lts); for (int iv=0; iv<sys->nvm; iv++) fprintf(flog, lt[iv]<1?" %4.2f%%":" %4.0f%%", lt[iv]*100);
-            //fprintf(flog, ")%s", (sys->detail_level==1&&istep+1<sys->stepmax_hi&&err>sys->errtolhi&&is_out_tty)?"\r":"\n");
             if (sys->debug_level>=3||sys->detail_level>=3){ char time_buffer[40]; fprintf(flog, " (%s)", get_current_time_text(time_buffer)); }
             fprintf(flog, "%s", (sys->detail_level==1&&istep+1<sys->stepmax_hi&&err>sys->errtolhi&&is_out_tty)?"\r":"\n");
-            //if ((sys->detail_level==1&&err>sys->errtolhi) && flog && flog!=stderr && flog!=stdout) flog_pointer = fseek(flog, flog_pointer, SEEK_SET);
             fflush(flog);
         }
         fflush(flog);
-//if (err <= sys->errtolhi) compress_data("potential_hi.tensor4d", "potential_hi", flog, sys->nvm, arr->nx, arr->ny, arr->nz, &arr->ddpot_hi[0][0][0][0], sys->err_output_uv);
         if (stop_loop) break;
         lap_timer_diis();
-//lap_timer_diis();
     }
 
   // step 6. post preprocessing

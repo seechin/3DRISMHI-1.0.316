@@ -1,11 +1,11 @@
 const char * software_name = "ts4sdump";
-const char * software_version = "a.231.1400";
+const char * software_version = "0.231.1400";
 const char * copyright_string = "(c) Cao Siqin";
 
 #define     __REAL__    double
 #define     MACHINE_REASONABLE_ERROR    1e-12
 
-#include    "main-header.h"
+#include    "header.h"
 #include    <errno.h>
 #include    <stdio.h>
 #include    <stdlib.h>
@@ -15,7 +15,9 @@ const char * copyright_string = "(c) Cao Siqin";
 #include    <signal.h>
 #include    <fcntl.h>
 #include    <ctype.h>
+#include    <unistd.h>
 #include    <time.h>
+#include    <libgen.h>
 #include    <sys/time.h>
 #include    <sys/types.h>
 #include    <sys/wait.h>
@@ -32,7 +34,7 @@ const char * copyright_string = "(c) Cao Siqin";
 #define MAX_PATH        1024
 #define MAX_WORD        200
 
-#include    "StringX.cpp"
+#include    "String2.cpp"
 #include    "crc32_zlib.h"
 #include    "common.cpp"
 #include    "compress.cpp"

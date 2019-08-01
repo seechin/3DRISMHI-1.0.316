@@ -472,8 +472,8 @@ void perform_3rx1k_convolution(__REAL__ *** f3r[], int nx, int ny, int nz, Vecto
     double convolution_factor = 1.0 / (nx * ny * nz);
     size_t N3 = nx * ny * nz;
 
-    __REAL__ * fftin1 = &fftin[0][0][0];
-    __REAL__ * fftout1 = &fftout[0][0][0];
+    double * fftin1 = &fftin[0][0][0];
+    double * fftout1 = &fftout[0][0][0];
 
     if (clear_out) clear_tensor4d(out, ni * N3);
     for (int si=0; si<ni; si++){
@@ -514,15 +514,15 @@ void perform_3rx1k_convolution(__REAL__ *** f3r[], int nx, int ny, int nz, Vecto
 //---------------------------------------------------------------------------------
 class RISMHI3D_FFTW_MP_UNIT {
   public:
-    double *** fftin;
-    double *** fftout;
+    __REAL__ *** fftin;
+    __REAL__ *** fftout;
     fftw_plan planf, planb;
     int si, sj;
     bool task_done; __REAL__ * out1;
     void init(int nx, int ny, int nz){
         si = sj = 0;
-        fftin = init_tensor3d<double>(nz, ny, nx, 0);
-        fftout = init_tensor3d<double>(nz, ny, nx, 0);
+        fftin = init_tensor3d<__REAL__>(nz, ny, nx, 0);
+        fftout = init_tensor3d<__REAL__>(nz, ny, nx, 0);
         planf = fftw_plan_r2r_3d(nz, ny, nx, &fftin[0][0][0], &fftout[0][0][0], (fftw_r2r_kind)FFTW_FORWARD, (fftw_r2r_kind)FFTW_FORWARD, (fftw_r2r_kind)FFTW_FORWARD, FFTW_ESTIMATE);
         planb = fftw_plan_r2r_3d(nz, ny, nx, &fftout[0][0][0], &fftin[0][0][0], (fftw_r2r_kind)FFTW_BACKWARD, (fftw_r2r_kind)FFTW_BACKWARD, (fftw_r2r_kind)FFTW_BACKWARD, FFTW_ESTIMATE);
     }
@@ -609,7 +609,7 @@ void perform_3rx1k_convolution_r1(int id, RISMHI3D_FFTW_MP * param, int si, int 
         if (fftw_mp->fft[it].task_done){
             size_t N3 = fftw_mp->nx * fftw_mp->ny * fftw_mp->nz;
             __REAL__ * out1 = fftw_mp->fft[it].out1;
-            __REAL__ * in1 = &fftw_mp->fft[it].fftin[0][0][0];
+            double * in1 = &fftw_mp->fft[it].fftin[0][0][0];
             for (size_t i3=0; i3<N3; i3++) out1[i3] += in1[i3];
             fftw_mp->fft[it].task_done = false;
         }
@@ -624,7 +624,7 @@ void perform_3rx1k_convolution_r1(int id, RISMHI3D_FFTW_MP * param, int si, int 
         size_t begin = N3 / fftw_mp->np * id; size_t end = N3 / fftw_mp->np * (id+1); if (id+1 >= fftw_mp->np) end = N3;
         for (int it=0; it<n_active_jobs; it++){
             __REAL__ * out1 = fftw_mp->fft[it].out1;
-            __REAL__ * in1 = &fftw_mp->fft[it].fftin[0][0][0];
+            double * in1 = &fftw_mp->fft[it].fftin[0][0][0];
             for (size_t i3=begin; i3<end; i3++) out1[i3] += in1[i3];
         }
     }
@@ -781,3 +781,103 @@ class RISMHI3D_FFSR_MP {
 //------------------------------   Other procedures   -----------------------------
 //---------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+
+typedef double convolution_kernel_ptr(double k, int si, int sj, void * params);
+
+void perform_3rxf1k_convolution(__REAL__ *** f3r[], int nx, int ny, int nz, Vector box, int ni, int nj, convolution_kernel_ptr * kernel_function, void * kernel_param, __REAL__ *** out[], double *** fftin, double *** fftout, fftw_plan & planf, fftw_plan & planb, bool clear_out=true){
+    double dx = box.x/nx; double dy = box.y/ny; double dz = box.z/nz; // int flips[3] = { nx, ny, nz };
+    double dkx = 2*PI/(nx * dx); double dky = 2*PI/(ny * dy); double dkz = 2*PI/(nz * dz);
+    double convolution_factor = 1.0 / (nx * ny * nz);
+    size_t N3 = nx * ny * nz;
+
+    double * fftin1 = &fftin[0][0][0];
+    double * fftout1 = &fftout[0][0][0];
+
+    if (clear_out) clear_tensor4d(out, ni * N3);
+    for (int si=0; si<ni; si++){
+        __REAL__ * out1 = &out[si][0][0][0];
+        for (int sj=0; sj<nj; sj++){
+            __REAL__ * f3r1 = &f3r[sj][0][0][0];
+          // f3k_j = FFT[f3r_j] -> fftout
+            for (size_t i3=0; i3<N3; i3++) fftin1[i3] = f3r1[i3];
+            fftw_execute(planf);
+          // f1k_ij f3k_j -> fftout
+            for (int iz=0; iz<=nz/2; iz++) for (int iy=0; iy<=ny/2; iy++) for (int ix=0; ix<=nx/2; ix++){
+                double kx = dkx * (ix+0); double ky = dky * (iy+0); double kz = dkz * (iz+0);
+                double k = sqrt(kx*kx + ky*ky + kz*kz);
+                double intp = kernel_function(k, si, sj, kernel_param);
+                double intp_factor = intp;
+                unsigned int mask = 0; if (ix==0||ix>=nx-ix) mask |= 1; if (iy==0||iy>=ny-iy) mask |= 2; if (iz==0||iz>=nz-iz) mask |= 4;
+                fftout[iz][iy][ix] *= intp_factor;
+                if (!(mask&1)) fftout[iz][iy][nx-ix] *= intp_factor;
+                if (!(mask&2)) fftout[iz][ny-iy][ix] *= intp_factor;
+                if (!(mask&3)) fftout[iz][ny-iy][nx-ix] *= intp_factor;
+                if (!(mask&4)) fftout[nz-iz][iy][ix] *= intp_factor;
+                if (!(mask&5)) fftout[nz-iz][iy][nx-ix] *= intp_factor;
+                if (!(mask&6)) fftout[nz-iz][ny-iy][ix] *= intp_factor;
+                if (!(mask&7)) fftout[nz-iz][ny-iy][nx-ix] *= intp_factor;
+            }
+          // FFTi[f1k_ij f3k_j] -> fftin
+            fftw_execute(planb);
+          // f1r_ij * f3k_j -(+)-> out_i
+            for (size_t i3=0; i3<N3; i3++) out1[i3] += fftin1[i3] * convolution_factor;
+        }
+    }
+}
+*/
+
+void perform_3rxf1k_convolution(__REAL__ *** f3r[], int nx, int ny, int nz, Vector box, int ni, int nj, __REAL__ *** f1k, double dk, double xvv_k_shift, int nf1k, __REAL__ *** out[], double *** fftin, double *** fftout, fftw_plan & planf, fftw_plan & planb, bool clear_out=true){
+    double dx = box.x/nx; double dy = box.y/ny; double dz = box.z/nz; // int flips[3] = { nx, ny, nz };
+    double dkx = 2*PI/(nx * dx); double dky = 2*PI/(ny * dy); double dkz = 2*PI/(nz * dz);
+    double convolution_factor = 1.0 / (nx * ny * nz);
+    size_t N3 = nx * ny * nz;
+
+    double * fftin1 = &fftin[0][0][0];
+    double * fftout1 = &fftout[0][0][0];
+
+    if (clear_out) clear_tensor4d(out, ni * N3);
+    for (int si=0; si<ni; si++){
+        __REAL__ * out1 = &out[si][0][0][0];
+        for (int sj=0; sj<nj; sj++){
+            __REAL__ * f3r1 = &f3r[sj][0][0][0];
+          // f3k_j = FFT[f3r_j] -> fftout
+            for (size_t i3=0; i3<N3; i3++) fftin1[i3] = f3r1[i3];
+            fftw_execute(planf);
+          // f1k_ij f3k_j -> fftout
+            for (int iz=0; iz<=nz/2; iz++) for (int iy=0; iy<=ny/2; iy++) for (int ix=0; ix<=nx/2; ix++){
+                double kx = dkx * (ix+0); double ky = dky * (iy+0); double kz = dkz * (iz+0);
+                double k = sqrt(kx*kx + ky*ky + kz*kz);
+                //double intp = interpolate(k, f1k[si][sj], xvv_k_shift*dk, nf1k, dk);
+                double density = 33.4; double ksigma = k * pow(fabs(1.0/density/4.0*3.0/PI), 1.0/3);
+                double intp = k==0? 1 : (4*PI*(sin(ksigma) - ksigma*cos(ksigma))/k/k/k)*density;
+                double intp_factor = intp;
+                unsigned int mask = 0; if (ix==0||ix>=nx-ix) mask |= 1; if (iy==0||iy>=ny-iy) mask |= 2; if (iz==0||iz>=nz-iz) mask |= 4;
+                fftout[iz][iy][ix] *= intp_factor;
+                if (!(mask&1)) fftout[iz][iy][nx-ix] *= intp_factor;
+                if (!(mask&2)) fftout[iz][ny-iy][ix] *= intp_factor;
+                if (!(mask&3)) fftout[iz][ny-iy][nx-ix] *= intp_factor;
+                if (!(mask&4)) fftout[nz-iz][iy][ix] *= intp_factor;
+                if (!(mask&5)) fftout[nz-iz][iy][nx-ix] *= intp_factor;
+                if (!(mask&6)) fftout[nz-iz][ny-iy][ix] *= intp_factor;
+                if (!(mask&7)) fftout[nz-iz][ny-iy][nx-ix] *= intp_factor;
+            }
+          // FFTi[f1k_ij f3k_j] -> fftin
+            fftw_execute(planb);
+          // f1r_ij * f3k_j -(+)-> out_i
+            for (size_t i3=0; i3<N3; i3++) out1[i3] += fftin1[i3] * convolution_factor;
+        }
+    }
+}

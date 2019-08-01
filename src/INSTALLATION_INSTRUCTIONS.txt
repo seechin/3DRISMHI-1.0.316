@@ -12,7 +12,7 @@ _GROMACS_               include GROMACS package to read XTC
 _LOCALPARALLEL_         enable multithread paralleling
 _LOCALPARALLEL_PTHREAD_ enable pthread paralleling. fork paralleling will be used if not defined
 _LOCALPARALLEL_FFTW_    enable FFTW paralleling by this program (one FFTW per thread, and each FFTW is performed in a single thread manner)
-_FFTWMPPARALLEL_        enable FFTW paralleling by fftw_thread. Warning: don't use _FFTWMPPARALLEL_ and _LOCALPARALLEL_FFTW_ together.
+_FFTWMPPARALLEL_        enable FFTW paralleling by fftw_thread. 
 _LIBZ_                  enable compression of output 4D data file
 _INTERACTIVE_           enable interactive interface, in which one can pause, continue or stop the calculation, modify parameters, or print results
 _TTYPROMPTCOLOR_        #undef _TTYPROMPTCOLOR_ will disable colors of error messages in TTY output
@@ -42,21 +42,31 @@ main-header.h:
 compilation:
   g++ rismhi3d.cpp -o rismhi3d -I$FFTW_path/include -L$FFTW_path/lib -lfftw3 -lm -lpthread
 
-3.4. Enable LIBZ compression: single thread version, LIBZ compression, support PDB/GRO trajectories only.
+3.4. The parallel version: pthread/fork paralleling together with multithread fftw, no data compression, support PDB/GRO trajectories only.
+  (This requires multithread version of fftw, i.e. libfftw3_threads.la)
+main-header.h:
+  #define _LOCALPARALLEL_
+  #define _LOCALPARALLEL_FFTW_
+  #define _LOCALPARALLEL_PTHREAD_
+  #define _FFTWMPPARALLEL_
+compilation:
+  g++ rismhi3d.cpp -o rismhi3d -I$FFTW_path/include -L$FFTW_path/lib -lfftw3 -lfftw3_threads -lm -lpthread
+
+3.5. Enable LIBZ compression: single thread version, LIBZ compression, support PDB/GRO trajectories only.
 main-header.h:
   #define _LOCALPARALLEL_
   #define _LIBZ_
 compilation:
   g++ rismhi3d.cpp -o rismhi3d -I$FFTW_path/include -L$FFTW_path/lib -lfftw3 -lm -lz
 
-3.5.1 Enable GROMACS v4 XTC reading:
+3.6.1 Enable GROMACS v4 XTC reading:
 First install GROMACS4, and source $GROMACS4_installation_folder/bin/GMXRC
 main-header.h:
   #define _GROMACS4_
 compilation:
   g++ rismhi3d.cpp -o rismhi3d -I$FFTW_path/include -L$FFTW_path/lib -lfftw3 -lm -I$GMXLDLIB/../include -L$GMXLDLIB -lgmx
 
-3.5.2 Enable GROMACS v5 (and after) XTC reading:
+3.6.2 Enable GROMACS v5 (and after) XTC reading:
 First install GROMACS, and source $GROMACS_installation_folder/bin/GMXRC
 main-header.h:
   #define _GROMACS_
@@ -64,7 +74,7 @@ compilation:
   g++ rismhi3d.cpp -o rismhi3d -I$FFTW_path/include -L$FFTW_path/lib -lfftw3 -lm -I$GMXLDLIB/../include -L$GMXLDLIB -lgromacs
 
 
-3.6. A complete version with all features: 
+3.7. A complete version with all features: 
 First install GROMACS, and source $GROMACS_installation_folder/bin/GMXRC
 main-header.h:
   #define   _GROMACS_

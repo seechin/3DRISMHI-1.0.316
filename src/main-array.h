@@ -7,7 +7,7 @@ class EnergyReport {
   public:
     double mass, mass_mol, density;
     double lj, coulsr, coullr, entropy, N, N0, dN, Ng, dNg, pmv;
-    double Chandler_Guv[2], zeta[4], cuv, clr, chuv, Uef0;
+    double Chandler_Guv[2], zeta[4], cuv, clr, chuv, Uef0, Uef1;
   public:
     void operator += (EnergyReport & o){
       // potential energy
@@ -29,40 +29,42 @@ class EnergyReport {
         clr += o.clr;// * o.mass / o.mass_mol;
         chuv += o.chuv;// * o.mass / o.mass_mol;
         Uef0 += o.Uef0;
+        Uef1 += o.Uef1;
     }
     void operator *= (double scaling){
         mass *= scaling; mass_mol *= scaling; density *= scaling;
         lj *= scaling; coulsr *= scaling; coullr *= scaling; entropy *= scaling;
         N *= scaling; N0 *= scaling; Ng *= scaling; dNg *= scaling;
         Chandler_Guv[0] *= scaling; Chandler_Guv[1] *= scaling;
-        cuv *= scaling; clr *= scaling; Uef0 *= scaling;
+        cuv *= scaling; clr *= scaling; Uef0 *= scaling; Uef1 *= scaling;
     }
 };
 double calculate_zeta_by_chuv(int closure, double factor, double uuv, double huv, double cuv, double hlr){
     double chuv = huv - cuv; double t_over_ch = 0; double s, t;
     switch (closure) {
         case CLOSURE_HNC            : t_over_ch = 1; break;
+        case CLOSURE_PLHNC          : t_over_ch = 1; break;
         case CLOSURE_MHNC           : t_over_ch = 1; break; // not defined
-        case CLOSURE_MSA            : t_over_ch = chuv==0? 1 : (ln(1-uuv+chuv) + uuv)/chuv; break;
-        case CLOSURE_KGK            : t_over_ch = chuv==0? 1 : (ln(1-uuv+chuv) + uuv)/chuv; break;
-        case CLOSURE_PY             : t_over_ch = chuv==0? 1 : ln(1+chuv)/chuv; break;
+        case CLOSURE_MSA            : t_over_ch = 1; break; // t_over_ch = chuv==0? 1 : (ln(1-uuv+chuv) + uuv)/chuv; break;
+        case CLOSURE_KGK            : t_over_ch = 1; break; // t_over_ch = chuv==0? 1 : (ln(1-uuv+chuv) + uuv)/chuv; break;
+        case CLOSURE_PY             : t_over_ch = 1; break; // t_over_ch = chuv==0? 1 : ln(1+chuv)/chuv; break;
         case CLOSURE_D2             : t_over_ch = 1 - chuv/2; break;
         case CLOSURE_HNCB           : t_over_ch = 1; break;  // undefined
         //case CLOSURE_KH             : t_over_ch = -uuv+chuv<=0? 1 : chuv==0? 1 : (ln(1-uuv+chuv) + uuv)/chuv; break;
         case CLOSURE_KH             : t_over_ch = 1; break;
-        case CLOSURE_PSE2           : t_over_ch = chuv<=0? 1 : ln(1+chuv+chuv*chuv/2)/chuv; break;
-        case CLOSURE_PSE3           : t_over_ch = chuv<=0? 1 : ln(1+chuv+chuv*chuv/2+chuv*chuv*chuv/6)/chuv; break;
-        case CLOSURE_PSE4           : t_over_ch = chuv<=0? 1 : ln(1+chuv+chuv*chuv/2+chuv*chuv*chuv/6+chuv*chuv*chuv*chuv/24)/chuv; break;
-        case CLOSURE_PSE5           : t_over_ch = chuv<=0? 1 : ln(1+chuv+chuv*chuv/2+chuv*chuv*chuv/6+chuv*chuv*chuv*chuv/24+chuv*chuv*chuv*chuv*chuv/120)/chuv; break;
-        case CLOSURE_PSE6           : t_over_ch = chuv<=0? 1 : ln(1+chuv+chuv*chuv/2+chuv*chuv*chuv/6+chuv*chuv*chuv*chuv/24+chuv*chuv*chuv*chuv*chuv/120+chuv*chuv*chuv*chuv*chuv*chuv/720)/chuv; break;
-        case CLOSURE_PSE7           : t_over_ch = chuv<=0? 1 : ln(1+chuv+chuv*chuv/2+chuv*chuv*chuv/6+chuv*chuv*chuv*chuv/24+chuv*chuv*chuv*chuv*chuv/120+chuv*chuv*chuv*chuv*chuv*chuv/720+chuv*chuv*chuv*chuv*chuv*chuv*chuv/5040)/chuv; break;
-        case CLOSURE_PSE8           : t_over_ch = chuv<=0? 1 : ln(1+chuv+chuv*chuv/2+chuv*chuv*chuv/6+chuv*chuv*chuv*chuv/24+chuv*chuv*chuv*chuv*chuv/120+chuv*chuv*chuv*chuv*chuv*chuv/720+chuv*chuv*chuv*chuv*chuv*chuv*chuv/5040+chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv/40320)/chuv; break;
-        case CLOSURE_PSE9           : t_over_ch = chuv<=0? 1 : ln(1+chuv+chuv*chuv/2+chuv*chuv*chuv/6+chuv*chuv*chuv*chuv/24+chuv*chuv*chuv*chuv*chuv/120+chuv*chuv*chuv*chuv*chuv*chuv/720+chuv*chuv*chuv*chuv*chuv*chuv*chuv/5040+chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv/40320+chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv/362880)/chuv; break;
-        case CLOSURE_PSE10          : t_over_ch = chuv<=0? 1 : ln(1+chuv+chuv*chuv/2+chuv*chuv*chuv/6+chuv*chuv*chuv*chuv/24+chuv*chuv*chuv*chuv*chuv/120+chuv*chuv*chuv*chuv*chuv*chuv/720+chuv*chuv*chuv*chuv*chuv*chuv*chuv/5040+chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv/40320+chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv/362880+chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv/3628800)/chuv; break;
-        case CLOSURE_MS             : t_over_ch = chuv==0? 1 : sqrt(1+2*chuv)/chuv; break;
-        case CLOSURE_BPGGHNC        : t_over_ch = chuv==0? 1 : pow(1+factor*chuv, 1.0/factor)/chuv; break;
-        case CLOSURE_VM             : t_over_ch = chuv==0? 1 : 1 - chuv/2/(1+factor*chuv); break;
-        case CLOSURE_MP             : t_over_ch = chuv==0? 1 : ((1+factor)*exp(chuv/(1+factor)) - factor)/chuv; break;
+        case CLOSURE_PSE2           : t_over_ch = 1; break; // t_over_ch = chuv<=0? 1 : ln(1+chuv+chuv*chuv/2)/chuv; break;
+        case CLOSURE_PSE3           : t_over_ch = 1; break; // t_over_ch = chuv<=0? 1 : ln(1+chuv+chuv*chuv/2+chuv*chuv*chuv/6)/chuv; break;
+        case CLOSURE_PSE4           : t_over_ch = 1; break; // t_over_ch = chuv<=0? 1 : ln(1+chuv+chuv*chuv/2+chuv*chuv*chuv/6+chuv*chuv*chuv*chuv/24)/chuv; break;
+        case CLOSURE_PSE5           : t_over_ch = 1; break; // t_over_ch = chuv<=0? 1 : ln(1+chuv+chuv*chuv/2+chuv*chuv*chuv/6+chuv*chuv*chuv*chuv/24+chuv*chuv*chuv*chuv*chuv/120)/chuv; break;
+        case CLOSURE_PSE6           : t_over_ch = 1; break; // t_over_ch = chuv<=0? 1 : ln(1+chuv+chuv*chuv/2+chuv*chuv*chuv/6+chuv*chuv*chuv*chuv/24+chuv*chuv*chuv*chuv*chuv/120+chuv*chuv*chuv*chuv*chuv*chuv/720)/chuv; break;
+        case CLOSURE_PSE7           : t_over_ch = 1; break; // t_over_ch = chuv<=0? 1 : ln(1+chuv+chuv*chuv/2+chuv*chuv*chuv/6+chuv*chuv*chuv*chuv/24+chuv*chuv*chuv*chuv*chuv/120+chuv*chuv*chuv*chuv*chuv*chuv/720+chuv*chuv*chuv*chuv*chuv*chuv*chuv/5040)/chuv; break;
+        case CLOSURE_PSE8           : t_over_ch = 1; break; // t_over_ch = chuv<=0? 1 : ln(1+chuv+chuv*chuv/2+chuv*chuv*chuv/6+chuv*chuv*chuv*chuv/24+chuv*chuv*chuv*chuv*chuv/120+chuv*chuv*chuv*chuv*chuv*chuv/720+chuv*chuv*chuv*chuv*chuv*chuv*chuv/5040+chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv/40320)/chuv; break;
+        case CLOSURE_PSE9           : t_over_ch = 1; break; // t_over_ch = chuv<=0? 1 : ln(1+chuv+chuv*chuv/2+chuv*chuv*chuv/6+chuv*chuv*chuv*chuv/24+chuv*chuv*chuv*chuv*chuv/120+chuv*chuv*chuv*chuv*chuv*chuv/720+chuv*chuv*chuv*chuv*chuv*chuv*chuv/5040+chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv/40320+chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv/362880)/chuv; break;
+        case CLOSURE_PSE10          : t_over_ch = 1; break; // t_over_ch = chuv<=0? 1 : ln(1+chuv+chuv*chuv/2+chuv*chuv*chuv/6+chuv*chuv*chuv*chuv/24+chuv*chuv*chuv*chuv*chuv/120+chuv*chuv*chuv*chuv*chuv*chuv/720+chuv*chuv*chuv*chuv*chuv*chuv*chuv/5040+chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv/40320+chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv/362880+chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv/3628800)/chuv; break;
+        case CLOSURE_MS             : t_over_ch = 1; break; // t_over_ch = chuv==0? 1 : sqrt(1+2*chuv)/chuv; break;
+        case CLOSURE_BPGGHNC        : t_over_ch = 1; break; // t_over_ch = chuv==0? 1 : pow(1+factor*chuv, 1.0/factor)/chuv; break;
+        case CLOSURE_VM             : t_over_ch = 1; break; // t_over_ch = chuv==0? 1 : 1 - chuv/2/(1+factor*chuv); break;
+        case CLOSURE_MP             : t_over_ch = 1; break; // t_over_ch = chuv==0? 1 : ((1+factor)*exp(chuv/(1+factor)) - factor)/chuv; break;
         default:
           #ifdef _EXPERIMENTAL_
             t_over_ch = experimental_calculate_t_over_ch_by_chuv(closure, factor, uuv, huv, cuv, hlr);
@@ -123,8 +125,8 @@ class IET_arrays {
     DIISNS::DIIS * diis_current;
     __REAL__ **** ddpot_hi, **** huv;
   public:  // fftw related
-    double *** fftin;
-    double *** fftout;
+    __REAL__ *** fftin;
+    __REAL__ *** fftout;
     fftw_plan planf, planb;
   public:  // other internal variables
     RISMHI3D_FFTW_MP fftw_mp;
@@ -172,8 +174,8 @@ class IET_arrays {
             diis_hi.ndiis = 0;
         }
       // clear fftw cache
-        clear_tensor3d_double(fftin, N3);
-        clear_tensor3d_double(fftout, N3);
+        clear_tensor3d(fftin, N3);
+        clear_tensor3d(fftout, N3);
       // other clear
         if (clear_ff || clear_uuv || clear_h_c){
             memset(&site_energy, 0, sizeof(site_energy));
@@ -195,11 +197,13 @@ class IET_arrays {
         dx = box.x / nx; dkx = 2*PI / (nx * dx);
         dy = box.y / ny; dky = 2*PI / (ny * dx);
         dz = box.z / nz; dkz = 2*PI / (nz * dx);
-        solver_hi.set_param(sys->lse_a, sys->lse_b, &sys->ex, 0, 2, true);
-        //if (sys->hial!=0){
-            //solver_hi.lse_a = sys->lse_a; solver_hi.lse_b = sys->lse_b; solver_hi.lse_lambda = sys->lse_lambda;
-            //solver_hi.set_trim(); solver_hi.prepare(0, 2);
-        //}
+
+        #ifdef _EXPERIMENTAL_
+            solver_hi.set_param(sys->lse_a, sys->lse_b, &sys->ex, 0, 2, true);
+        #else
+            solver_hi.set_param(sys->lse_a, sys->lse_b, 0, 2, true);
+        #endif
+
         fftw_mp.set_scale(_box);
         uuv_is_ready = false;
         is_energy_calculated = false;
@@ -245,8 +249,8 @@ class IET_arrays {
         for (int i=0; i<MAX_CACHE_COUNT; i++) rismhi_cache[i] = debug_trace_init4d(sys, "cache", init_tensor4d(nv, nz, ny, nx, 0));
           res = rismhi_cache[0]; ddpot_hi = huv = rismhi_cache[1];
         for (int i=0; i<nvm; i++) guvm[i] = debug_trace_init3d(sys, "guvm", init_tensor3d<__REAL__>(nz, ny, nx, 0));
-        fftin = debug_trace_init3d(sys, "fftin", init_tensor3d<double>(nz, ny, nx, 0));
-        fftout = debug_trace_init3d(sys, "fftout", init_tensor3d<double>(nz, ny, nx, 0));
+        fftin = debug_trace_init3d(sys, "fftin", init_tensor3d<__REAL__>(nz, ny, nx, 0));
+        fftout = debug_trace_init3d(sys, "fftout", init_tensor3d<__REAL__>(nz, ny, nx, 0));
 
       #ifdef _LOCALPARALLEL_
         char debug_output_title[128];
@@ -257,7 +261,7 @@ class IET_arrays {
       #else
       #endif
       #ifdef _FFTWMPPARALLEL_
-        fftw_plan_with_nthreads(sys->nt);
+        fftw_plan_with_nthreads(sys->ntf);
       #endif
         planf = fftw_plan_r2r_3d(nz, ny, nx, &fftin[0][0][0], &fftout[0][0][0], (fftw_r2r_kind)FFTW_FORWARD, (fftw_r2r_kind)FFTW_FORWARD, (fftw_r2r_kind)FFTW_FORWARD, FFTW_ESTIMATE);
         planb = fftw_plan_r2r_3d(nz, ny, nx, &fftout[0][0][0], &fftin[0][0][0], (fftw_r2r_kind)FFTW_BACKWARD, (fftw_r2r_kind)FFTW_BACKWARD, (fftw_r2r_kind)FFTW_BACKWARD, FFTW_ESTIMATE);
@@ -335,10 +339,10 @@ class IET_arrays {
               // internal calculation
                 //if (huv1[i3]+1>hardsphere_guv_cutoff) site_energy[iv].cuv += (cuv1[i3]) * dN;
                 //if (huv1[i3]+1>hardsphere_guv_cutoff) site_energy[iv].clr += (clr1[i3]) * dN;
-site_energy[iv].cuv += (cuv1[i3]) * dN; site_energy[iv].clr += (clr1[i3]) * dN;
+                site_energy[iv].cuv += (cuv1[i3]) * dN; site_energy[iv].clr += (clr1[i3]) * dN;
                 //if (huv1[i3]+1>hardsphere_guv_cutoff) site_energy[iv].clr += (ln(huv1[i3]+1)*beta + uuv1[i3])*dn;
                 double zeta_this = calculate_zeta_by_chuv(sys->closures[iv], sys->closure_factors[iv], uuv1[i3], huv1[i3], cuv1[i3], hlr1[i3]);
-                if (dn>MACHINE_REASONABLE_ERROR){
+                if (dn>sys->gcutoff_liquid_occupation){
                     site_energy[iv].zeta[0] += zeta_this * dN * (dd1? dd1[i3]:nbulk) ;
                     site_energy[iv].zeta[1] += zeta_this * dN * sys->av[iv].multi * (dd1? dd1[i3]:nbulk) ;
                     site_energy[iv].zeta[2] += clr[iv][0][0][i3] * dN * (dd1? dd1[i3]:nbulk) ;
@@ -346,9 +350,16 @@ site_energy[iv].cuv += (cuv1[i3]) * dN; site_energy[iv].clr += (clr1[i3]) * dN;
                 }
                 //if (huv1[i3]+1>hardsphere_guv_cutoff) site_energy[iv].chuv += cuv1[i3]*dN + 0.5*(cuv1[i3]) * (dn - dN);
                 if (huv1[i3]+1>hardsphere_guv_cutoff) site_energy[iv].chuv += (huv1[i3] - cuv1[i3])*dN;
-                if (g>MACHINE_REASONABLE_ERROR){
+                if (g>sys->gcutoff_liquid_occupation){
+                    double this_n = 1; if (dd){ this_n = 0;
+                        for (int ivm=0; ivm<nvm; ivm++) this_n += dd[ivm][0][0][i3] / sys->dielect_mol[ivm];
+                        this_n = 1 - this_n; if (this_n<0) this_n = 0;
+                    }
                     Vector Eef0 = Vector(Ecoul0[0][0][0][i3], Ecoul0[1][0][0][i3], Ecoul0[2][0][0][i3]);
-                    site_energy[iv].Uef0 += dV * (0.5/(4*PI*COULCOOEF)) * Eef0.pow2() / nv * sys->scale_coul;
+                    double Eef02 = Eef0.pow2();
+                    double this_Uef0 = dV * (0.5/(4*PI*COULCOOEF)) * Eef02 / nv * sys->scale_coul;
+                    site_energy[iv].Uef0 += this_Uef0;
+                    site_energy[iv].Uef1 += this_n * this_Uef0;
                 }
                 if (r2uvmin&&r2uvmin[0][0][i3]<MACHINE_REASONABLE_ERROR){ n_rhob ++; rhob += g; }
             }
@@ -377,13 +388,13 @@ site_energy[iv].cuv += (cuv1[i3]) * dN; site_energy[iv].clr += (clr1[i3]) * dN;
     }
     void display_solvation_energy_full(IET_Param * sys, FILE * flog, FILE * flog2, const char * prefix = "", const char * total_prefix="total", bool b_title=true, bool b_detail=true, bool b_sum=true){
         FILE * fout[2] = { flog, flog2 };
-        if (b_title) for (int io=0; io<2; io++) if (fout[io]) fprintf(fout[io], "%s%7s %10s %10s %10s %10s %10s %10s %10s %10s %10s\n", prefix, "Atom", "mass", "DN", "DN_vac", "-TS", "LJSR", "Coulomb", "Euv", "Uef0", "PMV");
+        if (b_title) for (int io=0; io<2; io++) if (fout[io]) fprintf(fout[io], "%s%7s %10s %10s %10s %10s %10s %10s %10s %10s %10s\n", prefix, "Atom", "mass", "DN", "DN_vac", "-TS", "LJSR", "Coulomb", "Uef1", "Uef0", "PMV");
         if (b_detail) for (int iv=0; iv<nv; iv++){
             char mass_string[32];
             snprintf(mass_string, sizeof(mass_string), "%.0fx%d", sys->av[iv].mass, sys->av[iv].multi);
-            for (int io=0; io<2; io++) if (fout[io]) if (nv>1) fprintf(fout[io], "%s%7s %10s %10.4g %10.4g %10.4g %10.4g %10.4g %10.4g %10.4g %10.4g\n", prefix, sys->av[iv].name, mass_string, site_energy[iv].dN, site_energy[iv].dNg, site_energy[iv].entropy, site_energy[iv].lj, site_energy[iv].coulsr+site_energy[iv].coullr, site_energy[iv].lj+site_energy[iv].coulsr+site_energy[iv].coullr,site_energy[iv].Uef0, site_energy[iv].pmv);
+            for (int io=0; io<2; io++) if (fout[io]) if (nv>1) fprintf(fout[io], "%s%7s %10s %10.4g %10.4g %10.4g %10.4g %10.4g %10.4g %10.4g %10.4g\n", prefix, sys->av[iv].name, mass_string, site_energy[iv].dN, site_energy[iv].dNg, site_energy[iv].entropy, site_energy[iv].lj, site_energy[iv].coulsr+site_energy[iv].coullr, site_energy[iv].Uef1,site_energy[iv].Uef0, site_energy[iv].pmv);
         }
-        if (b_sum) for (int io=0; io<2; io++) if (fout[io]) fprintf(fout[io], "%s%7s %10.4g %10.4g %10.4g %10.4g %10.4g %10.4g %10.4g %10.4g %10.4g\n", prefix, total_prefix, total_energy.mass, total_energy.dN, total_energy.dNg, total_energy.entropy, total_energy.lj, total_energy.coulsr+total_energy.coullr, total_energy.lj+total_energy.coulsr+total_energy.coullr, total_energy.Uef0, total_energy.pmv);
+        if (b_sum) for (int io=0; io<2; io++) if (fout[io]) fprintf(fout[io], "%s%7s %10.4g %10.4g %10.4g %10.4g %10.4g %10.4g %10.4g %10.4g %10.4g\n", prefix, total_prefix, total_energy.mass, total_energy.dN, total_energy.dNg, total_energy.entropy, total_energy.lj, total_energy.coulsr+total_energy.coullr, total_energy.Uef1, total_energy.Uef0, total_energy.pmv);
     }
     void display_solvation_energy_ef(IET_Param * sys, FILE * flog, FILE * flog2, const char * prefix = "", const char * total_prefix="total"){
         FILE * fout[2] = { flog, flog2 };

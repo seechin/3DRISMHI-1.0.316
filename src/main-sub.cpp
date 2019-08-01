@@ -62,66 +62,7 @@ void main_generate_default_gvv_map(IET_Param * sys, IET_arrays * arr, FILE * flo
         }
     }
 }
-//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-void perform_cavity_removal_correction_uuv(IET_Param * sys, IET_arrays * arr){
-    int N3 = arr->nx*arr->ny*arr->nz; double rc = sys->rvdw; if (rc>sys->rcoul) rc = sys->rcoul; double rc2 = rc*rc;
-    __REAL__ **** cache0 = arr->res; __REAL__ **** cache1 = arr->rismhi_cache[2]; __REAL__ **** cache2 = arr->rismhi_cache[3];
-  // 1. local density from potential cutoff -> cache0
-    for (int iv=0; iv<sys->nvm; iv++) for (int iz=0; iz<arr->nz; iz++) for (int iy=0; iy<arr->ny; iy++) for (int ix=0; ix<arr->nx; ix++){
-        double U = atomised_molecule_uv_potential(sys, arr, iv, ix, iy ,iz);
-        if (U >= sys->cavity_ucutoff) cache0[iv][iz][iy][ix] = 0; else cache0[iv][iz][iy][ix] = 1;
-    }
-  // 2. extract regions that fully accommodates at least one solvent molecule -> cache1
-    perform_3rx1k_convolution(&arr->fftw_mp, cache0, arr->nx, arr->ny, arr->nz, arr->box, sys->nvm, sys->nvm, arr->ld_kernel, arr->dk_nhkvv, sys->xvv_k_shift, arr->n_nhkvv, cache1, arr->fftin, arr->fftout, arr->planf, arr->planb, true);
-    for (int iv=0; iv<sys->nvm; iv++){
-        double ld_bulk = 0; double n_ld_bulk = 0;
-        for (size_t i3=0; i3<N3; i3++) if (!(arr->r2uvmin[0][0][i3]<rc2 && arr->r2uvmin[0][0][i3]>=0)){
-            n_ld_bulk ++; ld_bulk += cache1[iv][0][0][i3];
-        }
-        if (n_ld_bulk>0) ld_bulk /= n_ld_bulk;
-        if (ld_bulk!=0) for (size_t i3=0; i3<N3; i3++){
-            cache1[iv][0][0][i3] /= ld_bulk;
-            if (cache1[iv][0][0][i3]<0.99) cache1[iv][0][0][i3] = 0; else cache1[iv][0][0][i3] = 1;
-        }
-    }
-  // 3. calculate local density -> cache2
-    perform_3rx1k_convolution(&arr->fftw_mp, cache1, arr->nx, arr->ny, arr->nz, arr->box, sys->nvm, sys->nvm, arr->ld_kernel, arr->dk_nhkvv, sys->xvv_k_shift, arr->n_nhkvv, cache2, arr->fftin, arr->fftout, arr->planf, arr->planb, true);
-    double ld_forbidden_factor = sys->cavity_removal_factor;
-    for (int iv=0; iv<sys->nvm; iv++){
-      // local density rescale to have bulk as 1
-        double ld_bulk = 0; double n_ld_bulk = 0;
-        for (size_t i3=0; i3<N3; i3++) if (!(arr->r2uvmin[0][0][i3]<rc2 && arr->r2uvmin[0][0][i3]>=0)){
-            n_ld_bulk ++; ld_bulk += cache2[iv][0][0][i3];
-        }
-        if (n_ld_bulk>0) ld_bulk /= n_ld_bulk;
-        if (ld_bulk!=0) for (size_t i3=0; i3<N3; i3++){
-            cache2[iv][0][0][i3] /= ld_bulk;
-        }
-      // find local density at forbidden regions
-        double ld_forbidden = 0; double n_ld_forbidden = 0;
-        for (int iz=0; iz<arr->nz; iz++) for (int iy=0; iy<arr->ny; iy++) for (int ix=0; ix<arr->nx; ix++){
-            double U = atomised_molecule_uv_potential(sys, arr, iv, ix, iy ,iz);
-            if (U >= sys->cavity_ucutoff){ n_ld_forbidden ++; ld_forbidden += cache2[iv][iz][iy][ix]; }
-        }
-        if (n_ld_forbidden>0){ ld_forbidden /= n_ld_forbidden; n_ld_forbidden = 0; }
-        //printf("solvent %d has ld_forbidden %g\n", iv, ld_forbidden);
-      // cutoff at local density of forbidden regions
-        if (ld_bulk!=0) for (size_t i3=0; i3<N3; i3++){
-            if (cache2[iv][0][0][i3]>ld_forbidden*ld_forbidden_factor) cache2[iv][0][0][i3] = 1; else cache2[iv][0][0][i3] = 0;
-        }
-    }
-  // 4. fill unforgiven regions
-    clear_tensor4d(arr->res, N3*sys->nv);
-    for (int iv=0; iv<sys->nv; iv++){ int ivm = sys->av[iv].iaa;
-        for (size_t i3=0; i3<N3; i3++) if (arr->uuv[iv][0][0][i3]<sys->cavity_ucutoff && cache2[ivm][0][0][i3]<0.5){
-            arr->uuv[iv][0][0][i3] = sys->cavity_ucutoff;
-            arr->res[iv][0][0][i3] = 1;
-        }
-    }
-  // 5. finally
-    //FILE * file_out = nullptr; char fn[MAX_PATH]; strcpy(fn, "local_density"); append_save_data(&file_out, fn, sys->log(), "ld", "", arr->nx, arr->ny, arr->nz, arr->nvm, &arr->res[0][0][0][0], 1, sys); if (file_out) fclose(file_out);
-    //FILE * file_out = nullptr; char fn[MAX_PATH]; strcpy(fn, "local_density"); append_save_data(&file_out, fn, sys->log(), "ld", "", arr->nx, arr->ny, arr->nz, arr->nvm, &cache1[0][0][0][0], 1, sys); append_save_data(&file_out, fn, sys->log(), "ld", "", arr->nx, arr->ny, arr->nz, arr->nvm, &cache2[0][0][0][0], 1, sys); append_save_data(&file_out, fn, sys->log(), "ld", "", arr->nx, arr->ny, arr->nz, arr->nvm, &cache0[0][0][0][0], 1, sys); if (file_out) fclose(file_out);
-}
+
 void build_force_field_auto(IET_Param * sys, IET_arrays * arr, FILE * flog, int nframe){
     if (arr->frame_stamp != nframe) arr->uuv_is_ready = false;
     if (!arr->uuv_is_ready){
@@ -171,11 +112,6 @@ void build_uuv_base_on_force_field(IET_Param * sys, IET_arrays * arr){
     } else {
         if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: build_force_field_uuv_ur()\n");
         build_force_field_uuv_ur(sys, arr);
-    }
-
-    if (sys->cavity_removal_correction){
-        if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: perform_cavity_removal_correction_uuv(sf=%g,crf=%g,cutoff=%g)\n", sys->cavity_size_factor, sys->cavity_removal_factor, sys->cavity_ucutoff);
-        perform_cavity_removal_correction_uuv(sys, arr);
     }
 
     if (sys->ietal==IETAL_SSOZ){
@@ -345,7 +281,7 @@ bool print_rdf(FILE * file, IET_Param * sys, IET_arrays * arr, RDF_data * rdf, d
     for (int i1=0; i1<N1; i1++){
         fprintf(file, "%8.4f", (i1+0.5)*dr);
         for (int ig=0; ig<sys->n_rdf_grps; ig++){
-            double value = rdf[ig].n[i1]>0? rdf[ig].g[i1]/rdf[ig].n[i1] : rdf[ig].g[i1];
+            double value = rdf[ig].n[i1]!=0? rdf[ig].g[i1]/rdf[ig].n[i1] : rdf[ig].g[i1];
             //bit_and(&value, &value, &mask64, 8);
             fprintf(file, " %8.4f", value);
         }
@@ -470,9 +406,11 @@ bool main_prepair_rdf_grps_to_pairs(IET_Param * sys, IET_arrays * arr, RDF_data 
 
     int npr = map_rdf_grps_to_pairs(sys, nullptr, sys->detail_level>=1); //printf("pair number %d, bins %d\n", npr, sys->out_rdf_bins);
     if (npr>0){
-        rdf = (RDF_data*) memalloc( (sizeof(RDF_data)+2*(1+sizeof(double)*sys->out_rdf_bins)) * npr ); n_rdf_pairs = npr;
+        rdf = (RDF_data*) memalloc( (sizeof(RDF_data)+2*(sizeof(double)*(1+sys->out_rdf_bins))) * npr ); n_rdf_pairs = npr;
         if (rdf) for (int i=0; i<npr; i++){
-            rdf[i].is = rdf[i].iv = 0; rdf[i].g = (double*) (((char *)rdf) + sizeof(RDF_data)*npr + 2*(1+sizeof(double)*sys->out_rdf_bins)*i); rdf[i].n = &rdf[i].g[sys->out_rdf_bins+1];
+            rdf[i].is = rdf[i].iv = 0;
+            rdf[i].g = (double*) (((char *)rdf) + sizeof(RDF_data)*npr + 2*i*(sizeof(double)*(1+sys->out_rdf_bins)));
+            rdf[i].n = (double*) (((char *)rdf) + sizeof(RDF_data)*npr + (2*i+1)*(sizeof(double)*(1+sys->out_rdf_bins)));
             for (int j=0; j<sys->out_rdf_bins; j++) rdf[i].g[j] = rdf[i].n[j] = 0;
         }
         int npr_mapped = map_rdf_grps_to_pairs(sys, rdf, false); //for (int i=0; i<n_rdf_pairs; i++) printf("rdf_pair[%d] = %d(%s.%s)-%d(%s.%s)\n", i+1, rdf[i].is+1, sys->as[rdf[i].is].mole,sys->as[rdf[i].is].name, rdf[i].iv+1, sys->av[rdf[i].iv].mole, sys->av[rdf[i].iv].name);

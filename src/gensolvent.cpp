@@ -1,11 +1,11 @@
 const char * software_name = "gensolvent";
-const char * software_version = "a.231.1400";
+const char * software_version = "0.231.1400";
 const char * copyright_string = "(c) Cao Siqin";
 
 #define     __REAL__    double
 #define     MAX_SOL     100     // Max atom site number
 
-#include    "main-header.h"
+#include    "header.h"
 #include    <errno.h>
 #include    <stdio.h>
 #include    <stdlib.h>
@@ -61,7 +61,7 @@ const char * szHelp = "\
 ";
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 #include    "Element.h"
-#include    "StringX.cpp"
+#include    "String2.cpp"
 #include    "Vector.cpp"
 #include    "PDBAtom.cpp"
 #include    "read_pdb_gro.cpp"
