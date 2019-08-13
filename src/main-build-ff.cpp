@@ -282,7 +282,7 @@ void build_force_field_sr(IET_Param * sys, IET_arrays * arr){
     build_force_field_sr_1(0, sys->traj.count, nullptr, sys, arr, arr->ulj, arr->ucoulsr, arr->r2uvmin, arr->Ecoul0, arr->pseudoliquid_potential);
   #endif
     if (sys->detail_level>=3) fprintf(sys->log(), "  FFSR: all %d atoms processed\n", sys->nas);
-    if (sys->debug_level>=3){
+    if (sys->debug_level>=3 || sys->debug_show_crc){
         if (arr->ulj    ) fprintf(sys->log(), "DEBUG:: (debug only) check_real_crc(LJSR)       = %08X\n", check_real_crc(&arr->ulj[0][0][0][0], N4));
         if (arr->ucoulsr) fprintf(sys->log(), "DEBUG:: (debug only) check_real_crc(CoulSR)     = %08X\n", check_real_crc(&arr->ucoulsr[0][0][0], N3));
         if (arr->ucoulsr) fprintf(sys->log(), "DEBUG:: (debug only) check_real_crc(CoulLR)     = %08X\n", check_real_crc(&arr->ucoullr[0][0][0], N3));

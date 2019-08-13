@@ -389,6 +389,30 @@ __REAL__ *** init_tensor3d_pointer(size_t nz, size_t ny, size_t nx, size_t overf
     return a;
 }
 
+__REAL__ *** init_tensor3d_pointer(__REAL__ *** src, size_t nz, size_t ny, size_t overflow_chars=0){
+    size_t lenhz = sizeof(__REAL__**) * nz; size_t lenhy = sizeof(__REAL__*) * nz*ny ;
+    size_t len = lenhz + lenhy + overflow_chars;
+    //printf("ALLOCATING: %12d + %12d + %d\n", lenhz+lenhy, sizeof(__REAL__) * nx * ny * nz, overflow_chars);
+    //printf("allocating %12f\n", sizeof(__REAL__) * nx * ny * nz/(double)len); fflush(stdout);
+    char * p = (char*) memalloc(len); memset(p, 0, len);
+    __REAL__ *** a = (__REAL__***) p; __REAL__ ** b = (__REAL__**) (p + lenhz);
+    for (size_t i=0; i<nz; i++) a[i] = &b[i*ny];
+    for (size_t i=0; i<nz; i++) for (size_t j=0; j<ny; j++) a[i][j] = &src[i][j][0];
+    return a;
+}
+
+__REAL__ *** init_tensor3d_pointer(__REAL__ * data, size_t nz, size_t ny, size_t nx, size_t overflow_chars=0){
+    size_t lenhz = sizeof(__REAL__**) * nz; size_t lenhy = sizeof(__REAL__*) * nz*ny ;
+    size_t len = lenhz + lenhy + overflow_chars;
+    //printf("ALLOCATING: %12d + %12d + %d\n", lenhz+lenhy, sizeof(__REAL__) * nx * ny * nz, overflow_chars);
+    //printf("allocating %12f\n", sizeof(__REAL__) * nx * ny * nz/(double)len); fflush(stdout);
+    char * p = (char*) memalloc(len); memset(p, 0, len);
+    __REAL__ *** a = (__REAL__***) p; __REAL__ ** b = (__REAL__**) (p + lenhz);
+    for (size_t i=0; i<nz; i++) a[i] = &b[i*ny];
+    for (size_t i=0; i<nz; i++) for (size_t j=0; j<ny; j++) a[i][j] = &data[j*nx + i*nx*ny];
+    return a;
+}
+
 // a 3D tensor
 template <class DT> DT *** init_tensor3d(size_t nz, size_t ny, size_t nx, size_t overflow_chars=0){
     size_t lenhz = sizeof(DT**) * nz; size_t lenhy = sizeof(DT*) * nz*ny ;
@@ -478,7 +502,7 @@ void perform_3rx1k_convolution(__REAL__ *** f3r[], int nx, int ny, int nz, Vecto
     if (clear_out) clear_tensor4d(out, ni * N3);
     for (int si=0; si<ni; si++){
         __REAL__ * out1 = &out[si][0][0][0];
-        for (int sj=0; sj<nj; sj++){
+        for (int sj=0; sj<nj; sj++) if (f1k[si][sj]){
             __REAL__ * f3r1 = &f3r[sj][0][0][0];
           // f3k_j = FFT[f3r_j] -> fftout
             for (size_t i3=0; i3<N3; i3++) fftin1[i3] = f3r1[i3];
@@ -574,29 +598,33 @@ void perform_3rx1k_convolution_r1(int id, RISMHI3D_FFTW_MP * param, int si, int 
     param->fft[id].out1 = &param->out[si][0][0][0];
     param->fft[id].task_done = false;
 
-    __REAL__ * f3r1 = &f3r[sj][0][0][0];
-  // f3k_j = FFT[f3r_j] -> fftout
-    for (size_t i3=0; i3<N3; i3++) fftin1[i3] = f3r1[i3];
-    fftw_execute(param->fft[id].planf);
-  // f1k_ij f3k_j -> fftout
-    for (int iz=0; iz<=nz/2; iz++) for (int iy=0; iy<=ny/2; iy++) for (int ix=0; ix<=nx/2; ix++){
-        double kx = dkx * (ix+0); double ky = dky * (iy+0); double kz = dkz * (iz+0);
-        double k = sqrt(kx*kx + ky*ky + kz*kz);
-        double intp = interpolate(k, f1k[si][sj], param->xvv_k_shift*dk, param->nf1k, dk);
-        double intp_factor = intp * param->convolution_factor;
-        unsigned int mask = 0; if (ix==0||ix>=nx-ix) mask |= 1; if (iy==0||iy>=ny-iy) mask |= 2; if (iz==0||iz>=nz-iz) mask |= 4;
-        fftout[iz][iy][ix] *= intp_factor;
-        if (!(mask&1)) fftout[iz][iy][nx-ix] *= intp_factor;
-        if (!(mask&2)) fftout[iz][ny-iy][ix] *= intp_factor;
-        if (!(mask&3)) fftout[iz][ny-iy][nx-ix] *= intp_factor;
-        if (!(mask&4)) fftout[nz-iz][iy][ix] *= intp_factor;
-        if (!(mask&5)) fftout[nz-iz][iy][nx-ix] *= intp_factor;
-        if (!(mask&6)) fftout[nz-iz][ny-iy][ix] *= intp_factor;
-        if (!(mask&7)) fftout[nz-iz][ny-iy][nx-ix] *= intp_factor;
-
+    if (!f1k[si][sj]){
+        memset(fftin1, 0, N3*sizeof(__REAL__));
+    } else {
+        __REAL__ * f3r1 = &f3r[sj][0][0][0];
+      // f3k_j = FFT[f3r_j] -> fftout
+        for (size_t i3=0; i3<N3; i3++) fftin1[i3] = f3r1[i3];
+        fftw_execute(param->fft[id].planf);
+      // f1k_ij f3k_j -> fftout
+        for (int iz=0; iz<=nz/2; iz++) for (int iy=0; iy<=ny/2; iy++) for (int ix=0; ix<=nx/2; ix++){
+            double kx = dkx * (ix+0); double ky = dky * (iy+0); double kz = dkz * (iz+0);
+            double k = sqrt(kx*kx + ky*ky + kz*kz);
+            double intp = interpolate(k, f1k[si][sj], param->xvv_k_shift*dk, param->nf1k, dk);
+            double intp_factor = intp * param->convolution_factor;
+            unsigned int mask = 0; if (ix==0||ix>=nx-ix) mask |= 1; if (iy==0||iy>=ny-iy) mask |= 2; if (iz==0||iz>=nz-iz) mask |= 4;
+            fftout[iz][iy][ix] *= intp_factor;
+            if (!(mask&1)) fftout[iz][iy][nx-ix] *= intp_factor;
+            if (!(mask&2)) fftout[iz][ny-iy][ix] *= intp_factor;
+            if (!(mask&3)) fftout[iz][ny-iy][nx-ix] *= intp_factor;
+            if (!(mask&4)) fftout[nz-iz][iy][ix] *= intp_factor;
+            if (!(mask&5)) fftout[nz-iz][iy][nx-ix] *= intp_factor;
+            if (!(mask&6)) fftout[nz-iz][ny-iy][ix] *= intp_factor;
+            if (!(mask&7)) fftout[nz-iz][ny-iy][nx-ix] *= intp_factor;
+        }
+      // FFTi[f1k_ij f3k_j] -> fftin
+        fftw_execute(param->fft[id].planb);
     }
-  // FFTi[f1k_ij f3k_j] -> fftin
-    fftw_execute(param->fft[id].planb);
+
   // f1r_ij * f3k_j -(+)-> out_i
     //for (size_t i3=0; i3<N3; i3++) out1[i3] += fftin1[i3];
     param->fft[id].task_done = true;
@@ -656,9 +684,13 @@ void perform_3rx1k_convolution(RISMHI3D_FFTW_MP * fftw_mp, __REAL__ *** f3r[], i
             for (int i=0; i<fftw_mp->np; i++) fftw_mp->mp_tasks[i] = MPTASK_NONE;
             int njobs = 0; for (int i=0; i<fftw_mp->np && ss<ni*nj; i++){
                 int si = ss/nj; int sj = ss%nj;
-                fftw_mp->fft[i].si = si; fftw_mp->fft[i].sj = sj;
-                fftw_mp->mp_tasks[i] = MPTASK_FFTW;
-                ss ++; njobs = i+1;
+                if (f1k[si][sj]){
+                    fftw_mp->fft[i].si = si; fftw_mp->fft[i].sj = sj;
+                    fftw_mp->mp_tasks[i] = MPTASK_FFTW;
+                    ss ++; njobs = i+1;
+                } else {
+                    ss ++; i--;
+                }
             }
             fftw_mp->n_active_jobs = njobs;
           // 2. work on task 0 and wait

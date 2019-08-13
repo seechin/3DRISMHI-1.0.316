@@ -1,4 +1,106 @@
 
+const char * get_command_name(int cmd){
+    switch (cmd) {
+        case IETCMD_NOP          : return "nop";
+        case IETCMD_END          : return "end";
+        case IETCMD_DONE         : return "done";
+        case IETCMD_CLEAR        : return "clear";
+        case IETCMD_RESET        : return "reset";
+        case IETCMD_SET          : return "set";
+        case IETCMD_SCALE        : return "scale";
+        case IETCMD_LOAD         : return "load";
+        case IETCMD_SAVE         : return "save";
+        case IETCMD_SAVE_EXIST   : return "savee";
+        case IETCMD_SAVE_FILTER  : return "save-filter";
+        case IETCMD_DISPLAY      : return "display";
+        case IETCMD_REPORT       : return "report";
+        case IETCMD_CLOSURE      : return "closure";
+        case IETCMD_CLOSURE_A    : return "closure-a";
+        case IETCMD_CF           : return "cf";
+        case IETCMD_CF_A         : return "cf-a";
+        case IETCMD_dielect      : return "dielect";
+        case IETCMD_density      : return "density";
+        case IETCMD_BUILD_FF     : return "build-ff";
+        case IETCMD_TI           : return "TI";
+        case IETCMD_TEST         : return "test";
+        case IETCMD_TEST_SAVE    : return "test-and-save";
+        default:
+            if (cmd>=2000 && cmd<2000+sizeof(HIAL_name)/sizeof(HIAL_name[0])){
+                return HIAL_name[cmd-2000];
+            } else if (cmd>=1500 && cmd<1500+sizeof(IETAL_name)/sizeof(IETAL_name[0])){
+                return IETAL_name[cmd-1500];
+            } else return "(unknown)";
+    }
+}
+
+const char * get_variable_name(int var){
+    switch (var) {
+        case IETCMD_v_box         : return "box";
+        case IETCMD_v_temperature : return "temperature";
+        case IETCMD_v_Coulomb     : return "Coulomb";
+        case IETCMD_v_dielect_y   : return "dielect-y";
+        case IETCMD_v_rbohr       : return "rbohr";
+        case IETCMD_v_cmd         : return "cmd";
+        case IETCMD_v_uuv         : return "uuv";
+        case IETCMD_v_ulr         : return "ulr";
+        case IETCMD_v_ulj         : return "lj";
+        case IETCMD_v_ucoul       : return "coul";
+        case IETCMD_v_ucoul2      : return "ef";
+        case IETCMD_v_ucoulsr     : return "coulsr";
+        case IETCMD_v_ucoullr     : return "coullr";
+        case IETCMD_v_dd          : return "dd";
+        case IETCMD_v_huv         : return "huv";
+        case IETCMD_v_hlr         : return "hlr";
+        case IETCMD_v_guv         : return "guv";
+        case IETCMD_v_cuv         : return "cuv";
+        case IETCMD_v_clr         : return "clr";
+        case IETCMD_v_rmin        : return "rmin";
+        case IETCMD_v_rdf         : return "rdf";
+        case IETCMD_v_Euv         : return "Euv";
+        case IETCMD_v_Ef          : return "Ef";
+        case IETCMD_v_EuvDetail   : return "energy";
+        case IETCMD_v_DeltaN      : return "dN";
+        case IETCMD_v_DeltaN0     : return "dN0";
+        case IETCMD_v_TS          : return "TS";
+        case IETCMD_v_rism_dielect: return "rism-dielect";
+        case IETCMD_v_HFE         : return "HFE";
+        case IETCMD_v_Chandler_G  : return "GGF";
+        case IETCMD_v_Mayer       : return "f";
+        case IETCMD_v_ddp         : return "ddp";
+        case IETCMD_v_Yukawa      : return "Yukawa";
+        case IETCMD_v_LocalCoulomb: return "local-coul";
+        default: return "(unknown)";
+    }
+}
+void print_command_vname_and_vvalues(FILE * out, IET_command * cmd){ for (int i=0; cmd->command_params_int[i]&&i<MAX_CMD_PARAMS; i++) fprintf(out, i==0?"%s=%g":",%s=%g", get_variable_name(cmd->command_params_int[i]), cmd->command_params_double[i]); }
+void print_command_vnames(FILE * out, IET_command * cmd){ for (int i=0; cmd->command_params_int[i]&&i<MAX_CMD_PARAMS; i++) fprintf(out, i==0?"%s":",%s", get_variable_name(cmd->command_params_int[i])); }
+void print_command_vvalues(FILE * out, IET_command * cmd){ for (int i=0; cmd->command_params_int[i]&&i<MAX_CMD_PARAMS; i++) fprintf(out, i==0?"%g":",%g", cmd->command_params_double[i]); }
+const char * print_command(FILE * out, int command_id, IET_command * cmd, const char * prefix, const char * surfix){
+    const char * command_name = get_command_name(cmd->command);
+    fprintf(out, "%scmd[%d] = %s", prefix, command_id, command_name);
+    switch (cmd->command) {
+        case IETCMD_SET: case IETCMD_SCALE:
+            fprintf(out, "("); print_command_vname_and_vvalues(out, cmd); fprintf(out, ")"); break;
+        case IETCMD_LOAD: case IETCMD_SAVE: case IETCMD_SAVE_EXIST: case IETCMD_SAVE_FILTER: case IETCMD_DISPLAY: case IETCMD_REPORT:
+            fprintf(out, "("); print_command_vnames(out, cmd); fprintf(out, ")"); break;
+        case IETCMD_CLOSURE: case IETCMD_CLOSURE_A:
+            fprintf(out, "("); for (int i=0; i<cmd->step&&i<MAX_CMD_PARAMS; i++) fprintf(out, i==0?"%s":",%s", CLOSURE_name[cmd->command_params_int[i]]); fprintf(out, ")");
+            break;
+        case IETCMD_CF: case IETCMD_CF_A: case IETCMD_dielect: case IETCMD_density:
+            print_command_vvalues(out, cmd); break;
+        case IETCMD_TI:
+            fprintf(out, ",step=%d", cmd->step);
+    }
+    if (cmd->command>=1500 && cmd->command<1500+sizeof(IETAL_name)/sizeof(IETAL_name[0])){  // RISM
+        fprintf(out, ",step=%d", cmd->step);
+    } else if (cmd->command>=2000 && cmd->command<2000+sizeof(HIAL_name)/sizeof(HIAL_name[0])){ // HI
+        fprintf(out, ",step=%d", cmd->step);
+    }
+    fprintf(out, "%s\n", surfix);
+    return command_name;
+}
+
+
 int maximum_default_processors(){
   #ifdef _LOCALPARALLEL_
     return sysconf(_SC_NPROCESSORS_ONLN);
@@ -120,9 +222,9 @@ void build_uuv_base_on_force_field(IET_Param * sys, IET_arrays * arr){
     }
 
 
-    if (sys->debug_level>=3) fprintf(sys->log(), "DEBUG:: (debug only) check_real_crc(uuv)        = %08X\n", check_real_crc(&arr->uuv[0][0][0][0], arr->nv*arr->nx*arr->ny*arr->nz));
-    if (sys->debug_level>=3) fprintf(sys->log(), "DEBUG:: (debug only) check_real_crc(ulr)        = %08X\n", check_real_crc(&arr->ulr[0][0][0][0], arr->nv*arr->nx*arr->ny*arr->nz));
-    if (sys->debug_level>=3) fprintf(sys->log(), "DEBUG:: (debug only) check_real_crc(hlr)        = %08X\n", check_real_crc(&arr->hlr[0][0][0][0], arr->nv*arr->nx*arr->ny*arr->nz));
+    if (sys->debug_level>=3||sys->debug_show_crc) fprintf(sys->log(), "DEBUG:: (debug only) check_real_crc(uuv)        = %08X\n", check_real_crc(&arr->uuv[0][0][0][0], arr->nv*arr->nx*arr->ny*arr->nz));
+    if (sys->debug_level>=3||sys->debug_show_crc) fprintf(sys->log(), "DEBUG:: (debug only) check_real_crc(ulr)        = %08X\n", check_real_crc(&arr->ulr[0][0][0][0], arr->nv*arr->nx*arr->ny*arr->nz));
+    if (sys->debug_level>=3||sys->debug_show_crc) fprintf(sys->log(), "DEBUG:: (debug only) check_real_crc(hlr)        = %08X\n", check_real_crc(&arr->hlr[0][0][0][0], arr->nv*arr->nx*arr->ny*arr->nz));
 
     //if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: build_force_field_coulp2(E)\n");
     //build_force_field_coulp2(sys, arr, arr->ulpbe, nullptr, arr->Ecoul[0], arr->Ecoul[1], arr->Ecoul[2]);
@@ -374,6 +476,8 @@ void generate_default_output_filename(IET_Param * sys, char * filename, int size
         int nmsolute = 1; for (int i=1; i<sys->nas; i++) if (StringNS::string(sys->as[i].mole) != sys->as[i-1].mole) nmsolute ++;
         int nmsolvent = 1; for (int i=1; i<sys->nav; i++) if (StringNS::string(sys->av[i].mole) != sys->av[i-1].mole) nmsolvent ++;
         snprintf(filename, size_filename, "%s.%s%s%s.%s.ts4s", trajname, sys->av[0].mole, nmsolvent>1?"_":"", nmsolvent>2?"etc":nmsolvent==2?sys->av[sys->nav-1].mole:"", time_buffer);
+
+        sys->b_output_filename_autogenerated = true;
     }
 }
 

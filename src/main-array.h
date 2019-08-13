@@ -62,6 +62,7 @@ double calculate_zeta_by_chuv(int closure, double factor, double uuv, double huv
         case CLOSURE_PSE9           : t_over_ch = 1; break; // t_over_ch = chuv<=0? 1 : ln(1+chuv+chuv*chuv/2+chuv*chuv*chuv/6+chuv*chuv*chuv*chuv/24+chuv*chuv*chuv*chuv*chuv/120+chuv*chuv*chuv*chuv*chuv*chuv/720+chuv*chuv*chuv*chuv*chuv*chuv*chuv/5040+chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv/40320+chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv/362880)/chuv; break;
         case CLOSURE_PSE10          : t_over_ch = 1; break; // t_over_ch = chuv<=0? 1 : ln(1+chuv+chuv*chuv/2+chuv*chuv*chuv/6+chuv*chuv*chuv*chuv/24+chuv*chuv*chuv*chuv*chuv/120+chuv*chuv*chuv*chuv*chuv*chuv/720+chuv*chuv*chuv*chuv*chuv*chuv*chuv/5040+chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv/40320+chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv/362880+chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv*chuv/3628800)/chuv; break;
         case CLOSURE_MS             : t_over_ch = 1; break; // t_over_ch = chuv==0? 1 : sqrt(1+2*chuv)/chuv; break;
+        case CLOSURE_MSHNC          : t_over_ch = chuv<=0? 1 : sqrt(1+2*chuv)/chuv; break;
         case CLOSURE_BPGGHNC        : t_over_ch = 1; break; // t_over_ch = chuv==0? 1 : pow(1+factor*chuv, 1.0/factor)/chuv; break;
         case CLOSURE_VM             : t_over_ch = 1; break; // t_over_ch = chuv==0? 1 : 1 - chuv/2/(1+factor*chuv); break;
         case CLOSURE_MP             : t_over_ch = 1; break; // t_over_ch = chuv==0? 1 : ((1+factor)*exp(chuv/(1+factor)) - factor)/chuv; break;
@@ -95,6 +96,8 @@ class IET_arrays {
     __REAL__ *** wvv, *** wvv_hlr, *** wvv_save;        // 1D wvv grid
     __REAL__ *** nhkvv, *** nhkvv_hlr, *** nhkvv_save;  // 1D nhkvv grid
     __REAL__ *** zeta;              // 1D zetavv grid
+    __REAL__ *** convolution_wvv, *** convolution_nhkvv, *** convolution_zeta;
+    double ** wvv_zero_indicator, ** nhkvv_zero_indicator, ** zeta_zero_indicator;
     __REAL__ *** yukawa_kernel, *** local_coulomb_kernel, *** ld_kernel;
   public:  // force field
     int frame_stamp;
@@ -226,6 +229,7 @@ class IET_arrays {
     void alloc(IET_Param * sys, int _nv, int _nvm, int _nx, int _ny, int _nz, int nsolute){
         nv = _nv; nvm = _nvm; nz = _nz; ny = _ny; nx = _nx;
         gvv_data = gvv = wvv = wvv_hlr = nhkvv = nhkvv_hlr = zeta = yukawa_kernel = local_coulomb_kernel = ld_kernel = nullptr; // cvvlj = cvvb = cvvc = cvvcb = nullptr;
+        convolution_wvv = convolution_nhkvv = convolution_zeta = nullptr;
         box = Vector(0, 0, 0); // xvvi = nullptr
         frame_stamp = -1;
         ulj = debug_trace_init4d(sys, "ulj", init_tensor4d(nv, nz, ny, nx, 0));

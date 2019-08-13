@@ -23,12 +23,12 @@ void calculate_potential_HI(__REAL__ **** potential, __REAL__ **** dd, __REAL__ 
     }
   // 2. ρ_j * ζ_ij term -> buf1
     lap_timer_livm();
-    //perform_3rx1k_convolution(buf0, arr->nx, arr->ny, arr->nz, arr->box, sys->nvm, sys->nvm, arr->zeta, arr->dk_zeta, arr->n_zeta, buf1, arr->fftin, arr->fftout, arr->planf, arr->planb);
-    //perform_3rx1k_convolution(buf0, arr->nx, arr->ny, arr->nz, arr->box, sys->nvm, sys->nvm, arr->zeta, arr->dk_zeta, sys->xvv_k_shift, arr->n_zeta, buf1, arr->fftin, arr->fftout, arr->planf, arr->planb, true);
+    //perform_3rx1k_convolution(buf0, arr->nx, arr->ny, arr->nz, arr->box, sys->nvm, sys->nvm, arr->convolution_zeta, arr->dk_zeta, arr->n_zeta, buf1, arr->fftin, arr->fftout, arr->planf, arr->planb);
+    //perform_3rx1k_convolution(buf0, arr->nx, arr->ny, arr->nz, arr->box, sys->nvm, sys->nvm, arr->convolution_zeta, arr->dk_zeta, sys->xvv_k_shift, arr->n_zeta, buf1, arr->fftin, arr->fftout, arr->planf, arr->planb, true);
     if (sys->nt<=1){
-        perform_3rx1k_convolution(buf0, arr->nx, arr->ny, arr->nz, arr->box, sys->nvm, sys->nvm, arr->zeta, arr->dk_zeta, sys->xvv_k_shift, arr->n_zeta, buf1, arr->fftin, arr->fftout, arr->planf, arr->planb, true);
+        perform_3rx1k_convolution(buf0, arr->nx, arr->ny, arr->nz, arr->box, sys->nvm, sys->nvm, arr->convolution_zeta, arr->dk_zeta, sys->xvv_k_shift, arr->n_zeta, buf1, arr->fftin, arr->fftout, arr->planf, arr->planb, true);
     } else {
-        perform_3rx1k_convolution(&arr->fftw_mp, buf0, arr->nx, arr->ny, arr->nz, arr->box, sys->nvm, sys->nvm, arr->zeta, arr->dk_zeta, sys->xvv_k_shift, arr->n_zeta, buf1, arr->fftin, arr->fftout, arr->planf, arr->planb, true);
+        perform_3rx1k_convolution(&arr->fftw_mp, buf0, arr->nx, arr->ny, arr->nz, arr->box, sys->nvm, sys->nvm, arr->convolution_zeta, arr->dk_zeta, sys->xvv_k_shift, arr->n_zeta, buf1, arr->fftin, arr->fftout, arr->planf, arr->planb, true);
     }
 
     lap_timer_fftw();
@@ -66,7 +66,7 @@ void subroutine_hi_solver(IET_Param * sys, IET_arrays * arr, int id){
     }
 }
 
-void prepare_hi_guv(IET_Param * sys, IET_arrays * arr, bool first_run=true){
+void prepare_hi_guv(IET_Param * sys, IET_arrays * arr){
     // step 1: prepare guvm
         if (sys->guvmal == GUVMAL_GUV){
             for (int i=0; i<sys->nvm; i++){ int guvmi = sys->vmmapi[i][0];
@@ -75,7 +75,7 @@ void prepare_hi_guv(IET_Param * sys, IET_arrays * arr, bool first_run=true){
                 for (size_t i3=0; i3<N3; i3++) arr->guvm[i][0][0][i3] = arr->huv[guvmi][0][0][i3] + 1;
             }
         } else {
-        //} else if (sys->guvmal == GUVMAL_THETA || first_run*/){
+        //} else if (sys->guvmal == GUVMAL_THETA*/){
             for (int iv=0; iv<sys->nvm; iv++) for (int iz=0; iz<arr->nz; iz++) for (int iy=0; iy<arr->ny; iy++) for (int ix=0; ix<arr->nx; ix++){
                 double U = atomised_molecule_uv_potential(sys, arr, iv, ix, iy ,iz);
                 if (U >= sys->ucutoff_hs) arr->guvm[iv][iz][iy][ix] = 0; else arr->guvm[iv][iz][iy][ix] = 1;
@@ -87,7 +87,7 @@ void prepare_hi_guv(IET_Param * sys, IET_arrays * arr, bool first_run=true){
       }
 }
 
-bool prepare_phi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, double * hi_param, int n_hi_param, bool guess_init_n=true){
+bool prepare_phi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, double * hi_param, int n_hi_param){
     FILE * flog = sys->log();
     bool is_out_tty = sys->is_log_tty;
     bool success = false;
@@ -147,129 +147,86 @@ bool prepare_phi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, do
             }
         }
         if (arr->phi&&arr->phi[0]) clear_tensor4d(arr->phi, N4m);
-    } else if (sys->hial==HIAL_CUTOFF){  // cutoff
-        double beta = sys->default_temperature/sys->temperature; double dd_initialized_value[MAX_SOL];
-        for (int ivm=0; ivm<sys->nvm; ivm++){
-            dd_initialized_value[ivm] = (ivm<n_hi_param&&hi_param_indicator&&hi_param_indicator[ivm]&&hi_param)? hi_param[ivm] : 0;
-            for (size_t i3=0; i3<N3; i3++){
-                if (atomised_molecule_uv_potential(sys, arr, ivm, i3) > sys->ccutoff_hi){
-                    //arr->dd[ivm][0][0][i3] = 0;
-                    arr->dd[ivm][0][0][i3] = dd_initialized_value[ivm];
-                } else arr->dd[ivm][0][0][i3] = sys->nbulk[ivm];
-            }
-        }
-        fprintf(flog, "  %s : done with ", HIAL_name[sys->hial]); for (int i=0; i<sys->nvm; i++) fprintf(flog, i==0?"%g":",%g", dd_initialized_value[i]); fprintf(flog, "\n");
-        return true;
-    } else if (sys->hial==HIAL_ICUTOFF){  // inversed cutoff
-        double beta = sys->default_temperature/sys->temperature; double dd_initialized_value[MAX_SOL];
-        for (int ivm=0; ivm<sys->nvm; ivm++){
-            dd_initialized_value[ivm] = (ivm<n_hi_param&&hi_param_indicator&&hi_param_indicator[ivm]&&hi_param)? hi_param[ivm] : 0;
-            for (size_t i3=0; i3<N3; i3++){
-                if (atomised_molecule_uv_potential(sys, arr, ivm, i3) > sys->ccutoff_hi){
-                    arr->dd[ivm][0][0][i3] = sys->nbulk[ivm];
-                } else {
-                    //arr->dd[ivm][0][0][i3] = 0;
-                    arr->dd[ivm][0][0][i3] = dd_initialized_value[ivm];
-                }
-            }
-        }
-        fprintf(flog, "  %s : done with ", HIAL_name[sys->hial]); for (int i=0; i<sys->nvm; i++) fprintf(flog, i==0?"%g":",%g", dd_initialized_value[i]); fprintf(flog, "\n");
-        //fprintf(flog, "  %s : done\n", HIAL_name[sys->hial]);
-        return true;
     }
-  // step 3: prepare initial guess of n[]
-    if (guess_init_n){
-        /*for (int iv=0; iv<sys->nvm; iv++) for (int iz=0; iz<arr->nz; iz++) for (int iy=0; iy<arr->ny; iy++) for (int ix=0; ix<arr->nx; ix++){
-            if (atomised_molecule_uv_potential(sys, arr, iv, ix, iy ,iz) > sys->ccutoff_hi) arr->dd[iv][iz][iy][ix] = 0; else arr->dd[iv][iz][iy][ix] = sys->nbulk[iv];
-        }*/
-        for (int iv=0; iv<sys->nvm; iv++) for (size_t i3=0; i3<=N3; i3++) arr->dd[iv][0][0][i3] = sys->nbulk[iv];
-    }
-    //for (int iv=0; iv<sys->nvm; iv++){ for (int jv=0; jv<sys->nvm; jv++){ printf(" %11g", arr->zeta[iv][jv][0]); }; printf("\n"); }
+
 
     return false;
 }
 
-bool perform_hi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, double * hi_param, int n_hi_param, bool guess_init_n=true, bool first_run=true){
+bool perform_hi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, double * hi_param, int n_hi_param){
     if (!arr->dd||!arr->dd[0]) return true;
     FILE * flog = sys->log();
     bool is_out_tty = sys->is_log_tty;
     bool success = false;
     size_t N3 = arr->nx * arr->ny * arr->nz; size_t N4 = sys->nv * N3; size_t N4m = sys->nvm * N3;
-
-  // step 1: prepare guvm
-    prepare_hi_guv(sys, arr, first_run);
-  // step 2: preparation, majorly phi
-    if (prepare_phi(sys, arr, hi_param_indicator, hi_param, n_hi_param, guess_init_n)){
-        return true;
+    
+  // step 1: prepare initial guess of n[]
+    for (int iv=0; iv<sys->nvm; iv++) for (size_t i3=0; i3<=N3; i3++) arr->dd[iv][0][0][i3] = sys->nbulk[iv];
+    //for (int iv=0; iv<sys->nvm; iv++){ for (int jv=0; jv<sys->nvm; jv++){ printf(" %11g", arr->zeta[iv][jv][0]); }; printf("\n"); }
+  // step 2: prepare guvm
+    prepare_hi_guv(sys, arr);
+  // step 3: preparation, majorly phi
+    if (prepare_phi(sys, arr, hi_param_indicator, hi_param, n_hi_param)){
+        //return true;
     }
   // step 4 prepare lambda for each site
-    double llambda[MAX_SOL];
-    for (int iv=0; iv<sys->nvm; iv++) llambda[iv] = sys->llambda[iv];
-    for (int iv=0; iv<sys->nvm; iv++){
-        for (int j=0; j<sys->nvm; j++){
-            llambda[iv] += sys->nbulk[j] * arr->zeta[iv][j][0] * sys->density_hi;
-        }
-        llambda[iv] += arr->solver_hi.f(1) + log(sys->nbulk[iv]);
-    }; if (sys->debug_level>=3){ fprintf(flog, "DEBUG:: llambda ="); for (int iv=0; iv<sys->nvm; iv++) fprintf(flog, " %g", llambda[iv]); fprintf(flog, "\n"); }
-  // step 5. HI loop
-    for (int istep=0; istep<sys->stepmax_hi; istep++){
-        while (sys->suspend_calculation){ usleep(100); sys->is_suspend_calculation = true; continue; }
-        sys->is_suspend_calculation = false;
-      // 5.1. calculate potential -> arr->ddpot_hi
-        calculate_potential_HI(arr->ddpot_hi, arr->dd, arr->zeta, arr->guvm, arr->phi, llambda, arr->res, arr->ddpot_hi, sys, arr);
-      #ifdef _LOCALPARALLEL_
-        for (int i=1; i<sys->nt; i++) sys->mp_tasks[i] = MPTASK_HI_SOLVER;
-        subroutine_hi_solver(sys, arr, 0);
-        wait_subroutines(sys);
-      #else
-        subroutine_hi_solver(sys, arr, 0);
-      #endif
-      // 5.3. step forward and loop control
-        lap_timer_livm();
-        double err = 0;
-        if (sys->ndiis_hi<=1){
-            for (int iv=0; iv<sys->nvm; iv++) for (int iz=0; iz<arr->nz; iz++) for (int iy=0; iy<arr->ny; iy++) for (int ix=0; ix<arr->nx; ix++){
-                double res = (arr->res[iv][iz][iy][ix] - arr->dd[iv][iz][iy][ix]);
-                err += res * res;
-                arr->dd[iv][iz][iy][ix] += res * sys->delhi;
+    if (arr->zeta && sys->hial>=HIAL_HI){
+        double llambda[MAX_SOL];
+        for (int iv=0; iv<sys->nvm; iv++) llambda[iv] = sys->llambda[iv];
+        for (int iv=0; iv<sys->nvm; iv++){
+            for (int j=0; j<sys->nvm; j++){
+                llambda[iv] += sys->nbulk[j] * arr->zeta[iv][j][0] * sys->density_hi;
             }
-            err = sqrt(fabs(err)/sys->nvm/arr->nz/arr->ny/arr->nx);
-        } else {
-            for (int iv=0; iv<sys->nvm; iv++) for (int iz=0; iz<arr->nz; iz++) for (int iy=0; iy<arr->ny; iy++) for (int ix=0; ix<arr->nx; ix++) arr->res[iv][iz][iy][ix] -= arr->dd[iv][iz][iy][ix];
-            arr->diis_current = &arr->diis_hi;
-            err = arr->diis_hi.advance(sys, &arr->dd[0][0][0][0], &arr->res[0][0][0][0], sys->delhi, true);
-        }
-        bool stop_loop = false;
-            if (err <= sys->errtolhi){ success = true; stop_loop = true; }
-            if (err < 0 || err > 10){ success = false; stop_loop = true; }
-            if (istep+1 >= sys->stepmax_hi) stop_loop = true;
-        if (flog && (sys->detail_level>=1 || stop_loop)){
-            fprintf(flog, fabs(err)<1e-4?"  %s step %d, stdev: %.1e":"  %s step %d, stdev: %.5f", HIAL_name[sys->hial], istep+1, err);
-            if (sys->ndiis_hi>1) fprintf(flog, " (DIISx%d)", arr->diis_hi.ndiis);
-            if (sys->debug_level>=3||sys->detail_level>=3){ char time_buffer[40]; fprintf(flog, " (%s)", get_current_time_text(time_buffer)); }
-            fprintf(flog, "%s", (sys->detail_level==1&&istep+1<sys->stepmax_hi&&err>sys->errtolhi&&is_out_tty)?"\r":"\n");
+            llambda[iv] += arr->solver_hi.f(1) + log(sys->nbulk[iv]);
+        }; if (sys->debug_level>=3){ fprintf(flog, "DEBUG:: llambda ="); for (int iv=0; iv<sys->nvm; iv++) fprintf(flog, " %g", llambda[iv]); fprintf(flog, "\n"); }
+      // step 5. HI loop
+        for (int istep=0; istep<sys->stepmax_hi; istep++){
+            while (sys->suspend_calculation){ usleep(100); sys->is_suspend_calculation = true; continue; }
+            sys->is_suspend_calculation = false;
+          // 5.1. calculate potential -> arr->ddpot_hi
+            calculate_potential_HI(arr->ddpot_hi, arr->dd, arr->convolution_zeta, arr->guvm, arr->phi, llambda, arr->res, arr->ddpot_hi, sys, arr);
+          #ifdef _LOCALPARALLEL_
+            for (int i=1; i<sys->nt; i++) sys->mp_tasks[i] = MPTASK_HI_SOLVER;
+            subroutine_hi_solver(sys, arr, 0);
+            wait_subroutines(sys);
+          #else
+            subroutine_hi_solver(sys, arr, 0);
+          #endif
+          // 5.3. step forward and loop control
+            lap_timer_livm();
+            double err = 0;
+            if (sys->ndiis_hi<=1){
+                for (int iv=0; iv<sys->nvm; iv++) for (int iz=0; iz<arr->nz; iz++) for (int iy=0; iy<arr->ny; iy++) for (int ix=0; ix<arr->nx; ix++){
+                    double res = (arr->res[iv][iz][iy][ix] - arr->dd[iv][iz][iy][ix]);
+                    err += res * res;
+                    arr->dd[iv][iz][iy][ix] += res * sys->delhi;
+                }
+                err = sqrt(fabs(err)/sys->nvm/arr->nz/arr->ny/arr->nx);
+            } else {
+                for (int iv=0; iv<sys->nvm; iv++) for (int iz=0; iz<arr->nz; iz++) for (int iy=0; iy<arr->ny; iy++) for (int ix=0; ix<arr->nx; ix++) arr->res[iv][iz][iy][ix] -= arr->dd[iv][iz][iy][ix];
+                arr->diis_current = &arr->diis_hi;
+                err = arr->diis_hi.advance(sys, &arr->dd[0][0][0][0], &arr->res[0][0][0][0], sys->delhi, true);
+            }
+            bool stop_loop = false;
+                if (err <= sys->errtolhi){ success = true; stop_loop = true; }
+                if (err < 0 || err > 10){ success = false; stop_loop = true; }
+                if (istep+1 >= sys->stepmax_hi) stop_loop = true;
+            if (flog && (sys->detail_level>=1 || stop_loop)){
+                fprintf(flog, fabs(err)<1e-4?"  %s step %d, stdev: %.1e":"  %s step %d, stdev: %.5f", HIAL_name[sys->hial], istep+1, err);
+                if (sys->ndiis_hi>1) fprintf(flog, " (DIISx%d)", arr->diis_hi.ndiis);
+                if (sys->debug_level>=3||sys->detail_level>=3){ char time_buffer[40]; fprintf(flog, " (%s)", get_current_time_text(time_buffer)); }
+                fprintf(flog, "%s", (sys->detail_level==1&&istep+1<sys->stepmax_hi&&err>sys->errtolhi&&is_out_tty)?"\r":"\n");
+                fflush(flog);
+            }
             fflush(flog);
+            if (stop_loop) break;
+            lap_timer_diis();
         }
-        fflush(flog);
-        if (stop_loop) break;
-        lap_timer_diis();
     }
 
-  // step 6. post preprocessing
-    int n_dd_factor_value = 0; double dd_factor_value[MAX_SOL]; for (int ivm=0; ivm<sys->nvm; ivm++){
-        dd_factor_value[ivm] = (ivm<n_hi_param&&hi_param_indicator&&hi_param_indicator[ivm]&&hi_param)? hi_param[ivm] : 1;
-        if (dd_factor_value[ivm]!=1){
-            n_dd_factor_value ++;
-            for (size_t i3=0; i3<N3; i3++){
-                if (atomised_molecule_uv_potential(sys, arr, ivm, i3) > sys->ccutoff_hi){
-                    arr->dd[ivm][0][0][i3] *= dd_factor_value[ivm];
-                }
-            }
-        }
-    }
-    if (n_dd_factor_value>0){
-        fprintf(flog, "  %s : HS region scaled with ", HIAL_name[sys->hial]); for (int i=0; i<sys->nvm; i++) fprintf(flog, i==0?"%g":",%g", dd_factor_value[i]); fprintf(flog, "\n");
-    }
+  #ifdef _EXPERIMENTAL_
+    experimental_post_perform_hi(sys, arr, hi_param_indicator, hi_param, n_hi_param);
+  #endif
 
   // step 6. If not converged, return false
     return success;

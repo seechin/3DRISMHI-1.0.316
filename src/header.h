@@ -13,7 +13,3 @@
 #endif
 
 //#undef      _TTYPROMPTCOLOR_
-
-
-#define _LOCALPARALLEL_FFTW_
-#define _FFTWMPPARALLEL_

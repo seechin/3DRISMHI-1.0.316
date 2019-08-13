@@ -210,10 +210,36 @@ namespace RISMHI3D_RISMNS {
                     t = exp(-uuv[i3] + sqrt(1+2*t)-1) - 1;
                     res[i3] = t - huv[i3]; huv[i3] = t;
                 }
+            } else if (closure==CLOSURE_MSHNC){
+                for (size_t i3=i3begin; i3<i3end; i3++){
+                    t = huv[i3] - cuv[i3];
+                    if (t<=0){
+                        t = exp(-uuv[i3] + t) - 1;
+                        res[i3] = t - huv[i3]; huv[i3] = t;
+                    } else {
+                        t = exp(-uuv[i3] + sqrt(1+2*t)-1) - 1;
+                        res[i3] = t - huv[i3]; huv[i3] = t;
+                    }
+                }
             } else if (closure==CLOSURE_MP){
                 for (size_t i3=i3begin; i3<i3end; i3++){
                     t = huv[i3] - cuv[i3];
                     t = exp(-uuv[i3])*((1+factor)*exp(t/(1+factor)) - factor) - 1;
+                    res[i3] = t - huv[i3]; huv[i3] = t;
+                }
+            } else if (closure==CLOSURE_USER1){
+                for (size_t i3=i3begin; i3<i3end; i3++){
+                    t = exp(-uuv[i3] + (huv[i3] - cuv[i3])) - 1;
+                    res[i3] = t - huv[i3]; huv[i3] = t;
+                }
+            } else if (closure==CLOSURE_USER2){
+                for (size_t i3=i3begin; i3<i3end; i3++){
+                    t = exp(-uuv[i3] + (huv[i3] - cuv[i3])) - 1;
+                    res[i3] = t - huv[i3]; huv[i3] = t;
+                }
+            } else if (closure==CLOSURE_USER3){
+                for (size_t i3=i3begin; i3<i3end; i3++){
+                    t = exp(-uuv[i3] + (huv[i3] - cuv[i3])) - 1;
                     res[i3] = t - huv[i3]; huv[i3] = t;
                 }
             } else { // default: HNC (no scaling) or experimental
@@ -296,11 +322,11 @@ namespace RISMHI3D_RISMNS {
             lap_timer_fftw();
     }
     void perform_rism_equation(IET_Param * sys, IET_arrays * arr, __REAL__ **** cuv, __REAL__ **** huv, __REAL__ **** res, __REAL__ *** wvv=nullptr, __REAL__ *** nhkvv=nullptr, double * nhkvv_scaling=nullptr){
-        if (!wvv) wvv = arr->wvv; if (!nhkvv) nhkvv = arr->nhkvv;
+        if (!wvv) wvv = arr->convolution_wvv; if (!nhkvv) nhkvv = arr->convolution_nhkvv;
         perform_rism_equation(sys, arr, cuv, huv, res, arr->dd, arr->nx, arr->ny, arr->nz, arr->nv, arr->box, wvv, arr->dk_wvv, arr->n_wvv, nhkvv, arr->dk_nhkvv, arr->n_nhkvv, arr->fftin, arr->fftout, arr->planf, arr->planb, nhkvv_scaling);
     }
     void perform_rism_equation_without_hi(IET_Param * sys, IET_arrays * arr, __REAL__ **** cuv, __REAL__ **** huv, __REAL__ **** res, __REAL__ *** wvv=nullptr, __REAL__ *** nhkvv=nullptr, double * nhkvv_scaling=nullptr){
-        if (!wvv) wvv = arr->wvv; if (!nhkvv) nhkvv = arr->nhkvv;
+        if (!wvv) wvv = arr->convolution_wvv; if (!nhkvv) nhkvv = arr->convolution_nhkvv;
         perform_rism_equation(sys, arr, cuv, huv, res, nullptr, arr->nx, arr->ny, arr->nz, arr->nv, arr->box, wvv, arr->dk_wvv, arr->n_wvv, nhkvv, arr->dk_nhkvv, arr->n_nhkvv, arr->fftin, arr->fftout, arr->planf, arr->planb, nhkvv_scaling);
     }
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -322,7 +348,7 @@ namespace RISMHI3D_RISMNS {
             clear_tensor4d(extra, N4);
             for (int ip=0; ip<n_prepare; ip++){
                 if (prepare_cmds[ip] == CLOSURE_HNCB){
-                    perform_rism_equation(sys, arr, arr->huv, temp, arr->res, arr->wvv, arr->nhkvv, sys->renorm_lj_in_hs);
+                    perform_rism_equation(sys, arr, arr->huv, temp, arr->res, arr->convolution_wvv, arr->convolution_nhkvv, sys->renorm_lj_scaling);
                 /*} else if (prepare_cmds[ip] == CLOSURE_RCCA2){
                     double beta = sys->default_temperature / sys->temperature;
                     for (int iv=0; iv<sys->nv; iv++){
@@ -347,7 +373,7 @@ namespace RISMHI3D_RISMNS {
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     void perform_3drism_loop_ssoz(IET_Param * sys, IET_arrays * arr){
       // 1. RISM equation
-        perform_rism_equation(sys, arr, arr->cuv, arr->huv, arr->res, arr->wvv, arr->nhkvv, sys->renorm_lj_in_hs);
+        perform_rism_equation(sys, arr, arr->cuv, arr->huv, arr->res, arr->convolution_wvv, arr->convolution_nhkvv, sys->renorm_lj_scaling);
       // 2. closure: ΔH -> res
         prepare_closure(sys, arr);
         perform_closure(sys, arr);
@@ -364,7 +390,7 @@ namespace RISMHI3D_RISMNS {
     void perform_3drism_loop_rrism(IET_Param * sys, IET_arrays * arr){
         size_t N3 = arr->nx * arr->ny * arr->nz; size_t N4 = N3 * sys->nv;
       // 1. hsr -> arr->huv
-        perform_rism_equation(sys, arr, arr->cuv, arr->huv, arr->res, arr->wvv, arr->nhkvv, sys->renorm_lj_in_hs);
+        perform_rism_equation(sys, arr, arr->cuv, arr->huv, arr->res, arr->convolution_wvv, arr->convolution_nhkvv, sys->renorm_lj_scaling);
       // 2. h = hsr + hlr
         for (size_t i4=0; i4<N4; i4++){
             arr->huv[0][0][0][i4] += arr->hlr[0][0][0][i4];
@@ -378,7 +404,7 @@ namespace RISMHI3D_RISMNS {
     void perform_3drism_loop_vrism(IET_Param * sys, IET_arrays * arr){
         size_t N3 = arr->nx * arr->ny * arr->nz; size_t N4 = N3 * sys->nv;
       // 1. hsr -> arr->huv
-        perform_rism_equation(sys, arr, arr->cuv, arr->huv, arr->res, arr->wvv, arr->nhkvv, sys->renorm_lj_in_hs);
+        perform_rism_equation(sys, arr, arr->cuv, arr->huv, arr->res, arr->convolution_wvv, arr->convolution_nhkvv, sys->renorm_lj_scaling);
       // 2. h = hsr + hlr
         for (size_t i4=0; i4<N4; i4++){
             arr->huv[0][0][0][i4] += arr->hlr[0][0][0][i4];
@@ -402,9 +428,9 @@ namespace RISMHI3D_RISMNS {
         for (size_t i4=0; i4<N4; i4++) arr->clr[0][0][0][i4] = - arr->ulr[0][0][0][i4];
       // 2. arr->hlr = clr ρv * χvv
         if (sys->hlr_no_hi){
-            perform_rism_equation_without_hi(sys, arr, arr->clr, arr->hlr, arr->res, arr->wvv_hlr, arr->nhkvv_hlr, sys->renorm_coulomb_in_hs);
+            perform_rism_equation_without_hi(sys, arr, arr->clr, arr->hlr, arr->res, arr->wvv_hlr, arr->nhkvv_hlr, sys->renorm_coulomb_scaling);
         } else {
-            perform_rism_equation(sys, arr, arr->clr, arr->hlr, arr->res, arr->wvv_hlr, arr->nhkvv_hlr, sys->renorm_coulomb_in_hs);
+            perform_rism_equation(sys, arr, arr->clr, arr->hlr, arr->res, arr->wvv_hlr, arr->nhkvv_hlr, sys->renorm_coulomb_scaling);
         }
     }
     void prepare_3d_vrism(IET_Param * sys, IET_arrays * arr){

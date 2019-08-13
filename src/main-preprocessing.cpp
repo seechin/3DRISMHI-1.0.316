@@ -183,6 +183,7 @@ bool generate_solvent_xvv(IET_Param * sys, IET_arrays * arr, char * filename, in
         __REAL__ *** xvv = init_tensor3d<__REAL__>(nv, nv, xvv_length+2);
         clear_tensor3d(xvv, nv*nv*(xvv_length+2));
         arr->wvv  = xvv; arr->wvv_hlr = arr->wvv;
+            arr->convolution_wvv = arr->wvv;
         for (int iv=0; iv<nv && iv<mv; iv++) for (int i=0; i<xvv_length+2; i++) xvv[iv][iv][i] = 1;
         for (int ib=0; ib<sys->n_bond_list; ib++){
             int addri = -1; int addrj = -1;
@@ -209,6 +210,7 @@ bool generate_solvent_xvv(IET_Param * sys, IET_arrays * arr, char * filename, in
         int xvv_length = nline;
         arr->n_nhkvv = xvv_length; arr->dk_nhkvv = dk;
         arr->nhkvv = init_tensor3d<__REAL__>(nv, nv, xvv_length+2); arr->nhkvv_hlr = arr->nhkvv;
+            arr->convolution_nhkvv = arr->nhkvv;
         clear_tensor3d(arr->nhkvv, nv*nv*(xvv_length+2));
         for (int iv=0; iv<nv; iv++) for (int jv=0; jv<mv; jv++){
             if (arr->gvv[iv][jv] == &arr->gvv_data[0][sys->n_gvv_map][0]){
@@ -263,7 +265,7 @@ bool generate_solvent_xvv(IET_Param * sys, IET_arrays * arr, char * filename, in
         clear_tensor3d(arr->ld_kernel, sys->nvm*sys->nvm*xvv_length);
         for (int ivm=0; ivm<sys->nvm; ivm++){
             //double density = sys->bulk_density_mv[sys->av[ivm].iaa];
-            double density = sys->bulk_density_mv[ivm];
+            double density = sys->bulk_density_mv[ivm] / (sys->ld_kernel_expand*sys->ld_kernel_expand*sys->ld_kernel_expand);
             double rmol = pow(fabs(1.0/sys->bulk_density_mv[ivm]/4.0*3.0/PI), 1.0/3);
 
             /*
@@ -324,6 +326,31 @@ void backup_solvent_xvv_with_shift_only(IET_Param * sys, IET_arrays * arr){
         }
     }*/
 }
+int clearup_zero_xvv(__REAL__ *** xvv, int nv, int mv, int xvv_length, __REAL__ *** convolution_xvv){
+    int n_xvv_cleared = 0;
+    for (int iv=0; iv<nv; iv++) for (int jv=0; jv<mv; jv++){
+        bool xvv_all_zero = true;
+        for (int i=0; i<xvv_length; i++) if (xvv[iv][jv][i]!=0) xvv_all_zero = false;
+        if (xvv_all_zero){ convolution_xvv[iv][jv] = nullptr; n_xvv_cleared ++; }
+    }
+    return n_xvv_cleared;
+}
+
+__REAL__ *** build_xvv_pointer_skip_missing(__REAL__ *** xvv, int nv, int mv, int xvv_process_length, IET_Param * sys, const char * title){
+    int xvv_length = &xvv[0][1][0] - &xvv[0][0][0];
+    __REAL__ *** convolution_xvv = init_tensor3d_pointer(xvv, nv, mv, xvv_length);
+    int n_xvv_cleared = clearup_zero_xvv(xvv, nv, mv, xvv_process_length, convolution_xvv);
+    if (n_xvv_cleared>0){
+        if (sys && sys->debug_level>=2 && title){
+            fprintf(sys->log(), "DEBUG:: clearup_zero_%s: %d of %d", title, n_xvv_cleared, nv*mv);
+            if (sys->debug_level>=3){ fprintf(sys->log(), ":");
+                for (int i=0; i<nv; i++) for (int j=0; j<mv; j++) if (!convolution_xvv[i][j]) fprintf(sys->log(), " %s.%s-%s.%s", sys->av[i].mole, sys->av[i].name, sys->av[j].mole, sys->av[j].name);
+            }
+            fprintf(sys->log(), "\n");
+        }
+    }
+    return convolution_xvv;
+}
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 void debug_display_solvent_xvv(IET_Param * sys, IET_arrays * arr, int nv){
     double dr = sys->drrism; FILE * flog = sys->log();
@@ -357,6 +384,7 @@ int __read_solvent_wvv(IET_Param * sys, char * filename, IET_arrays * arr, int n
         nline ++;
     };
     arr->wvv = init_tensor3d<__REAL__>(nv, nv, nline);
+        arr->convolution_wvv = arr->wvv;
     fseek(file, 0, SEEK_SET); while (fgets(input, sizeof(input), file)){
         int nw = analysis_line_params(input, sl, sizeof(sl)/sizeof(sl[0]), true);
         if (nw<nv*nv) continue;
@@ -385,6 +413,7 @@ int __read_solvent_nhkvv(IET_Param * sys, char * filename, IET_arrays * arr, int
         nline ++;
     };
     arr->nhkvv = init_tensor3d<__REAL__>(nv2, nv, nline);
+        arr->convolution_nhkvv = arr->nhkvv;
     fseek(file, 0, SEEK_SET); while (fgets(input, sizeof(input), file)){
         int nw = analysis_line_params(input, sl, sizeof(sl)/sizeof(sl[0]), true);
         if (nw<nv*nv2) continue;
@@ -408,6 +437,7 @@ bool generate_solvent_zeta(int & n_zeta, double & dk_zeta, IET_Param * sys, IET_
     double density_hi = sys->density_hi; double * bulk_density_mv = sys->bulk_density_mv;
 
     arr->zeta = init_tensor3d<__REAL__>(nvm, nvm, n_zeta);
+        arr->convolution_zeta = arr->zeta;
     for (int ivm=0; ivm<nvm; ivm++) for (int jvm=0; jvm<nvm; jvm++){
         int ilist = -1; for (int iilist=0; iilist<sys->n_zeta_list; iilist++) if (sys->zeta_list[iilist].iaai==ivm && sys->zeta_list[iilist].iaaj==jvm) ilist = iilist;
         if (ilist>=0){
@@ -502,7 +532,7 @@ bool read_solvent_zeta(IET_Param * sys, IET_arrays * arr, char * fnzeta, int nvm
         };
 
         arr->zeta = init_tensor3d<__REAL__>(nvm, nvm, nline);
-
+            arr->convolution_zeta = arr->zeta;
         fseek(file, 0, SEEK_SET); while (fgets(input, sizeof(input), file)){
             int nw = analysis_line_params(input, sl, sizeof(sl)/sizeof(sl[0]), true);
             if (nw<nvm*nvm) continue;

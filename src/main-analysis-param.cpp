@@ -35,11 +35,13 @@ const char * szHelpMP = "\
   const char * szHelpMP = "";
 #endif
 const char * szHelp2 = "\
-    -nice[-level]           nice level of process, default 0\n\
+    -nice[-level] 0         nice level of process\n\
     -nr                     grid number, e.g.: 50, 40x60x50, 40 60 50\n\
-    -rc                     interaction cutoff, default: 1\n\
+    -rc 1                   interaction cutoff for LJ and Coulomb\n\
     -pwd                    redirect the current working directory immediately\n\
     -log                    log file, could be stdout/con/screen/stderr\n\
+    -v[bose] [0/1/2]        0=-silent, 1=-brief, 2=-detailed, 2=-v\n\
+    -debug[-level] 0/1/2/3  debug level: 0=-nodebug, 1=-debug, 2=-debugging\n\
 ";
 #ifdef _LIBZ_
   const char * szHelpLibZ = "\
@@ -58,10 +60,7 @@ const char * szHelp3 = "\
     -run                    run script, can specify anything except -p and -h\n\
     -cmd, -do               add a command to the queue\n\
     -do-rism-kh             perform 3DRISM-KH\n\
-    -do-rismhi-d2           perform 3DRISM-HI-D2MSA\n\
-    -do-rismhi-kh/pes       perform 3DRISM-HI-KH/PES\n\
-    -do-merge-pes           perform 3D-RISM&VRISM-rPLHI-PES\n\
-    -do-merge-hipes         perform 3D-RISM&VRISM-HI-PES\n\
+    -do-rismhi-d2/kh        perform 3DRISM-HI-D2MSA/KH\n\
 ";
 
 const char * szHelpCommands = "\
@@ -87,9 +86,9 @@ const char * szHelpCommands = "\
     save, save-at-the-end, save-at-each-frame\n\
       save: ff, lj, coul; iet, cuv, huv, dd; all; guv, rdf\n\
       pick/save-sites: the sites picked for output, default: all\n\
-  Command running time specifier:\n\
-    @b[egin], @e[nd]        run only at the beginning/end (before/after any frame)\n\
-    @number (e.g. @1, @5)   insert command to specified location, begin with 1\n\
+    Command running time specifier:\n\
+      @b[egin], @e[nd]      run only at beginning/end (before/after all frames)\n\
+      @number (e.g. @1, @5) insert command to specified location, begin with 1\n\
 ";
 const char * szHelpMore = "\
   See: -help/-h/-ha [advanced/any_key_word/section/sections]\n\
@@ -101,51 +100,49 @@ const char * szHelpAdvanced = "\
     -Yukawa/YukawaFFT       = -Coulomb YukawaFFT\n\
   Advanced settings: (all optional)\n\
     [#]include   [-p file]  (in -p file) include another file\n\
-    -temperature, -T        temperature in Kelvin, default: 298\n\
+    -temperature, -T 298    temperature in Kelvin\n\
     -ff opls[aa]/amber/gaff\n\
       -amberff/-ffamber     = -Tdef 502.97 -arith-sigma\n\
       -oplsff/-ffopls[aa]   = -Tdef 120.27 -geo-sigma\n\
       -gaff/-ffgaff         = -Tdef 120.27 -arith-sigma\n\
     -coul[omb], -es         Electricstatic field algorithm, can be:\n\
                     none/Coulomb, dielect/dm, Yukawa/YukawaFFT\n\
-    -dielect                dielect const of each solvent molecule, default: 1\n\
+    -dielect 1              dielect const of each solvent molecule\n\
     -dielect-hi             dielect const for Coulomb based HI theories\n\
-    -ccutoff                cutoff for hybrid closures, default: 5\n\
-    -cceil                  (-gceil) = exp(ccutoff), default: 148\n\
+    -ccutoff 5              cutoff for hybrid closures\n\
+    -cceil 148              (-gceil) = exp(ccutoff)\n\
     -rdf-grps               1-1,2-1,3-2,...\n\
-    -rdf-content, -rdf-for  rdf/h/dd/c/ch, lj/f/coul/ef/ff. Default: rdf\n\
-    -rdf-bins               number of rdf bins, default 50\n\
-    -dielect-y[ukawa]       dielectric const for Yukawa, default: 1\n\
+    -rdf-content rdf        (-rdf-for) rdf/h/dd/c/ch, lj/f/coul/ef/ff\n\
+    -rdf-bins 50            number of rdf bins\n\
+    -dielect-y[ukawa] 1     dielectric const for Yukawa\n\
     -arith[metic]-sigma     sigma combining rule: arithmetic mean\n\
     -geo[metric]-sigma      sigma combining rule: geometric mean\n\
-    -doPME, -noPME          do or skip PME, default: -doPME\n\
-    -default_temperature    (-Tdef) T of defining forcefield, default: 120.27\n\
-    -v[bose] [0/1/2]        -detial[-level]: 0=-silent, 1=-brief, 2=-detailed\n\
-    -debug[-level] 1[/0/2]  debug level: 0=-nodebug, 1=-debug, 2=-debugging\n\
+    -Tdef 120.27            (-default_temperature) T of forcefield energy unit\n\
+    -skip-missing-xvv never skip zero xvv in FFT, can be yes/no\n\
     -list, -ls              list settings and parameters (no calculation)\n\
     -test                   test settings but do not actually run\n\
-    -rb, Bohr-radius        minimal hardsphere radius, default: 0.052911\n\
-    -rq, rcharge            size of partial charges, default: 0.052911\n\
-    -[no]pbc                PBC: xy, yz, xyz (default), all, no/none\n\
+    -rb 0.052911            (-Bohr-radius) minimal hardsphere radius\n\
+    -rq 0.052911            (-rcharge) size of partial charges\n\
+    -pbc xyz                period boundary box: xy, yz, xyz, no/none=-nopbc\n\
+    -significant-digits     (-sd), digits for IETS output, can be float/double\n\
+    -external-electrofield  external electric field in eV/nm, default: 0 0 0\n\
+    -[no-]enhance-closure   * closure enhancement, default -enhance-closure\n\
+    -bounded-to-ram         memory not exceeding RAM capacity\n\
+      -ignore-memory-capacity (-ignore-ram) is off by default\n\
+    -xvv-extend 0           times of expanding wvv&nhkvv\n\
+  Internal features: (all optional, cautious!)\n\
     -dielect-from-dipole    automatically calculate dielects from dipoles\n\
       -dielect-use-original disable any recalculation of dielect constants\n\
     -dipole-from-dielect    automatically calculate dipoles from dielects\n\
       -dipole-use-original  disable any recalculation of dipoles\n\
-    -significant-digits     (-sd), digits for IETS output, can be float/double\n\
-    -page[-]size            page size in compression, default: 4K\n\
-    -coulomb-renorm-scaling scaling of Coulomb in hardsphere, default: 1\n\
-    -lj-renorm-scaling      scaling of LJ in hardsphere, default: 1\n\
-    -external-electrofield  external electric field in eV/nm, default: 0 0 0\n\
-    -[no-]enhance-closure   * closure enhancement, default on\n\
-    -check-memory-capacity  * check memory capacity, default option\n\
-    -ignore-memory-capacity * skip checking memory capacity\n\
-  Internal features: (all optional, cautious!)\n\
     -[in]homo-iet           homogeneous rism, default: off\n\
-    -zeta-allow-missing, -zeta-forbid-missing   [zeta] allow/forbid missing terms\n\
+    -coulomb-renorm-factor 1 scaling of Coulomb in hardsphere\n\
+    -lj-renorm-factor 1     scaling of LJ in hardsphere\n\
+    -doPME, -noPME          do or skip PME, default: -doPME\n\
     -pme-gamma              * long range PME decreasor, default value: 2/rcoul\n\
     -xvv-k-shift            * the first k of wvv/nhkvv (unit dk), default: 0\n\
-    -xvv-extend             times of expanding wvv&nhkvv, default: 0\n\
     -tr-vv, -trvv           * transpose of *vv, yes/true or (default) no/false\n\
+    -page[-]size 4096       page size in compression\n\
 ";
 
 #ifdef _INTERACTIVE_
@@ -158,15 +155,14 @@ const char * szHelpAdvanced = "\
 
 const char * szHelpSecRISM3D_RISM = "\
   [iet] or [solvent] (also [iet-hi]) defines RISM parameters in -p/-i:\n\
-    -gvv, -hvv    IN        solvent-solvent RDF (in r space) file\n\
-    -drxvv        OPT       (-dr) grid size of wvv/nhkvv\n\
-    -delrism      @RISM     (-delvv) step factor, default: 1\n\
-    -ndiisrism    @RISM     (-ndiis) DIIS steps for RISM, default: 0 or 5\n\
-    -errtolrism   @RISM     (-errtol) RISM error tolerance, default: 1e-12\n\
-    -maxerrrism   @RISM     max RISM deviation tolerance, default: 0\n\
+    -gvv, -hvv              solvent-solvent RDF (in r space) file\n\
+    -drxvv                  * (-dr) grid size of wvv/nhkvv\n\
+    -delrism                (-delvv) step factor, default: 1\n\
+    -ndiisrism              (-ndiis) DIIS steps for RISM, default: 0 or 5\n\
+    -errtolrism             (-errtol) RISM error tolerance, default: 1e-12\n\
     -density                densities for each solvent molecule\n\
     -bulk[-]density         bulk densities for each solvent molecule\n\
-    -rlj, -rcoul            LJ/Coulomb cutoff, default: 1\n\
+    -rlj, -rcoul            LJ/Coulomb cutoff, -rc for both, default: 1\n\
 ";
 //-dielect-rism-on/off    automatically set (or not) dielect for RISM.\n
 const char * szHelpSecRISM3D_HI = "\
@@ -181,7 +177,8 @@ const char * szHelpSecRISM3D_HI = "\
     -ccutoff-[hs]hi         potential cutoff for theta function in HSHI\n\
     -lsa, -lsb              default: -lsa 0.3 -lsb auto\n\
                             Auto value of B = (lnλ - <ab|zeta|ab>/<c|c>)/Aρ\n\
-    -guvm                   guv algorithm: theta@[uuv>]5.00(default), plain(=theta) or guv\n\
+    -guvm                   * guv algorithm: theta@[uuv>]5.00(default) or guv\n\
+    -theta                  -guvm theta with cutoff, default: -theta 5\n\
     -phi-cutoff             lowerbound of phi in HI equation, default: -20\n\
     -lambda                 list of λ. llambda for lnλ, default: all 1 (lnλ=0)\n\
 ";
@@ -203,10 +200,11 @@ const char * szHelpSecATOM = "\
 ";
 const char * szHelpNote = "Note: \n\
   1. Default units: [L]=nm, [E]=kJ/mol, [q]=e\n\
-  2. All the paremeters could be defined in both -p or command line arguments.\n\
-  3. Command line arguments will overwrite parameters defined in -p.\n\
+  2. All the paremeters could be defined in -p or command line arguments.\n\
+  3. Command line arguments will overide settings in -p.\n\
   4. Files included in -p will be searched from the path of -p file.\n\
-  5. -s, -f, -i and -o files are searched from the current working directory.\n\
+  5. -s, -f, -o, -log are searched from the current working directory.\n\
+  6. Use '--' to recognize filenames with leading '-'\n\
 ";
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -406,7 +404,7 @@ void pre_analysis_params(int argc, char * argv[], int * debug_level, int * detai
     *help_out = false; if (argc<=1) *help_out = true;
     for (int i=0; i<argc; i++){
         if (argv[i][0]=='-'){ StringNS::string key = argv[i];
-            if (key == "-h" || key == "--h" || key == "-help" || key == "--help" || key == "-ha" || key == "--ha"){
+            if (key == "-h" || key == "--h" || key == "-help" || key == "--help" || key == "-ha" || key == "--ha" || key=="-version" || key=="--version"){
                 *help_out = true;
             } else if (key=="-debug-level" || key=="debug-level"  || key=="--debug-level" || key=="-debug_level" || key=="debug_level"  || key=="--debug_level"){
                 if (i+1<argc && StringNS::is_string_number(argv[i+1])){ i++; *debug_level = atoi(argv[i]); }
@@ -428,7 +426,7 @@ void pre_analysis_params(int argc, char * argv[], int * debug_level, int * detai
             } else if (key=="-detailed" || key=="detailed" || key=="--detailed" || key=="-details" || key=="details" || key=="--details"){
                 *detail_level = 2;
             } else if (key == "-log" || key == "log"){
-                if (i+1<argc && argv[i+1][0]!='-'){ i++; strcpy(log_filename, argv[i]); }
+                if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){ if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++; i++; strcpy(log_filename, argv[i]); }
             }
         }
     }
@@ -438,34 +436,18 @@ int analysis_parameter_line_pre(IET_Param * sys, char * argv[], int * argi, int 
     int ret = 0; int i = *argi; bool analysis_script = !script_name? false : (!script_name[0]? false : true);
     if (!script_name || !script_name[0]) script_name = (char*)"args\0\0";
     StringNS::string key = argv[i];
-    if (!analysis_script && (key == "-h" || key == "--h" || key == "-help" || key == "--help" || key == "-ha" || key == "--ha")){ ret = 2;
-        if (key != "-h" && key != "--h") ret |= 4 + 8 + 16 + 32 + 64 + 128; if (key=="-ha"||key=="--ha") ret |= 1024+2048;
-        if (i+1<argc && argv[i+1][0] != '-'){ i++; StringNS::string key2 = argv[i]; ret = 2; help_search_str = nullptr;
-            if (key2 == "all"){ ret = 2 + 4 + 8 + 16 + 32 + 64 + 128 + 1024 + 2048;
-            } else if (key2 == "none"){ ret = 2;
-            } else if (key2 == "advanced"){ ret = 4;
-            } else if (key2 == "command" || key2 == "commands" || key2 == "cmd" || key2 == "cmds"){ ret = 128;
-            } else if (key2 == "sections" || key2 == "sects"){
-                ret = 8 + 16 + 32 + 1024 + 2048;
-            } else if (key2 == "section" || key2 == "sect"){
-              if (i+1<argc && argv[i+1][0] != '-'){
-                i++; StringNS::string key3 = argv[i];
-                if (key3 == "all") ret = 8 + 16 + 32;
-                else if (key3 == "iet" || key3 == "solvent" || key3 == "rism3d" || key3 == "rism") ret = 8 + 1024;
-                else if (key3 == "hi") ret = 8 + 2048;
-                else if (key3 == "iet-hi" || key3 == "iet_hi" || key3 == "iethi" || key3 == "rismhi") ret = 8 + 1024 + 2048;
-                else if (key3 == "atom" || key3 == "[atom]") ret = 16;
-                else if (key3 == "bond" || key3 == "[bond]") ret = 16;
-                else if (key3 == "pair" || key3 == "[pair]") ret = 16;
-                else if (key3 == "gvv-map" || key3 == "[gvv-map]") ret = 16;
-                else if (key3 == "gvv_map" || key3 == "[gvv_map]") ret = 16;
-                else if (key3 == "solute" || key3 == "[solute]" || key3 == "rism3ds" || key3 == "[rism3ds]") ret = 2 + 32;
-                else { fprintf(sys->log(), "%s%s : warning : no entry of %s\n%s%s\n", sys->is_log_tty?color_string_of_warning:"", software_name, argv[i], szHelpMore, sys->is_log_tty?color_string_end:""); ret = 1; }
-              }
-            } else { help_search_str = argv[i]; ret = 512; }
+    if (!analysis_script && (key=="-version" || key=="--version")){
+        ret = 2;
+    } if (!analysis_script && (key == "-h" || key == "--h" || key == "-help" || key == "--help" || key == "-ha" || key == "--ha" || key == "-ha" || key == "---help")){
+        ret = 2 + 4;    // version string + brief help
+        if (key != "-h" && key != "--h") ret |= 8;
+        if (key=="-ha"||key=="--ha"||key=="---help") ret |= 16; // detailed help
+        if (i+1<argc && argv[i+1][0] != '-'){
+            i++; help_search_str = argv[i]; ret = 2 + 512; // version string + search for help strings
         }
     } else if (!analysis_script && (key == "-p" || key == "--p" || key == "-param" || key == "param" || key == "--param" || key=="-solvent" || key=="--solvent" || key=="solvent")){
-        if (i+1<argc && argv[i+1][0]!='#' && argv[i+1][0]!=';' && argv[i+1][0]!='-'){
+        if (i+1<argc && argv[i+1][0]!='#' && argv[i+1][0]!=';' && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){
+            if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++;
             i++; bool istty = sys->is_log_tty;
             bool cp_success = cp_file_with_path(info_file_name, argv[i], nullptr);
             if (!cp_success && sys->library_path){
@@ -488,10 +470,11 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
     if (!analysis_script) script_name = (char*)"args\0\0";
     StringNS::string key = argv[i];
     bool istty = sys->is_log_tty;
+    if (key == "--"){
    // ---------------------------------------------------------------------------------
    // The basic parameters for software -----------------------------------------------
    // ---------------------------------------------------------------------------------
-    if ((key == "-h" || key == "--h" || key == "-help" || key == "--help" || key == "help" || key == "-ha" || key == "--ha" || key == "ha")){
+    } else if ((key == "-h" || key == "--h" || key == "-help" || key == "--help" || key == "help" || key == "-ha" || key == "--ha" || key == "ha")){
         if (analysis_script){
             fprintf(sys->log(), "%s : %s[%d] : \"%s\" ignored. Only valid as command arguments.\n", software_name, script_name, script_line, argv[i]);
         } else {
@@ -534,7 +517,8 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
         if (analysis_script){
             fprintf(sys->log(), "%s : %s[%d] : cannot specify \"%s\". Only valid as command arguments.\n", software_name, script_name, script_line, argv[i]); ret = 1;
         } else {
-            if (i+1<argc && argv[i+1][0]!='#' && argv[i+1][0]!=';' && argv[i+1][0]!='-'){
+            if (i+1<argc && argv[i+1][0]!='#' && argv[i+1][0]!=';' && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){
+                if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++;
                 i++;
                 bool cp_success = cp_file_with_path(info_file_name, argv[i], nullptr);
                 if (!cp_success && sys->library_path){
@@ -552,7 +536,7 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
    // The input/output control parameters ---------------------------------------------
    // ---------------------------------------------------------------------------------
     } else if (key == "-s" || key == "--s" || key == "-solute" || key == "--solute" || key == "solute"){
-        if (i+1<argc && argv[i+1][0]!='-'){ i++; if (!cp_file_with_path(szfn_solute, argv[i], script_path)){ fprintf(sys->log(), "%s : %s[%d] : cannot open -s %s%s%s\n", software_name, get_second_fn(script_name), script_line, istty?prompt_path_prefix:"", argv[i], istty?prompt_path_suffix:""); ret = 1; }; }
+        if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){ if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++; i++; if (!cp_file_with_path(szfn_solute, argv[i], script_path)){ fprintf(sys->log(), "%s : %s[%d] : cannot open -s %s%s%s\n", software_name, get_second_fn(script_name), script_line, istty?prompt_path_prefix:"", argv[i], istty?prompt_path_suffix:""); ret = 1; }; }
     } else if (key == "-b" || key == "--b"){ if (i+1<argc && StringNS::is_string_number(argv[i+1])) sys->time_begin = atof(argv[++i]);
     } else if (key == "-e" || key == "--e"){ if (i+1<argc && StringNS::is_string_number(argv[i+1])) sys->time_end = atof(argv[++i]);
     } else if (key == "-dt" || key == "--dt"){ if (i+1<argc && StringNS::is_string_number(argv[i+1])) sys->time_step = atof(argv[++i]);
@@ -569,52 +553,52 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
             }
         }
     } else if (key == "-f" || key == "--f" || key == "traj" || key == "-traj" || key == "conf" || key == "-conf" || key == "conformation" || key == "-conformation" || key == "conformations" || key == "-conformations"){
-        if (i+1<argc && argv[i+1][0]!='-'){ i++; strcpy(szfn_xtc, argv[i]); }
+        if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){ if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++; i++; strcpy(szfn_xtc, argv[i]); }
     } else if (key == "-pwd" || key == "pwd"){
-        if (i+1<argc && argv[i+1][0]!='-'){
+        if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){
+            if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++;
             i++; int chdir_ret = chdir(argv[i]);
             char * p_szfn_path = getcwd(szfn_path, sizeof(szfn_path));
         }
     } else if (key == "-log" || key == "log"){
-        if (i+1<argc && argv[i+1][0]!='-'){ i++; strcpy(szfn_log, argv[i]); }
-
+        if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){ if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++; i++; strcpy(szfn_log, argv[i]); }
     } else if (key == "-i" || key == "--i" || key == "-in" || key == "--in" || key == "in" ){
-        if (i+1<argc && argv[i+1][0]!='-'){ i++; strcpy(szfn_in, argv[i]); }
+        if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){ if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++; i++; strcpy(szfn_in, argv[i]); }
     } else if (key == "-o" || key == "--o" || key == "-out" || key == "--out" || key == "out"){
-        if (i+1<argc && argv[i+1][0]!='-'){ i++; strcpy(szfn_out, argv[i]); };
+        if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){ if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++; i++; strcpy(szfn_out, argv[i]); };
         sys->output_override = 0; sys->output_compress_level = 1;
     } else if (key == "-o0" || key == "--o0" || key == "-out0" || key == "--out0" || key == "out0"){
-        if (i+1<argc && argv[i+1][0]!='-'){ i++; strcpy(szfn_out, argv[i]); };
+        if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){ if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++; i++; strcpy(szfn_out, argv[i]); };
         sys->output_override = 0; sys->output_compress_level = 0;
     } else if (key == "-o1" || key == "--o1" || key == "-out1" || key == "--out1" || key == "out1"){
-        if (i+1<argc && argv[i+1][0]!='-'){ i++; strcpy(szfn_out, argv[i]); };
+        if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){ if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++; i++; strcpy(szfn_out, argv[i]); };
         sys->output_override = 0; sys->output_compress_level = 1;
     } else if (key == "-o2" || key == "--o2" || key == "-out2" || key == "--out2" || key == "out2"){
-        if (i+1<argc && argv[i+1][0]!='-'){ i++; strcpy(szfn_out, argv[i]); };
+        if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){ if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++; i++; strcpy(szfn_out, argv[i]); };
         sys->output_override = 0; sys->output_compress_level = 2;
     } else if (key == "-a" || key == "--a" || key == "-append" || key == "--append" || key == "append" ){
-        if (i+1<argc && argv[i+1][0]!='-'){ i++; strcpy(szfn_out, argv[i]); };
+        if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){ if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++; i++; strcpy(szfn_out, argv[i]); };
         sys->output_override = 1; sys->output_compress_level = 1;
     } else if (key == "-a0" || key == "--a0" || key == "-append0" || key == "--append0" || key == "append0" ){
-        if (i+1<argc && argv[i+1][0]!='-'){ i++; strcpy(szfn_out, argv[i]); };
+        if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){ if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++; i++; strcpy(szfn_out, argv[i]); };
         sys->output_override = 1; sys->output_compress_level = 0;
     } else if (key == "-a1" || key == "--a1" || key == "-append1" || key == "--append1" || key == "append1" ){
-        if (i+1<argc && argv[i+1][0]!='-'){ i++; strcpy(szfn_out, argv[i]); };
+        if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){ if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++; i++; strcpy(szfn_out, argv[i]); };
         sys->output_override = 1; sys->output_compress_level = 1;
     } else if (key == "-a2" || key == "--a2" || key == "-append2" || key == "--append2" || key == "append2" ){
-        if (i+1<argc && argv[i+1][0]!='-'){ i++; strcpy(szfn_out, argv[i]); };
+        if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){ if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++; i++; strcpy(szfn_out, argv[i]); };
         sys->output_override = 1; sys->output_compress_level = 2;
     } else if (key == "-ov" || key == "--ov" || key == "-overide" || key == "--overide" || key == "overide"){
-        if (i+1<argc && argv[i+1][0]!='-'){ i++; strcpy(szfn_out, argv[i]); };
+        if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){ if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++; i++; strcpy(szfn_out, argv[i]); };
         sys->output_override = -1; sys->output_compress_level = 1;
     } else if (key == "-ov0" || key == "--ov0" || key == "-overide0" || key == "--overide0" || key == "overide0"){
-        if (i+1<argc && argv[i+1][0]!='-'){ i++; strcpy(szfn_out, argv[i]); };
+        if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){ if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++; i++; strcpy(szfn_out, argv[i]); };
         sys->output_override = -1; sys->output_compress_level = 0;
     } else if (key == "-ov1" || key == "--ov1" || key == "-overide1" || key == "--overide1" || key == "overide1"){
-        if (i+1<argc && argv[i+1][0]!='-'){ i++; strcpy(szfn_out, argv[i]); };
+        if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){ if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++; i++; strcpy(szfn_out, argv[i]); };
         sys->output_override = -1; sys->output_compress_level = 1;
     } else if (key == "-ov2" || key == "--ov2" || key == "-overide2" || key == "--overide2" || key == "overide2"){
-        if (i+1<argc && argv[i+1][0]!='-'){ i++; strcpy(szfn_out, argv[i]); };
+        if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){ if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++; i++; strcpy(szfn_out, argv[i]); };
         sys->output_override = -1; sys->output_compress_level = 2;
 
     } else if (key == "-rdf-bins" || key == "--rdf-bins" || key == "rdf-bins" || key == "-rdf_bins" || key == "--rdf_bins" || key == "rdf_bins"){
@@ -780,8 +764,6 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
     } else if (key == "-dipole-use-original" || key == "--dipole-use-original" || key == "dipole-use-original" || key == "-dipole_use_original" || key == "--dipole_use_original" || key == "dipole_use_original"){
         sys->dipole_from_dielect = false;
     } else if (key == "-errtol" || key == "--errtol" || key == "errtol"){ if (i+1<argc && StringNS::is_string_number(argv[i+1])) sys->errtolhi = sys->errtolrism = check_error_tol(atof(argv[++i]));
-    } else if (key == "-maxerrrism" || key == "--maxerrrism" || key == "maxerrrism" || key == "-maxerr-rism" || key == "--maxerr-rism" || key == "maxerr-rism" || key == "-maxerr_rism" || key == "--maxerr_rism" || key == "maxerr_rism"){
-        if (i+1<argc && StringNS::is_string_number(argv[i+1])) sys->maxerrrism = atof(argv[++i]);
     } else if (key == "-errtolrism" || key == "errtolrism"){ if (i+1<argc && StringNS::is_string_number(argv[i+1])) sys->errtolrism = check_error_tol(atof(argv[++i]));
     } else if (key == "-errtolhi" || key == "errtolhi"){ if (i+1<argc && StringNS::is_string_number(argv[i+1])) sys->errtolhi = check_error_tol(atof(argv[++i]));
     } else if (key == "-del" || key == "del" || key == "-delvv" || key == "delvv"){ if (i+1<argc && StringNS::is_string_number(argv[i+1])) sys->delhi = sys->delrism = atof(argv[++i]);
@@ -849,6 +831,10 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
             sys->dielect_yukawa = atof(argv[++i]);
             if (sys->dielect_yukawa<0) fprintf(sys->log(), "%s : %s[%d] : warning: invalid dielect_Yukawa %s\n", software_name, get_second_fn(script_name), script_line, argv[i]);
         }
+    } else if (key=="-ld-expand" || key=="--ld-expand" || key=="ld-expand" || key=="-ld_expand" || key=="--ld_expand"  || key=="ld_expand" || key=="-ld-kernel-expand" || key=="--ld-kernel-expand" || key=="ld-kernel-expand" || key=="-ld_kernel_expand" || key=="--ld_kernel_expand"  || key=="ld_kernel_expand" || key=="-ld-kernel-expanding" || key=="--ld-kernel-expanding" || key=="ld-kernel-expanding" || key=="-ld_kernel_expanding" || key=="--ld_kernel_expanding"  || key=="ld_kernel_expanding"){
+        if (i+1<argc && StringNS::is_string_number(argv[i+1])){
+            sys->ld_kernel_expand = atof(argv[++i]); if (sys->ld_kernel_expand<MACHINE_REASONABLE_ERROR) sys->ld_kernel_expand = MACHINE_REASONABLE_ERROR;
+        }
     } else if (key == "-pseudoliquid-factor" || key == "--pseudoliquid-factor" || key == "pseudoliquid-factor" || key == "-pseudoliquid_factor" || key == "--pseudoliquid_factor" || key == "pseudoliquid_factor" || key == "-psf" || key == "--psf" || key == "psf"){
         if (i+1<argc && StringNS::is_string_number(argv[i+1])) sys->pseudoliquid_potential_r_factor = atof(argv[++i]);
     } else if (key == "-T" || key == "--T" || key == "temperature" || key == "-temperature" || key == "--temperature"){
@@ -880,40 +866,49 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
         sys->closure_enhance_level = 0;
     } else if (key=="-coulomb-renorm-scaling" || key=="--coulomb-renorm-scaling" || key=="coulomb-renorm-scaling" || key=="-coulomb_renorm_scaling" || key=="--coulomb_renorm_scaling" || key=="coulomb_renorm_scaling" || key=="-coulomb-renorm-factor" || key=="--coulomb-renorm-factor" || key=="coulomb-renorm-factor" || key=="-coulomb_renorm_factor" || key=="--coulomb_renorm_factor" || key=="coulomb_renorm_factor"){
         if ((i+1<argc && StringNS::is_string_number(argv[i+1]))){
-            i++; sys->renorm_coulomb_in_hs[0] = atof(argv[i]); int n_renorm_coulomb_in_hs = 1;
+            i++; sys->renorm_coulomb_scaling[0] = atof(argv[i]); int n_renorm_coulomb_scaling = 1;
             if ((i+1<argc && StringNS::is_string_number(argv[i+1]))){
                 while (i+1<argc && StringNS::is_string_number(argv[i+1])){
-                    i++; sys->renorm_coulomb_in_hs[n_renorm_coulomb_in_hs++] = atof(argv[i]); if (n_renorm_coulomb_in_hs >= MAX_SOL) break;
+                    i++; sys->renorm_coulomb_scaling[n_renorm_coulomb_scaling++] = atof(argv[i]); if (n_renorm_coulomb_scaling >= MAX_SOL) break;
                 }
             }
-            if (n_renorm_coulomb_in_hs==1) for (int j=1; j<MAX_SOL; j++) sys->renorm_coulomb_in_hs[j] = sys->renorm_coulomb_in_hs[0];
-            //printf("\33[31msys->renorm_coulomb_in_hs[%d] =", n_renorm_coulomb_in_hs); for (int k=0; k<n_renorm_coulomb_in_hs || k<4; k++) printf(" %g", sys->renorm_coulomb_in_hs[k]); printf("\n\33[0m");
+            if (n_renorm_coulomb_scaling==1) for (int j=1; j<MAX_SOL; j++) sys->renorm_coulomb_scaling[j] = sys->renorm_coulomb_scaling[0];
+            //printf("\33[31msys->renorm_coulomb_scaling[%d] =", n_renorm_coulomb_scaling); for (int k=0; k<n_renorm_coulomb_scaling || k<4; k++) printf(" %g", sys->renorm_coulomb_scaling[k]); printf("\n\33[0m");
         }
     } else if (key=="-lj-renorm-scaling" || key=="--lj-renorm-scaling" || key=="lj-renorm-scaling" || key=="-lj_renorm_scaling" || key=="--lj_renorm_scaling" || key=="lj_renorm_scaling" || key=="-lj-renorm-factor" || key=="--lj-renorm-factor" || key=="lj-renorm-factor" || key=="-lj_renorm_factor" || key=="--lj_renorm_factor" || key=="lj_renorm_factor"){
         if ((i+1<argc && StringNS::is_string_number(argv[i+1]))){
-            i++; sys->renorm_lj_in_hs[0] = atof(argv[i]); int n_renorm_lj_in_hs = 1;
+            i++; sys->renorm_lj_scaling[0] = atof(argv[i]); int n_renorm_lj_scaling = 1;
             if ((i+1<argc && StringNS::is_string_number(argv[i+1]))){
                 while (i+1<argc && StringNS::is_string_number(argv[i+1])){
-                    i++; sys->renorm_lj_in_hs[n_renorm_lj_in_hs++] = atof(argv[i]); if (n_renorm_lj_in_hs >= MAX_SOL) break;
+                    i++; sys->renorm_lj_scaling[n_renorm_lj_scaling++] = atof(argv[i]); if (n_renorm_lj_scaling >= MAX_SOL) break;
                 }
             }
-            if (n_renorm_lj_in_hs==1) for (int j=1; j<MAX_SOL; j++) sys->renorm_lj_in_hs[j] = sys->renorm_lj_in_hs[0];
-            //printf("\33[31msys->renorm_lj_in_hs[%d] =", n_renorm_lj_in_hs); for (int k=0; k<n_renorm_lj_in_hs || k<4; k++) printf(" %g", sys->renorm_lj_in_hs[k]); printf("\n\33[0m");
+            if (n_renorm_lj_scaling==1) for (int j=1; j<MAX_SOL; j++) sys->renorm_lj_scaling[j] = sys->renorm_lj_scaling[0];
+            //printf("\33[31msys->renorm_lj_scaling[%d] =", n_renorm_lj_scaling); for (int k=0; k<n_renorm_lj_scaling || k<4; k++) printf(" %g", sys->renorm_lj_scaling[k]); printf("\n\33[0m");
         }
+    /*} else if (key=="-scale.hvv" || key=="--scale.hvv" || key=="scale.hvv" || key=="-scale-hvv" || key=="--scale-hvv" || key=="scale-hvv" || key=="-scale_hvv" || key=="--scale_hvv" || key=="scale_hvv" || key=="-hvv-scale" || key=="--hvv-scale" || key=="hvv-scale" || key=="-hvv_scale" || key=="--hvv_scale" || key=="hvv_scale"){
+        if ((i+1<argc && StringNS::is_string_number(argv[i+1]))){
+            i++; int nsf=1;
+            while (i+nsf<argc && StringNS::is_string_number(argv[i+nsf])) nsf ++;
+            if (sys->scale_hvv) free(sys->scale_hvv); sys->scale_hvv = (double*)malloc(sizeof(double) * nsf); sys->n_scale_hvv = nsf;
+            for (int j=0; j<nsf; j++) sys->scale_hvv[j] = atof(argv[i+j]);
+            i += nsf;
+            printf("\33[31msys->scale_hvv[%d] =", sys->n_scale_hvv); for (int k=0; k<sys->n_scale_hvv; k++) printf(" %g", sys->scale_hvv[k]); printf("\n\33[0m");
+        }*/
     } else if (key=="-renorm-scaling" || key=="--renorm-scaling" || key=="renorm-scaling" || key=="-renorm_scaling" || key=="--renorm_scaling" || key=="renorm_scaling" || key=="-renorm-factor" || key=="--renorm-factor" || key=="renorm-factor" || key=="-renorm_factor" || key=="--renorm_factor" || key=="renorm_factor"){
         if ((i+1<argc && StringNS::is_string_number(argv[i+1]))){
-            i++; sys->renorm_coulomb_in_hs[0] = sys->renorm_lj_in_hs[0] = atof(argv[i]); int n_renorm_in_hs = 1;
+            i++; sys->renorm_coulomb_scaling[0] = sys->renorm_lj_scaling[0] = atof(argv[i]); int n_renorm_in_hs = 1;
             if ((i+1<argc && StringNS::is_string_number(argv[i+1]))){
                 while (i+1<argc && StringNS::is_string_number(argv[i+1])){
-                    i++; sys->renorm_coulomb_in_hs[n_renorm_in_hs] = sys->renorm_lj_in_hs[n_renorm_in_hs] = atof(argv[i]);
+                    i++; sys->renorm_coulomb_scaling[n_renorm_in_hs] = sys->renorm_lj_scaling[n_renorm_in_hs] = atof(argv[i]);
                     n_renorm_in_hs ++; if (n_renorm_in_hs >= MAX_SOL) break;
                 }
             }
             if (n_renorm_in_hs==1) for (int j=1; j<MAX_SOL; j++){
-                sys->renorm_coulomb_in_hs[j] = sys->renorm_coulomb_in_hs[0];
-                sys->renorm_lj_in_hs[j] = sys->renorm_lj_in_hs[0];
+                sys->renorm_coulomb_scaling[j] = sys->renorm_coulomb_scaling[0];
+                sys->renorm_lj_scaling[j] = sys->renorm_lj_scaling[0];
             }
-            //printf("\33[31msys->renorm_coulomb_in_hs[%d] =", n_renorm_coulomb_in_hs); for (int k=0; k<n_renorm_coulomb_in_hs || k<4; k++) printf(" %g", sys->renorm_coulomb_in_hs[k]); printf("\n\33[0m");
+            //printf("\33[31msys->renorm_coulomb_scaling[%d] =", n_renorm_coulomb_scaling); for (int k=0; k<n_renorm_coulomb_scaling || k<4; k++) printf(" %g", sys->renorm_coulomb_scaling[k]); printf("\n\33[0m");
         }
     } else if (key=="-hlr-no-hi" || key=="--hlr-no-hi" || key=="hlr-no-hi" || key=="-hlr_no_hi" || key=="--hlr_no_hi" || key=="-hlr_no_hi"){
         sys->hlr_no_hi = true;
@@ -1008,6 +1003,17 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
             i++; sys->stepmax_hi = sys->stepmax_rism = atoi(argv[i]);
             if (i+1<argc && StringNS::is_string_number(argv[i+1])){ i++; sys->stepmax_rism = atoi(argv[i]); }
         }
+    } else if (key=="-skip-zero-xvv" || key=="--skip-zero-xvv" || key=="skip-zero-xvv" || key=="-skip_zero_xvv" || key=="--skip_zero_xvv" || key=="skip_zero_xvv" || key=="-skip-missing-xvv" || key=="--skip-missing-xvv" || key=="skip-missing-xvv" || key=="-skip_missing_xvv" || key=="--skip_missing_xvv" || key=="skip_missing_xvv" || key=="-xvv-skip-missing" || key=="--xvv-skip-missing" || key=="xvv-skip-missing" || key=="--xvv_skip_missing" || key=="--xvv_skip_missing" || key=="xvv_skip_missing"){
+        sys->check_zero_xvv = true;
+        if (i+1<argc && argv[i+1][0]!='-'){ i ++; StringNS::string check_zero_xvv_specifier = argv[i];
+            if (check_zero_xvv_specifier=="on"|| check_zero_xvv_specifier=="true" || check_zero_xvv_specifier=="yes" || check_zero_xvv_specifier=="ok"){
+                sys->check_zero_xvv = true;
+            } else if (check_zero_xvv_specifier=="off" || check_zero_xvv_specifier=="false" || check_zero_xvv_specifier=="none" || check_zero_xvv_specifier=="no" || check_zero_xvv_specifier=="never"){
+                sys->check_zero_xvv = false;
+            } else {
+                fprintf(sys->log(), "%s : %s[%d] : unknown -check-zero-xvv specifier \"%s\"\n", software_name, get_second_fn(script_name), script_line, argv[i]); ret = 1;
+            }
+        }
     } else if (key=="-scale.zeta" || key=="--scale.zeta" || key=="scale.zeta"){
         sys->n_zeta_scaling_factor = 0; while (i+1<argc && StringNS::is_string_number(argv[i+1])){
             i++; if (sys->n_zeta_scaling_factor<MAX_SOL) sys->zeta_scaling_factor[sys->n_zeta_scaling_factor++] = atof(argv[i]);
@@ -1054,16 +1060,20 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
         sys->debug_level = 2;
     } else if (key=="-debug" || key=="debug"  || key=="--debug"){
         sys->debug_level = 1; if (i+1<argc && StringNS::is_string_number(argv[i+1])){ i++; sys->debug_level = atoi(argv[i]); }
+    } else if (key=="-debug-crc" || key=="debug-crc" || key=="--debug-crc" || key=="-debug_crc" || key=="debug_crc" || key=="--debug_crc" || key=="-debug-show-crc" || key=="debug-show-crc" || key=="--debug-show-crc" || key=="-debug_show_crc" || key=="debug_show_crc" || key=="--debug_show_crc"){
+        sys->debug_show_crc = true;
+    } else if (key=="-debug-hide-crc" || key=="debug-hide-crc" || key=="--debug-hide-crc" || key=="-debug_hide_crc" || key=="debug_hide_crc" || key=="--debug_hide_crc"){
+        sys->debug_show_crc = false;
     } else if (key=="-test" || key=="test"  || key=="--test"){              sys->mode_test = true;
     } else if (key=="-nodebug" || key=="nodebug"  || key=="--nodebug"){     sys->debug_level = 0;
     } else if (key == "-list" || key == "--list" || key == "list" || key == "-listonly" || key == "--listonly" || key == "listonly" || key == "-list-only" || key == "--list-only" || key == "list-only" || key == "-list_only" || key == "--list_only" || key == "list_only"){
         sys->listonly = true; sys->listall = true;
     } else if (key == "-ls" || key == "--ls" || key == "ls"){
         sys->listonly = true; sys->listall = false;
-    } else if (key == "-ignore-memory-capacity" || key == "--ignore-memory-capacity" || key == "ignore-memory-capacity" || key == "-ignore_memory_capacity" || key == "--ignore_memory_capacity" || key == "ignore_memory_capacity"){
+    } else if (key == "-ignore-ram" || key == "--ignore-ram" || key == "ignore-ram" || key == "-ignore_ram" || key == "--ignore_ram" || key == "ignore_ram" || key == "-ignore-memory-capacity" || key == "--ignore-memory-capacity" || key == "ignore-memory-capacity" || key == "-ignore_memory_capacity" || key == "--ignore_memory_capacity" || key == "ignore_memory_capacity"){
         sys->ignore_memory_capacity = true;
         _ignore_memory_capacity = true;
-    } else if (key == "-check-memory-capacity" || key == "--check-memory-capacity" || key == "check-memory-capacity" || key == "-check_memory_capacity" || key == "--check_memory_capacity" || key == "check_memory_capacity"){
+    } else if (key == "-bounded-to-ram" || key == "--bounded-to-ram" || key == "bounded-to-ram" || key == "-bounded_to_ram" || key == "--bounded_to_ram" || key == "bounded_to_ram" || key == "-check-memory-capacity" || key == "--check-memory-capacity" || key == "check-memory-capacity" || key == "-check_memory_capacity" || key == "--check_memory_capacity" || key == "check_memory_capacity"){
         sys->ignore_memory_capacity = false;
         _ignore_memory_capacity = false;
     } else if (key=="-theta" || key=="theta"){
@@ -1142,17 +1152,11 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
     } else if (key == "-Lorentz-Berthelot" || key == "--Lorentz-Berthelot" || key == "Lorentz-Berthelot" || key == "-Lorentz_Berthelot" || key == "--Lorentz_Berthelot" || key == "Lorentz_Berthelot"){
         ret = analysis_parameter_line(sys, "-arith-sigma", script_name, script_line, script_path);
     } else if (key == "-do-rism-kh" || key == "-do-kh-rism" || key == "-do-khrism"){
-        ret = analysis_parameter_line(sys, "-cmd closure=kh rism", script_name, script_line, script_path);
+        ret = analysis_parameter_line(sys, "-cmd closure=kh rism report:energy display:rdf savee:cmd,guv", script_name, script_line, script_path);
     } else if (key == "-do-rismhi-d2" || key == "-do-d2-rismhi" || key == "-do-d2rismhi"){
-        ret = analysis_parameter_line(sys, "-cmd hshi closure=d2 rism", script_name, script_line, script_path);
+        ret = analysis_parameter_line(sys, "-cmd hshi closure=d2 rism report:energy display:rdf savee:cmd,guv", script_name, script_line, script_path);
     } else if (key == "-do-rismhi-kh" || key == "-do-kh-rismhi" || key == "-do-khrismhi"){
-        ret = analysis_parameter_line(sys, "-cmd hshi closure=kh rism", script_name, script_line, script_path);
-    } else if (key == "-do-rismhi-pes" || key == "-do-pes-rismhi" || key == "-do-pesrismhi"){
-        ret = analysis_parameter_line(sys, "-cmd hshi closure=pes rism", script_name, script_line, script_path);
-    } else if (key == "-do-merge-pes" || key == "-do-merged-pes" || key == "-do-merging-pes"){
-        ret = analysis_parameter_line(sys, "-cmd rqnhi closure=pes rism vrism,merge=sm -rlocal-coul 0.5", script_name, script_line, script_path);
-    } else if (key == "-do-merge-hipes" || key == "-do-merged-hipes" || key == "-do-merging-hipes"){
-        ret = analysis_parameter_line(sys, "-cmd hshi closure=pes rism vrism,merge=sm -rlocal-coul 0.5", script_name, script_line, script_path);
+        ret = analysis_parameter_line(sys, "-cmd hshi closure=kh rism report:energy display:rdf savee:cmd,guv", script_name, script_line, script_path);
    // ---------------------------------------------------------------------------------
    // Done for all known parameters ---------------------------------------------------
    // ---------------------------------------------------------------------------------
@@ -1297,25 +1301,21 @@ int analysis_params(IET_Param * sys, int argc, char * argv[]){
         }
         if (error >= 2 && error < 20480){
             printf("%s %s %s\n", software_name, software_version, copyright_string);
-            if (error & 2){
-                //if (error == 2 || error<256) printf("%s", szHelpMore);
+            if (error & 4){ // basic help information
                 printf("%s%s%s%s%s%s", szHelp1, szHelpXTC, szHelpMP, szHelp2, szHelpLibZ, szHelp3);
             }
-            if (error & 128){
-                //if (error == 2 || error<256) printf("%s", szHelpMore);
+            if (error & 8){ // more help information
                 printf("%s", szHelpCommands);
+                printf("%s%s%s%s", szHelpSecRISM3D_RISM, szHelpSecRISM3D_HI, szHelpSecATOM, szHelpSecRISM3DS);
             }
-            if (error & 8 && error & 1024)  printf("%s", szHelpSecRISM3D_RISM);//sizeof(__REAL__)==sizeof(float)? 1e-6 : sizeof(__REAL__)==sizeof(double)? 1e-12 : 1e-12);
-            if (error & 8 && error & 2048)  printf("%s", szHelpSecRISM3D_HI);
-            if (error & 16) printf("%s", szHelpSecATOM);
-            if (error & 32) printf("%s", szHelpSecRISM3DS);
-          #ifdef _EXPERIMENTAL_
-            if (error & 4)  printf("%s%s%s", szHelpAdvanced, szHelpAdvancedOthers, szHelpExperimental);
-          #else
-            if (error & 4)  printf("%s%s", szHelpAdvanced, szHelpAdvancedOthers);
-          #endif
-            if (error & 4)  printf("%s", szHelpNote);
-            if (error & 512 && help_search_str){
+            if (error & 16){
+                printf("%s%s", szHelpAdvanced, szHelpAdvancedOthers);
+              #ifdef _EXPERIMENTAL_
+                printf("%s", szHelpExperimental);
+              #endif
+                printf("%s", szHelpNote);
+            }
+            if ((error & 512) && help_search_str){
                 const char * helps[] = { szHelp1, szHelpXTC, szHelpMP, szHelp2, szHelpLibZ, szHelp3, szHelpCommands, szHelpMore, szHelpAdvanced, szHelpAdvancedOthers,
                   #ifdef _EXPERIMENTAL_
                     szHelpExperimental,
@@ -1600,8 +1600,6 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
     if (nw>0){
         if (sl[0]=="nop" || sl[0]=="noop"){
             cmd_type = 0; cmd.command = IETCMD_NOP; cmd.step = 1;
-        } else if (sl[0]=="nohi"){
-            cmd_type = 0; cmd.command = IETCMD_NOP; cmd.step = 1;
         } else if (sl[0]=="norism"){
             cmd_type = 0; cmd.command = IETCMD_NOP; cmd.step = 1;
       // cmd: I/O operations
@@ -1617,19 +1615,13 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
         } else if (sl[0]=="load"){
             cmd_type = 5; cmd.command = IETCMD_LOAD; cmd.time_to_run = 0;
             //fprintf(sys->log(), "%s : %s[%d][%ld] : warning : \"%s\" redirected to \"load-at-the-beginning\"\n", software_name, script_name, script_line, 1+sl[0].text-line+first_char_offset, sl[0].text);
-        } else if (sl[0]=="load-at-each-frame" || sl[0]=="load_at_each_frame"){
-            cmd_type = 5; cmd.command = IETCMD_LOAD; cmd.time_to_run = 0;
-        } else if (sl[0]=="load-at-beginning" || sl[0]=="load_at_beginning" || sl[0]=="load-at-the-beginning" || sl[0]=="load_at_the_beginning"){
-            cmd_type = 5; cmd.command = IETCMD_LOAD; cmd.time_to_run = 1;
         } else if (sl[0]=="save-filter" || sl[0]=="save_filter" || sl[0]=="save-site" || sl[0]=="save-sites" || sl[0]=="save_site" || sl[0]=="save_sites" || sl[0]=="pick" || sl[0]=="pick-site" || sl[0]=="pick-sites" || sl[0]=="pick_site" || sl[0]=="pick_sites"){
             cmd_type = 61; cmd.command = IETCMD_SAVE_FILTER; cmd.time_to_run = 0;
         } else if (sl[0]=="save"){
             cmd_type = 6; cmd.command = IETCMD_SAVE; cmd.time_to_run = 0;
             //fprintf(sys->log(), "%s : %s[%d][%ld] : warning : \"%s\" redirected to \"save-at-the-end\"\n", software_name, script_name, script_line, 1+sl[0].text-line+first_char_offset, sl[0].text);
-        } else if (sl[0]=="save-at-ending" || sl[0]=="save_at_ending" || sl[0]=="save-at-the-end" || sl[0]=="save_at_the_end"){
-            cmd_type = 6; cmd.command = IETCMD_SAVE; cmd.time_to_run = -1;
-        } else if (sl[0]=="save-at-each-frame" || sl[0]=="save_at_each_frame"){
-            cmd_type = 6; cmd.command = IETCMD_SAVE; cmd.time_to_run = 0;
+        } else if (sl[0]=="savee" || sl[0]=="save-exist"){
+            cmd_type = 6; cmd.command = IETCMD_SAVE_EXIST; cmd.time_to_run = 0;
         } else if (sl[0]=="calculate"){ cmd_type = 7; cmd.command = IETCMD_DISPLAY;
         } else if (sl[0]=="calc"){      cmd_type = 7; cmd.command = IETCMD_DISPLAY;
         } else if (sl[0]=="display"){   cmd_type = 7; cmd.command = IETCMD_DISPLAY;
@@ -1644,13 +1636,8 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
         } else if (sl[0]=="hi"){        cmd_type = 10; cmd.command = 2000+HIAL_HSHI;      cmd.step = sys->stepmax_hi;
             check_hi_diis_default_steps(sys);
             //fprintf(sys->log(), "%s : %s[%d][%ld] : warning : \"%s\" redirected to \"hshi\"\n", software_name, script_name, script_line, 1+sl[0].text-line+first_char_offset, sl[0].text);
+        } else if (sl[0]=="nohi"){      cmd_type = 10; cmd.command = 2000+HIAL_NOHI;      cmd.step = sys->stepmax_hi;
         } else if (sl[0]=="hshi"){      cmd_type = 10; cmd.command = 2000+HIAL_HSHI;      cmd.step = sys->stepmax_hi;
-            check_hi_diis_default_steps(sys);
-        } else if (sl[0]=="cfhi" || sl[0]=="cutoffhi"){
-            cmd_type = 10; cmd.command = 2000+HIAL_CUTOFF;    cmd.step = sys->stepmax_hi;
-            check_hi_diis_default_steps(sys);
-        } else if (sl[0]=="ichi" || sl[0]=="icutoffhi" || sl[0]=="inversecutoffhi"){
-            cmd_type = 10; cmd.command = 2000+HIAL_ICUTOFF;   cmd.step = sys->stepmax_hi;
             check_hi_diis_default_steps(sys);
         } else if (sl[0]=="dphi"){      cmd_type = 10; cmd.command = 2000+HIAL_DPHI;      cmd.step = sys->stepmax_hi;
             check_hi_diis_default_steps(sys);
@@ -1733,16 +1720,20 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
                         cmd.step = atoi(sl[i+1].text);
                         i++;
                     }
-                } else if (sl[i]=="factor" || sl[i]=="hf" || sl[i]=="hif" || sl[i]=="hi-factor" || sl[i]=="hi_factor"){
+                } else if (sl[i]=="factor"||sl[i]=="ih" || sl[i]=="is" || sl[i]=="oh" || sl[i]=="os"){
                     memset(cmd.command_params_int, 0, sizeof(cmd.command_params_int));
+                    int factor_identifier = 1;
+                        if (sl[i]=="oh") factor_identifier = -1;
+                        else if (sl[i]=="is") factor_identifier = 2;
+                        else if (sl[i]=="os") factor_identifier = -2;
                     int icpi = 0; while (icpi<MAX_CMD_PARAMS && i+1<nw && StringNS::is_string_number(sl[i+1])){
-                        cmd.command_params_int[icpi] = 1;
+                        cmd.command_params_int[icpi] = factor_identifier;
                         cmd.command_params_double[icpi] = atof(sl[i+1].text);
                         i++; icpi ++;
                     }
                 } else {
                     char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
-                    fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined variable \"%s\" for %s%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, HIAL_name[cmd.command], sys->is_log_tty?color_string_end:"");
+                    fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined variable \"%s\" for %s%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, HIAL_name[cmd.command-2000], sys->is_log_tty?color_string_end:"");
                     success = false; sl[i].text[sl[i].length] = cc;
                 }
             } else if (cmd_type==12){ // RISM
@@ -1844,7 +1835,7 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
                     success = false; sl[i].text[sl[i].length] = cc;
                 }
                 cmd.step = i_param_list;
-            } else if (cmd.command==IETCMD_SAVE){
+            } else if (cmd.command==IETCMD_SAVE || cmd.command==IETCMD_SAVE_EXIST){
                 if (sl[i]=="nothing"){
                 } else if (sl[i]=="all"||sl[i]=="everything"||sl[i]=="anything"||sl[i]=="checkpoint"){
                     if (i_param_list+13 < MAX_CMD_PARAMS){
@@ -1936,6 +1927,7 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
                 } else if (sl[i]=="entropy"){   if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_TS;
                 } else if (sl[i]=="HFE"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_HFE;
                 } else if (sl[i]=="SFE"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_HFE;
+                } else if (sl[i]=="GGF"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_Chandler_G;
                 } else if (sl[i]=="Chandler"){  if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_Chandler_G;
                 } else {
                     char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;

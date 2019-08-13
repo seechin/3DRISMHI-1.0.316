@@ -26,25 +26,23 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
             if (cmd[ic].time_to_run != 0) continue;
         }
 
+        if (sys->debug_level>=2) print_command(sys->log(), ic+1, &cmd[ic], "DEBUG:: ", "");
+
       // handling
 //printf("nframe=%d\n", nframe); printf("sys->cmd[%d]=%d: %d, ", ic, sys->cmd[ic].command, sys->cmd[ic].step); for (int i=0; i<MAX_CMD_PARAMS; i++) if (sys->cmd[ic].command_params_int[i] || sys->cmd[ic].command_params_double[i]) printf(" (%d,%g)", sys->cmd[ic].command_params_int[i], sys->cmd[ic].command_params_double[i]); printf("\n");
 
         if (cmd[ic].command == IETCMD_NOP){
         } else if (cmd[ic].command == IETCMD_END){
-            if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: cmd[%d] = end\n", ic+1);
             ret = -1; break;
         } else if (cmd[ic].command == IETCMD_DONE){
-            if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: cmd[%d] = done\n", ic+1);
             break;
       // settings commands
         } else if (cmd[ic].command==IETCMD_CLEAR  ){
-            if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: cmd[%d] = clear\n", ic+1);
             arr->reset_for_calculation(false, true, true, false);
             arr->is_energy_calculated = false;
             arr->is_rdf_calculated = false;
             reset_rdf(sys, rdf, sys->out_rdf_bins);
         } else if (cmd[ic].command==IETCMD_RESET  ){
-            if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: cmd[%d] = clear\n", ic+1);
             arr->reset_for_calculation(true, true, true, true);
             arr->is_energy_calculated = false;
             arr->is_rdf_calculated = false;
@@ -52,38 +50,18 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
         } else if (cmd[ic].command==IETCMD_SET       ){
             for (int i=0; i<cmd[ic].step&&i<MAX_CMD_PARAMS; i++){
                 if (cmd[ic].command_params_int[i] == IETCMD_v_rism_dielect){
-                    if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: cmd[%d] = set(rism-dielect)\n", ic+1);
                     apply_dielect_from_dipole(sys);
                 } else if (cmd[ic].command_params_int[i] == IETCMD_v_uuv){
-                    if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: cmd[%d] = set(scale.ff=%g)\n", ic+1, cmd[ic].command_params_double[i]);
                     sys->scale_lj = cmd[ic].command_params_double[i];
                     sys->scale_coul = cmd[ic].command_params_double[i];
                 } else if (cmd[ic].command_params_int[i] == IETCMD_v_ulj){
-                    if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: cmd[%d] = set(scale.lj=%g)\n", ic+1, cmd[ic].command_params_double[i]);
                     sys->scale_lj = cmd[ic].command_params_double[i];
                 } else if (cmd[ic].command_params_int[i] == IETCMD_v_ucoul){
-                    if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: cmd[%d] = set(scale.coul=%g)\n", ic+1, cmd[ic].command_params_double[i]);
                     sys->scale_coul = cmd[ic].command_params_double[i];
                 }
             }
       // IO commands
         } else if (cmd[ic].command==IETCMD_LOAD){
-            if (sys->debug_level>=2){
-                fprintf(sys->log(), "DEBUG:: cmd[%d] = load(", ic+1);
-                for (int is=0; is<cmd[ic].step && is<MAX_CMD_PARAMS; is++){
-                    const char * load_item = ""; switch (cmd[ic].command_params_int[is]) {
-                        case IETCMD_v_ulj: load_item = "lj";   break;
-                        case IETCMD_v_ucoul: load_item = "coul";   break;
-                        case IETCMD_v_cuv: load_item = "cuv";   break;
-                        case IETCMD_v_huv: load_item = "huv";   break;
-                        case IETCMD_v_hlr: load_item = "hlr";   break;
-                        case IETCMD_v_dd: load_item = "dd";   break;
-                        case -IETCMD_v_dd: load_item = "nphi";   break;
-                        case IETCMD_v_guv: load_item = "guv";   break;
-                    }
-                    if (load_item[0]) fprintf(sys->log(), "%s%s", is==0?"":",", load_item);
-                }; fprintf(sys->log(), ")\n");
-            }
             bool force_field_loaded[3] = { false, false, false };
             if (!szfn_in[0]){
                 if (show_run_info) fprintf(flog, "%s : cmd[%d] : waning : input file (-i) not specified and nothing is loaded.\n", software_name, ic+1);
@@ -115,7 +93,7 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                     load_ret = load_array_from_file(&arr->hlr[0][0][0][0], sys->nv, arr->nz, arr->ny, arr->nx, filename, "huv", flog);
                 } else if (cmd[ic].command_params_int[is]==IETCMD_v_dd){
                     snprintf(filename, sizeof(filename), "%s.dd", szfn_in);
-                    arr->dd = arr->__dd;
+                    if (!arr->dd) arr->dd = arr->__dd;
                     load_ret = load_array_from_file(&arr->dd[0][0][0][0], sys->nmv, arr->nz, arr->ny, arr->nx, filename, "dd", flog);
                 }
             }
@@ -136,7 +114,9 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                     fprintf(sys->log(), "\n");
                 }
             }
-        } else if (cmd[ic].command==IETCMD_SAVE){
+        } else if (cmd[ic].command==IETCMD_SAVE_EXIST && sys->b_output_filename_autogenerated){
+            // prevent saving when -o not explicitly specified
+        } else if (cmd[ic].command==IETCMD_SAVE || cmd[ic].command==IETCMD_SAVE_EXIST){
             char save_iterms_buffer[128]; memset(save_iterms_buffer, 0, sizeof(save_iterms_buffer)); long int total_size = 0; long int original_size = 0;
             for (int is=0; is<cmd[ic].step && is<MAX_CMD_PARAMS; is++){
                 const char * save_item = ""; switch (cmd[ic].command_params_int[is]) {
@@ -159,7 +139,6 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                 if (save_item[0]) snprintf(&save_iterms_buffer[strlen(save_iterms_buffer)], sizeof(save_iterms_buffer)-strlen(save_iterms_buffer), "%s%s", (!save_iterms_buffer[0])?"":",", save_item);
             };
           lap_timer_others();
-            if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: cmd[%d] = save(%s)\n", ic+1, save_iterms_buffer);
             if (!szfn_out[0]){
                 if (show_run_info) fprintf(flog, "%s : cmd[%d] : waning : output file (-o) not specified and nothing is saved.\n", software_name, ic+1);
             } else for (int is=0; is<cmd[ic].step && is<MAX_CMD_PARAMS; is++){
@@ -377,36 +356,30 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
             }
       // setting values for arrays
         } else if (cmd[ic].command==IETCMD_CLOSURE   ){
-            if (sys->debug_level>=2){ fprintf(sys->log(), "DEBUG:: cmd[%d] = closure[", ic+1); for (int i=0; i<cmd[ic].step && i<MAX_CMD_PARAMS; i++) fprintf(sys->log(), i==0?"%s":",%s", CLOSURE_name[cmd[ic].command_params_int[i]]); fprintf(sys->log(), "]\n"); }
             for (int i=0; i<sys->nav; i++){
                 int iaa = sys->av[i].iaa;
                 if (iaa>=0 && iaa<cmd[ic].step && iaa<MAX_CMD_PARAMS) sys->closures[i] = cmd[ic].command_params_int[iaa];
                 else if (cmd[ic].step<=1) sys->closures[i] = cmd[ic].command_params_int[0];
             }
         } else if (cmd[ic].command==IETCMD_CLOSURE_A ){
-            if (sys->debug_level>=2){ fprintf(sys->log(), "DEBUG:: cmd[%d] = closure_a[", ic+1); for (int i=0; i<cmd[ic].step && i<MAX_CMD_PARAMS; i++) fprintf(sys->log(), i==0?"%s":",%s", CLOSURE_name[cmd[ic].command_params_int[i]]); fprintf(sys->log(), "]\n"); }
             for (int i=0; i<sys->nav; i++){
                 if (i>=0 && i<cmd[ic].step && i<MAX_CMD_PARAMS) sys->closures[i] = cmd[ic].command_params_int[i];
                 else if (cmd[ic].step<=1) sys->closures[i] = cmd[ic].command_params_int[0];
             }
         } else if (cmd[ic].command==IETCMD_TEST || cmd[ic].command==IETCMD_TEST_SAVE){
-            if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: cmd[%d] = %s\n", ic+1, cmd[ic].command==IETCMD_TEST_SAVE?"test-and-save":"test");
             perform_sub_test(sys, arr, &cmd[ic]);
         } else if (cmd[ic].command==IETCMD_CF        ){
-            if (sys->debug_level>=2){ fprintf(sys->log(), "DEBUG:: cmd[%d] = cf[", ic+1); for (int i=0; i<cmd[ic].step && i<MAX_CMD_PARAMS; i++) fprintf(sys->log(), i==0?"%g":",%g", cmd[ic].command_params_double[i]); fprintf(sys->log(), "]\n"); }
             for (int i=0; i<sys->nav; i++){
                 int iaa = sys->av[i].iaa;
                 if (iaa>=0 && iaa<cmd[ic].step && iaa<MAX_CMD_PARAMS) sys->closure_factors[i] = cmd[ic].command_params_double[iaa];
                 else if (cmd[ic].step<=1) sys->closure_factors[i] = cmd[ic].command_params_double[0];
             }
         } else if (cmd[ic].command==IETCMD_CF_A      ){
-            if (sys->debug_level>=2){ fprintf(sys->log(), "DEBUG:: cmd[%d] = cf[", ic+1); for (int i=0; i<cmd[ic].step && i<MAX_CMD_PARAMS; i++) fprintf(sys->log(), i==0?"%g":",%g", cmd[ic].command_params_double[i]); fprintf(sys->log(), "]\n"); }
             for (int i=0; i<sys->nav; i++){
                 if (i>=0 && i<cmd[ic].step && i<MAX_CMD_PARAMS) sys->closure_factors[i] = cmd[ic].command_params_double[i];
                 else if (cmd[ic].step<=1) sys->closure_factors[i] = cmd[ic].command_params_double[0];
             }
         } else if (cmd[ic].command==IETCMD_dielect   ){
-            if (sys->debug_level>=2){ fprintf(sys->log(), "DEBUG:: cmd[%d] = dielect[", ic+1); for (int i=0; i<cmd[ic].step && i<MAX_CMD_PARAMS; i++) fprintf(sys->log(), i==0?"%g":",%g", cmd[ic].command_params_double[i]); fprintf(sys->log(), "]\n"); }
             for (int i=0; i<sys->nav; i++){
                 int iaa = sys->av[i].iaa;
                 if (iaa>=0 && iaa<cmd[ic].step && iaa<MAX_CMD_PARAMS) sys->dielect[i] = cmd[ic].command_params_double[iaa];
@@ -415,7 +388,6 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
             double dielecti = 0; double density_dielect = 0; for (int ivm=0; ivm<sys->nvm; ivm++){ dielecti += sys->density_mv[ivm] / sys->dielect_mol[ivm]; density_dielect += sys->density_mv[ivm]; } sys->mean_dielect = density_dielect / dielecti;
             //if (sys->esal==CoulAL_Coulomb) sys->mean_dielect = 1;
         } else if (cmd[ic].command==IETCMD_density   ){
-            if (sys->debug_level>=2){ fprintf(sys->log(), "DEBUG:: cmd[%d] = density[", ic+1); for (int i=0; i<cmd[ic].step && i<MAX_CMD_PARAMS; i++) fprintf(sys->log(), i==0?"%g":",%g", cmd[ic].command_params_double[i]); fprintf(sys->log(), "]\n"); }
             for (int i=0; i<sys->nav; i++){
                 int iaa = sys->av[i].iaa;
                 if (iaa>=0 && iaa<cmd[ic].step && iaa<MAX_CMD_PARAMS) sys->density_av[i] = cmd[ic].command_params_double[iaa];
@@ -423,17 +395,15 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
             for (int i=0; i<cmd[ic].step && i<MAX_CMD_PARAMS && i<MAX_SOL; i++) sys->density_mv[i] = cmd[ic].command_params_double[i];
       // rebuild force field
         } else if (cmd[ic].command==IETCMD_BUILD_FF){
-            if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: cmd[%d] = rebuild_force_field()\n", ic+1);
             arr->uuv_is_ready = false;
             build_force_field_auto(sys, arr, flog, nframe);
             build_uuv_base_on_force_field(sys, arr);
       // running HI
         } else if (cmd[ic].command>=2000 && cmd[ic].command<2500){  // HI
             int hial = cmd[ic].command - 2000; // HSHI
-            if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: cmd[%d] = %s\n", ic+1, HIAL_name[hial]);
 
-            if (!arr->zeta){
-                fprintf(sys->log(), "%s%s : error : cannot perform %s: -zeta not specified%s\n", sys->is_log_tty?color_string_of_error:"", software_name, HIAL_name[hial], sys->is_log_tty?color_string_end:"");
+            if (!arr->zeta && hial>=HIAL_HI){
+                fprintf(sys->log(), "%s%s : error : cannot perform %s: -zeta or [zeta] not defined%s\n", sys->is_log_tty?color_string_of_error:"", software_name, HIAL_name[hial], sys->is_log_tty?color_string_end:"");
                 success = false;
             } else {
                 build_force_field_auto(sys, arr, flog, nframe);
@@ -441,15 +411,14 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
 
                 sys->hial = hial;
                 sys->stepmax_hi = cmd[ic].step;
-                arr->dd = arr->__dd;
+                if (!arr->dd) arr->dd = arr->__dd;
                 if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: perform_hi()\n");
-                bool hi_converged = perform_hi(sys, arr, cmd[ic].command_params_int, cmd[ic].command_params_double, MAX_CMD_PARAMS, true);
+                bool hi_converged = perform_hi(sys, arr, cmd[ic].command_params_int, cmd[ic].command_params_double, MAX_CMD_PARAMS);
                 //if (sys->detail_level>=1&&!hi_converged) fprintf(flog, "  %s not converged\n", HIAL_name[sys->hial]);
-                if (arr->dd&&sys->debug_level>=3) fprintf(sys->log(), "DEBUG:: (debug only) check_real_crc(dd)         = %08X\n", check_real_crc(&arr->dd[0][0][0][0], arr->nx*arr->ny*arr->nz));
+                if (arr->dd&&(sys->debug_level>=3||sys->debug_show_crc)) fprintf(sys->log(), "DEBUG:: (debug only) check_real_crc(dd)         = %08X\n", check_real_crc(&arr->dd[0][0][0][0], arr->nx*arr->ny*arr->nz));
             }
       // running SSOZ/RISM
         } else if (cmd[ic].command==1500){ //RISM_NONE
-            if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: cmd[%d] = init-rism\n", ic+1);
             build_force_field_auto(sys, arr, flog, nframe);
             build_uuv_base_on_force_field(sys, arr);
             size_t N3 = arr->nx*arr->ny*arr->nz; size_t N4 = N3 * sys->nv;
@@ -459,7 +428,6 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
             }
         } else if (cmd[ic].command>1500 && cmd[ic].command<2000){  // RISM
             int ietal = cmd[ic].command - 1500; // SSOZ, RISM, etc
-            if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: cmd[%d] = %s\n", ic+1, IETAL_name[ietal]);
 
             size_t N3 = arr->nx*arr->ny*arr->nz; size_t N4 = N3 * sys->nv;
             if ((cmd[ic].command==1500+IETAL_VRISM||cmd[ic].command==1500+IETAL_IRISM) && cmd[ic].command_params_int[0]>=0){
@@ -489,7 +457,7 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                 arr->diis_rism.ndiis = 0;
                 bool rism_converged = RISMHI3D_RISMNS::perform_3d_iet(flog, sys, arr, true);
                 //if (sys->detail_level>=1&&!rism_converged) fprintf(flog, "  %s not converged\n", IETAL_name[sys->ietal]);
-                if (sys->debug_level>=3) fprintf(sys->log(), "DEBUG:: (debug only) check_real_crc(huv)        = %08X\n", check_real_crc(&arr->huv[0][0][0][0], sys->nv*arr->nx*arr->ny*arr->nz));
+                if (sys->debug_level>=3||sys->debug_show_crc) fprintf(sys->log(), "DEBUG:: (debug only) check_real_crc(huv)        = %08X\n", check_real_crc(&arr->huv[0][0][0][0], sys->nv*arr->nx*arr->ny*arr->nz));
             }
 
             if (cmd[ic].command==1500+IETAL_VRISM && cmd[ic].command_params_int[0]>=0){
@@ -558,7 +526,6 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
 
       // block commands
         } else if (cmd[ic].command==IETCMD_TI){
-            if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: cmd[%d] = %s\n", ic+1, "TI");
             if (cmd[ic].step<2){
                 fprintf(flog, " %s: warning : will not perform TI because too few steps (%d)\n", software_name, cmd[ic].step);
             } else {
