@@ -1,5 +1,5 @@
 const char * software_name = "rismhi3d";
-const char * software_version = "a.240.1465";
+const char * software_version = "a.246.1472";
 const char * copyright_string = "(c) Cao Siqin";
 
 #define     __REAL__    double
@@ -158,10 +158,14 @@ STKeywordTableUnit CoulAL_alias [] = {
 #define CLOSURE_PSE9            19
 #define CLOSURE_PSE10           20
 #define CLOSURE_MS              21
-#define CLOSURE_BPGGHNC         22
-#define CLOSURE_VM              23
-#define CLOSURE_MP              24
-#define CLOSURE_MHNC            25
+#define CLOSURE_MSHNC           22
+#define CLOSURE_BPGGHNC         23
+#define CLOSURE_VM              24
+#define CLOSURE_MP              25
+#define CLOSURE_MHNC            26
+#define CLOSURE_USER1           28
+#define CLOSURE_USER2           29
+#define CLOSURE_USER3           30
 const char * CLOSURE_name[100];
 STKeywordTableUnit CLOSURE_alias[200] = {
   // key names here
@@ -185,10 +189,14 @@ STKeywordTableUnit CLOSURE_alias[200] = {
     { CLOSURE_PSE9              , "PSE9" },
     { CLOSURE_PSE10             , "PSE10" },
     { CLOSURE_MS                , "MS" },
+    { CLOSURE_MSHNC            , "MSHNC" },
     { CLOSURE_BPGGHNC           , "BPGGHNC" },
     { CLOSURE_VM                , "VM" },
     { CLOSURE_MP                , "Marucho-Pettitt" },
     { CLOSURE_MHNC              , "MHNC" },
+    { CLOSURE_USER1             , "user1" },
+    { CLOSURE_USER2             , "user2" },
+    { CLOSURE_USER3             , "user3" },
   // alias in the following
     { CLOSURE_NONE              , "no" },
     { CLOSURE_HNC               , "Hyper-Netted-Chain" },
@@ -205,27 +213,27 @@ STKeywordTableUnit CLOSURE_alias[200] = {
     { CLOSURE_VM                , "Verlet-Modified" },
     { CLOSURE_VM                , "Modified-Verlet" },
     { CLOSURE_MS                , "Martynov-Sarkisov" },
+    { CLOSURE_MSHNC            , "Martynov-Sarkisov-HNC" },
     { CLOSURE_BPGGHNC           , "BPGG" }
 };
 int n_CLOSURE_alias = sizeof(CLOSURE_alias)/sizeof(CLOSURE_alias[0]);
-#define IETAL_NONE      0
-#define IETAL_SSOZ      1
-#define IETAL_RRISM     2
-#define IETAL_VRISM     3
-#define IETAL_IRISM     4
+#define IETAL_NONE          0
+#define IETAL_SSOZ          1
+#define IETAL_RRISM         2
+#define IETAL_VRISM         3
+#define IETAL_IRISM         4
 const char * IETAL_name[] = { "", "SSOZ", "RISM", "VRISM", "IRISM" };
-#define HIAL_NONE       0
-#define HIAL_CUTOFF     1
-#define HIAL_ICUTOFF    2
-#define HIAL_HI         4
-#define HIAL_HSHI       4
-#define HIAL_DPHI       5
-#define HIAL_DNHI       6
-#define HIAL_PLHI       7
-#define HIAL_RES_PLHI   8
-const char * HIAL_name[9] = { "", "CutoffHI", "iCutoffHI", "", "HSHI", "DPHI", "DNHI", "PLHI", "rPLHI" };
-#define GUVMAL_THETA    1
-#define GUVMAL_GUV      2
+#define HIAL_NONE           0
+#define HIAL_NOHI           0
+#define HIAL_HI             1
+#define HIAL_HSHI           1
+#define HIAL_DPHI           2
+#define HIAL_DNHI           3
+#define HIAL_PLHI           4
+#define HIAL_RES_PLHI       5
+const char * HIAL_name[] = { "noHI", "HSHI", "DPHI", "DNHI", "PLHI", "rPLHI" };
+#define GUVMAL_THETA        1
+#define GUVMAL_GUV          2
 const char * GUVMAL_name[3] = { "", "Theta", "guv" };
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 // for BG: integration pathway
@@ -245,9 +253,10 @@ const char * GUVMAL_name[3] = { "", "Theta", "guv" };
 #define IETCMD_SCALE        11
 #define IETCMD_LOAD         12
 #define IETCMD_SAVE         13
-#define IETCMD_SAVE_FILTER  14
-#define IETCMD_DISPLAY      15
-#define IETCMD_REPORT       16
+#define IETCMD_SAVE_EXIST   14
+#define IETCMD_SAVE_FILTER  15
+#define IETCMD_DISPLAY      16
+#define IETCMD_REPORT       17
 #define IETCMD_CLOSURE      21
 #define IETCMD_CLOSURE_A    22
 #define IETCMD_CF           23
@@ -261,7 +270,6 @@ const char * GUVMAL_name[3] = { "", "Theta", "guv" };
 #define IETCMD_v_box            100
 #define IETCMD_v_temperature    101
 #define IETCMD_v_Coulomb        102
-#define IETCMD_v_dion           103
 #define IETCMD_v_dielect_y      104
 #define IETCMD_v_rbohr          105
 #define IETCMD_v_cmd            200
@@ -272,9 +280,6 @@ const char * GUVMAL_name[3] = { "", "Theta", "guv" };
 #define IETCMD_v_ucoul2         205
 #define IETCMD_v_ucoulsr        206
 #define IETCMD_v_ucoullr        207
-#define IETCMD_v_unh            208
-#define IETCMD_v_unhlj          209
-#define IETCMD_v_unhcoul        221
 #define IETCMD_v_dd             222
 #define IETCMD_v_huv            223
 #define IETCMD_v_hlr            224
@@ -292,8 +297,6 @@ const char * GUVMAL_name[3] = { "", "Theta", "guv" };
 #define IETCMD_v_rism_dielect   241
 #define IETCMD_v_HFE            242
 #define IETCMD_v_Chandler_G     243
-#define IETCMD_v_EuvRep         244
-#define	IETCMD_v_CuvRep         245
 #define IETCMD_v_Mayer          246
 #define IETCMD_v_ddp            247
 // test commands
@@ -498,6 +501,12 @@ int main(int argc, char * argv[]){
         }
 
         if (!b_read_solvent_xvv || !b_read_solvent_zeta || !b_analysis_post) success = false;
+    }
+    if (success && sys->check_zero_xvv){ // build gvv zero indicator
+        if (sys->debug_level>=2) fprintf(sys->log(), "Debug:: build_xvv_pointer_skip_missing(%s%s%s)\n", arr->wvv?"wvv":"", arr->nhkvv?arr->wvv?",nhkvv":"nhkvv":"", arr->zeta?(arr->wvv||arr->nhkvv)?",zeta":"zeta":"");
+        if (arr->wvv)   arr->convolution_wvv = build_xvv_pointer_skip_missing(arr->wvv, sys->nv, sys->nv, arr->n_wvv, sys, "wvv");
+        if (arr->nhkvv) arr->convolution_nhkvv = build_xvv_pointer_skip_missing(arr->nhkvv, sys->nv, sys->nv, arr->n_nhkvv, sys, "nhkvv");
+        if (arr->zeta)  arr->convolution_zeta = build_xvv_pointer_skip_missing(arr->zeta, sys->nvm, sys->nvm, arr->n_zeta, sys, "zeta");
     }
     if (success && arr->nhkvv){
         perform_xvv_enhancement(sys, arr);
