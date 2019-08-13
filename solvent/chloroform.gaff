@@ -1,0 +1,31 @@
+[solvent]
+ ff           gaff
+ rvdw         2
+ rcoul        2
+ drrism       0.01
+ gvv          xvv-gaff-310K/gvv.01nm.chloroform
+ drhi         0.01
+ zvv          xvv-gaff-310K/zeta.01nm.chloroform
+ scale.zeta   0.887223 
+ density      7.23334 
+ dipole       0.0327415 
+ dielect      5
+[atom]
+#  name      mole idx grp      charge       sigma     epsilon
+     C1 chloroform   1   1   -0.302700    0.339967    0.457730
+     H2 chloroform   2   2    0.300600    0.211499    0.065689
+    Cl3 chloroform   3   3    0.000700    0.347094    1.108760
+    Cl4 chloroform   4   3    0.000700    0.347094    1.108760
+    Cl5 chloroform   5   3    0.000700    0.347094    1.108760
+[bond]
+#      atom1       atom2    bond(nm)   stdev(nm)
+ chloroform.C1 chloroform.H2    0.109300    0.000409
+ chloroform.C1 chloroform.Cl3    0.178601    0.000410
+ chloroform.C1 chloroform.Cl4    0.178603    0.000408
+ chloroform.C1 chloroform.Cl5    0.178602    0.000411
+ chloroform.H2 chloroform.Cl3    0.235981    0.006449
+ chloroform.H2 chloroform.Cl4    0.235914    0.006471
+ chloroform.H2 chloroform.Cl5    0.236023    0.006457
+ chloroform.Cl3 chloroform.Cl4    0.294140    0.006982
+ chloroform.Cl3 chloroform.Cl5    0.294101    0.007030
+ chloroform.Cl4 chloroform.Cl5    0.294123    0.007008

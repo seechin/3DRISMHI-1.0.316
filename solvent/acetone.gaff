@@ -1,0 +1,71 @@
+[solvent]
+ ff           gaff
+ rvdw         2
+ rcoul        2
+ drrism       0.01
+ gvv          xvv-gaff-310K/gvv.01nm.acetone
+ drhi         0.01
+ zvv          xvv-gaff-310K/zeta.01nm.acetone
+ scale.zeta   0.486321
+ density      8.0311 
+ dipole       0.0674358 
+ dielect      20.5    
+[atom]
+#  name      mole idx grp      charge       sigma     epsilon
+     C1   acetone   1   1    0.810200    0.339967    0.359824
+     C2   acetone   2   2   -0.476700    0.339967    0.457730
+     C3   acetone   3   2   -0.476700    0.339967    0.457730
+     O4   acetone   4   3   -0.586400    0.295992    0.878640
+     H5   acetone   5   4    0.121600    0.264953    0.065689
+     H6   acetone   6   4    0.121600    0.264953    0.065689
+     H7   acetone   7   4    0.121600    0.264953    0.065689
+     H8   acetone   8   4    0.121600    0.264953    0.065689
+     H9   acetone   9   4    0.121600    0.264953    0.065689
+    H10   acetone  10   4    0.121600    0.264953    0.065689
+[bond]
+#      atom1       atom2    bond(nm)   stdev(nm)
+  acetone.C1  acetone.C2    0.150802    0.000408
+  acetone.C1  acetone.C3    0.150801    0.000409
+  acetone.C1  acetone.O4    0.121399    0.000409
+  acetone.C1  acetone.H5    0.213733    0.005388
+  acetone.C1  acetone.H6    0.213734    0.005379
+  acetone.C1  acetone.H7    0.213797    0.005395
+  acetone.C1  acetone.H8    0.213738    0.005404
+  acetone.C1  acetone.H9    0.213760    0.005423
+  acetone.C1 acetone.H10    0.213759    0.005409
+  acetone.C2  acetone.C3    0.255888    0.004258
+  acetone.C2  acetone.O4    0.238201    0.003537
+  acetone.C2  acetone.H5    0.109206    0.000408
+  acetone.C2  acetone.H6    0.109204    0.000408
+  acetone.C2  acetone.H7    0.109200    0.000408
+  acetone.C2  acetone.H8    0.304007    0.032457
+  acetone.C2  acetone.H9    0.303614    0.032260
+  acetone.C2 acetone.H10    0.304033    0.032361
+  acetone.C3  acetone.O4    0.238004    0.003558
+  acetone.C3  acetone.H5    0.303784    0.032329
+  acetone.C3  acetone.H6    0.304298    0.032285
+  acetone.C3  acetone.H7    0.303618    0.032497
+  acetone.C3  acetone.H8    0.109204    0.000407
+  acetone.C3  acetone.H9    0.109200    0.000407
+  acetone.C3 acetone.H10    0.109201    0.000405
+  acetone.O4  acetone.H5    0.289216    0.027432
+  acetone.O4  acetone.H6    0.288828    0.027416
+  acetone.O4  acetone.H7    0.289445    0.027519
+  acetone.O4  acetone.H8    0.288819    0.027667
+  acetone.O4  acetone.H9    0.289242    0.027458
+  acetone.O4 acetone.H10    0.288835    0.027538
+  acetone.H5  acetone.H6    0.177759    0.005124
+  acetone.H5  acetone.H7    0.177756    0.005143
+  acetone.H5  acetone.H8    0.345743    0.054634
+  acetone.H5  acetone.H9    0.345276    0.054822
+  acetone.H5 acetone.H10    0.345736    0.054687
+  acetone.H6  acetone.H7    0.177799    0.005132
+  acetone.H6  acetone.H8    0.346247    0.054664
+  acetone.H6  acetone.H9    0.345803    0.054548
+  acetone.H6 acetone.H10    0.346417    0.054612
+  acetone.H7  acetone.H8    0.345566    0.055073
+  acetone.H7  acetone.H9    0.345108    0.054810
+  acetone.H7 acetone.H10    0.345468    0.054874
+  acetone.H8  acetone.H9    0.177789    0.005194
+  acetone.H8 acetone.H10    0.177751    0.005159
+  acetone.H9 acetone.H10    0.177764    0.005138

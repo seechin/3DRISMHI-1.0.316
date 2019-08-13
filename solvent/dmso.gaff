@@ -1,0 +1,71 @@
+[solvent]
+ ff           gaff
+ rvdw         2
+ rcoul        2
+ drrism       0.01
+ gvv          xvv-gaff-310K/gvv.01nm.dmso
+ drhi         0.01
+ zvv          xvv-gaff-310K/zeta.01nm.dmso
+ scale.zeta   1.19499
+ density      8.68625 
+ dipole       0.104764 
+ dielect      47 
+[atom]
+#  name      mole idx grp      charge       sigma     epsilon
+     C1      dmso   1   1   -0.427900    0.339967    0.457730
+     H2      dmso   2   2    0.170100    0.247135    0.065689
+     H3      dmso   3   2    0.170100    0.247135    0.065689
+     H4      dmso   4   2    0.170100    0.247135    0.065689
+     S5      dmso   5   3    0.381100    0.356359    1.046000
+     C6      dmso   6   1   -0.427900    0.339967    0.457730
+     H7      dmso   7   2    0.170100    0.247135    0.065689
+     H8      dmso   8   2    0.170100    0.247135    0.065689
+     H9      dmso   9   2    0.170100    0.247135    0.065689
+    O10      dmso  10   4   -0.545900    0.295992    0.878640
+[bond]
+#      atom1       atom2    bond(nm)   stdev(nm)
+     dmso.C1     dmso.H2    0.109297    0.000409
+     dmso.C1     dmso.H3    0.109299    0.000404
+     dmso.C1     dmso.H4    0.109298    0.000411
+     dmso.C1     dmso.S5    0.180703    0.000408
+     dmso.C1     dmso.C6    0.268358    0.007651
+     dmso.C1     dmso.H7    0.310205    0.041513
+     dmso.C1     dmso.H8    0.310534    0.041539
+     dmso.C1     dmso.H9    0.310687    0.041530
+     dmso.C1    dmso.O10    0.259985    0.006988
+     dmso.H2     dmso.H3    0.179085    0.005157
+     dmso.H2     dmso.H4    0.179077    0.005126
+     dmso.H2     dmso.S5    0.238994    0.006209
+     dmso.H2     dmso.C6    0.310318    0.041496
+     dmso.H2     dmso.H7    0.346113    0.066529
+     dmso.H2     dmso.H8    0.346403    0.066441
+     dmso.H2     dmso.H9    0.346523    0.066659
+     dmso.H2    dmso.O10    0.305552    0.035743
+     dmso.H3     dmso.H4    0.179007    0.005157
+     dmso.H3     dmso.S5    0.238998    0.006243
+     dmso.H3     dmso.C6    0.310216    0.041492
+     dmso.H3     dmso.H7    0.345889    0.066602
+     dmso.H3     dmso.H8    0.346283    0.066668
+     dmso.H3     dmso.H9    0.346532    0.066447
+     dmso.H3    dmso.O10    0.305101    0.035652
+     dmso.H4     dmso.S5    0.239029    0.006258
+     dmso.H4     dmso.C6    0.310796    0.041722
+     dmso.H4     dmso.H7    0.346574    0.066753
+     dmso.H4     dmso.H8    0.346886    0.066583
+     dmso.H4     dmso.H9    0.347122    0.066718
+     dmso.H4    dmso.O10    0.305156    0.035730
+     dmso.S5     dmso.C6    0.180701    0.000407
+     dmso.S5     dmso.H7    0.238991    0.006221
+     dmso.S5     dmso.H8    0.239036    0.006233
+     dmso.S5     dmso.H9    0.238997    0.006199
+     dmso.S5    dmso.O10    0.149702    0.000409
+     dmso.C6     dmso.H7    0.109304    0.000405
+     dmso.C6     dmso.H8    0.109298    0.000408
+     dmso.C6     dmso.H9    0.109303    0.000411
+     dmso.C6    dmso.O10    0.259928    0.006954
+     dmso.H7     dmso.H8    0.179087    0.005109
+     dmso.H7     dmso.H9    0.179084    0.005160
+     dmso.H7    dmso.O10    0.305192    0.035793
+     dmso.H8     dmso.H9    0.179027    0.005113
+     dmso.H8    dmso.O10    0.305432    0.035777
+     dmso.H9    dmso.O10    0.305068    0.035555

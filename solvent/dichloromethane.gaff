@@ -1,0 +1,31 @@
+[solvent]
+ ff           gaff
+ rvdw         2
+ rcoul        2
+ drrism       0.01
+ gvv          xvv-gaff-310K/gvv.01nm.dichloromethane
+ drhi         0.01
+ zvv          xvv-gaff-310K/zeta.01nm.dichloromethane
+ scale.zeta   0.966663
+ density      8.77471 
+ dipole       0.0475348 
+ dielect      9
+[atom]
+#  name      mole idx grp      charge       sigma     epsilon
+    Cl1 dichloromethane   1   1   -0.093200    0.347094    1.108760
+     C2 dichloromethane   2   2   -0.259600    0.339967    0.457730
+     H3 dichloromethane   3   3    0.223000    0.229317    0.065689
+     H4 dichloromethane   4   3    0.223000    0.229317    0.065689
+    Cl5 dichloromethane   5   1   -0.093200    0.347094    1.108760
+[bond]
+#      atom1       atom2    bond(nm)   stdev(nm)
+ dichloromethane.Cl1 dichloromethane.C2    0.178598    0.000408
+ dichloromethane.Cl1 dichloromethane.H3    0.238373    0.008890
+ dichloromethane.Cl1 dichloromethane.H4    0.238436    0.008957
+ dichloromethane.Cl1 dichloromethane.Cl5    0.293131    0.007427
+ dichloromethane.C2 dichloromethane.H3    0.110001    0.000409
+ dichloromethane.C2 dichloromethane.H4    0.110004    0.000408
+ dichloromethane.C2 dichloromethane.Cl5    0.178599    0.000409
+ dichloromethane.H3 dichloromethane.H4    0.178049    0.005559
+ dichloromethane.H3 dichloromethane.Cl5    0.238319    0.008839
+ dichloromethane.H4 dichloromethane.Cl5    0.238374    0.008880

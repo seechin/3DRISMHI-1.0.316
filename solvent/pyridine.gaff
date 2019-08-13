@@ -1,0 +1,82 @@
+[solvent]
+ ff           gaff
+ rvdw         2
+ rcoul        2
+ drrism       0.01
+ gvv          xvv-gaff-310K/gvv.01nm.pyridine
+ drhi         0.01
+ zvv          xvv-gaff-310K/zeta.01nm.pyridine
+ scale.zeta   0.900087
+ density      7.52861 
+ dipole       0.0488185 
+ dielect      13
+[atom]
+#  name      mole idx grp      charge       sigma     epsilon
+     C1  pyridine   1   1    0.482800    0.339967    0.359824
+     H2  pyridine   2   2    0.033400    0.251055    0.062760
+     C3  pyridine   3   3   -0.534700    0.339967    0.359824
+     H4  pyridine   4   4    0.192400    0.259964    0.062760
+     C5  pyridine   5   5    0.244100    0.339967    0.359824
+     H6  pyridine   6   6    0.091000    0.259964    0.062760
+     C7  pyridine   7   3   -0.534700    0.339967    0.359824
+     H8  pyridine   8   4    0.192400    0.259964    0.062760
+     C9  pyridine   9   1    0.482800    0.339967    0.359824
+    H10  pyridine  10   2    0.033400    0.251055    0.062760
+    N11  pyridine  11   7   -0.682900    0.325000    0.711280
+[bond]
+#      atom1       atom2    bond(nm)   stdev(nm)
+ pyridine.C1 pyridine.H2    0.108804    0.000408
+ pyridine.C1 pyridine.C3    0.138700    0.000409
+ pyridine.C1 pyridine.H4    0.214395    0.003723
+ pyridine.C1 pyridine.C5    0.239547    0.002782
+ pyridine.C1 pyridine.H6    0.338543    0.003362
+ pyridine.C1 pyridine.C7    0.271368    0.003803
+ pyridine.C1 pyridine.H8    0.379515    0.003848
+ pyridine.C1 pyridine.C9    0.229700    0.002937
+ pyridine.C1 pyridine.H10    0.326035    0.003583
+ pyridine.C1 pyridine.N11    0.134201    0.000408
+ pyridine.H2 pyridine.C3    0.215917    0.003613
+ pyridine.H2 pyridine.H4    0.248992    0.007675
+ pyridine.H2 pyridine.C5    0.338666    0.003359
+ pyridine.H2 pyridine.H6    0.429597    0.004756
+ pyridine.H2 pyridine.C7    0.379579    0.003844
+ pyridine.H2 pyridine.H8    0.487585    0.003921
+ pyridine.H2 pyridine.C9    0.326058    0.003572
+ pyridine.H2 pyridine.H10    0.411655    0.005232
+ pyridine.H2 pyridine.N11    0.206375    0.003813
+ pyridine.C3 pyridine.H4    0.108701    0.000410
+ pyridine.C3 pyridine.C5    0.138705    0.000409
+ pyridine.C3 pyridine.H6    0.215741    0.003601
+ pyridine.C3 pyridine.C7    0.237161    0.002889
+ pyridine.C3 pyridine.H8    0.336406    0.003413
+ pyridine.C3 pyridine.C9    0.271372    0.003805
+ pyridine.C3 pyridine.H10    0.379585    0.003846
+ pyridine.C3 pyridine.N11    0.239171    0.002709
+ pyridine.H4 pyridine.C5    0.215062    0.003688
+ pyridine.H4 pyridine.H6    0.249790    0.007629
+ pyridine.H4 pyridine.C7    0.336382    0.003431
+ pyridine.H4 pyridine.H8    0.427657    0.004820
+ pyridine.H4 pyridine.C9    0.379512    0.003855
+ pyridine.H4 pyridine.H10    0.487587    0.003932
+ pyridine.H4 pyridine.N11    0.335941    0.003432
+ pyridine.C5 pyridine.H6    0.108701    0.000409
+ pyridine.C5 pyridine.C7    0.138707    0.000410
+ pyridine.C5 pyridine.H8    0.215100    0.003647
+ pyridine.C5 pyridine.C9    0.239556    0.002764
+ pyridine.C5 pyridine.H10    0.338711    0.003376
+ pyridine.C5 pyridine.N11    0.279350    0.003853
+ pyridine.H6 pyridine.C7    0.215766    0.003588
+ pyridine.H6 pyridine.H8    0.249881    0.007594
+ pyridine.H6 pyridine.C9    0.338568    0.003342
+ pyridine.H6 pyridine.H10    0.429676    0.004791
+ pyridine.H6 pyridine.N11    0.387564    0.003891
+ pyridine.C7 pyridine.H8    0.108707    0.000411
+ pyridine.C7 pyridine.C9    0.138702    0.000409
+ pyridine.C7 pyridine.H10    0.215975    0.003639
+ pyridine.C7 pyridine.N11    0.239173    0.002691
+ pyridine.H8 pyridine.C9    0.214376    0.003693
+ pyridine.H8 pyridine.H10    0.249039    0.007632
+ pyridine.H8 pyridine.N11    0.335932    0.003410
+ pyridine.C9 pyridine.H10    0.108807    0.000405
+ pyridine.C9 pyridine.N11    0.134202    0.000407
+ pyridine.H10 pyridine.N11    0.206336    0.003821

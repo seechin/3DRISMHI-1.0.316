@@ -1,0 +1,94 @@
+[solvent]
+ ff           gaff
+ rvdw         2
+ rcoul        2
+ drrism       0.01
+ gvv          xvv-gaff-310K/gvv.01nm.benzene
+ drhi         0.01
+ zvv          xvv-gaff-310K/zeta.01nm.benzene
+ scale.zeta   0.960441
+ density      6.69355 
+ dipole       0.00397617 
+ dielect      2.27
+[atom]
+#  name      mole idx grp      charge       sigma     epsilon
+     C1   benzene   1   1   -0.131549    0.339967    0.359824
+     C2   benzene   2   1   -0.131549    0.339967    0.359824
+     C3   benzene   3   1   -0.131549    0.339967    0.359824
+     C4   benzene   4   1   -0.131549    0.339967    0.359824
+     C5   benzene   5   1   -0.131549    0.339967    0.359824
+     C6   benzene   6   1   -0.131549    0.339967    0.359824
+     H7   benzene   7   2    0.131549    0.259964    0.062760
+     H8   benzene   8   2    0.131549    0.259964    0.062760
+     H9   benzene   9   2    0.131549    0.259964    0.062760
+    H10   benzene  10   2    0.131549    0.259964    0.062760
+    H11   benzene  11   2    0.131549    0.259964    0.062760
+    H12   benzene  12   2    0.131549    0.259964    0.062760
+[bond]
+#      atom1       atom2    bond(nm)   stdev(nm)
+  benzene.C1  benzene.C2    0.138703    0.000407
+  benzene.C1  benzene.C3    0.239997    0.002764
+  benzene.C1  benzene.C4    0.277119    0.003799
+  benzene.C1  benzene.C5    0.240010    0.002756
+  benzene.C1  benzene.C6    0.138703    0.000408
+  benzene.C1  benzene.H7    0.108702    0.000407
+  benzene.C1  benzene.H8    0.214557    0.003660
+  benzene.C1  benzene.H9    0.338102    0.003359
+  benzene.C1 benzene.H10    0.385346    0.003827
+  benzene.C1 benzene.H11    0.338131    0.003395
+  benzene.C1 benzene.H12    0.214544    0.003673
+  benzene.C2  benzene.C3    0.138695    0.000408
+  benzene.C2  benzene.C4    0.240066    0.002744
+  benzene.C2  benzene.C5    0.277097    0.003781
+  benzene.C2  benzene.C6    0.240044    0.002774
+  benzene.C2  benzene.H7    0.214525    0.003655
+  benzene.C2  benzene.H8    0.108700    0.000406
+  benzene.C2  benzene.H9    0.214505    0.003648
+  benzene.C2 benzene.H10    0.338214    0.003393
+  benzene.C2 benzene.H11    0.385326    0.003816
+  benzene.C2 benzene.H12    0.338162    0.003416
+  benzene.C3  benzene.C4    0.138706    0.000412
+  benzene.C3  benzene.C5    0.239988    0.002757
+  benzene.C3  benzene.C6    0.277079    0.003769
+  benzene.C3  benzene.H7    0.338113    0.003379
+  benzene.C3  benzene.H8    0.214536    0.003652
+  benzene.C3  benzene.H9    0.108701    0.000408
+  benzene.C3 benzene.H10    0.214604    0.003686
+  benzene.C3 benzene.H11    0.338119    0.003381
+  benzene.C3 benzene.H12    0.385303    0.003801
+  benzene.C4  benzene.C5    0.138703    0.000407
+  benzene.C4  benzene.C6    0.240057    0.002751
+  benzene.C4  benzene.H7    0.385340    0.003829
+  benzene.C4  benzene.H8    0.338174    0.003372
+  benzene.C4  benzene.H9    0.214537    0.003675
+  benzene.C4 benzene.H10    0.108705    0.000407
+  benzene.C4 benzene.H11    0.214539    0.003688
+  benzene.C4 benzene.H12    0.338176    0.003389
+  benzene.C5  benzene.C6    0.138701    0.000406
+  benzene.C5  benzene.H7    0.338136    0.003385
+  benzene.C5  benzene.H8    0.385316    0.003823
+  benzene.C5  benzene.H9    0.338116    0.003391
+  benzene.C5 benzene.H10    0.214525    0.003683
+  benzene.C5 benzene.H11    0.108708    0.000407
+  benzene.C5 benzene.H12    0.214555    0.003680
+  benzene.C6  benzene.H7    0.214547    0.003659
+  benzene.C6  benzene.H8    0.338169    0.003393
+  benzene.C6  benzene.H9    0.385297    0.003803
+  benzene.C6 benzene.H10    0.338157    0.003392
+  benzene.C6 benzene.H11    0.214528    0.003704
+  benzene.C6 benzene.H12    0.108705    0.000410
+  benzene.H7  benzene.H8    0.247120    0.007569
+  benzene.H7  benzene.H9    0.427412    0.004883
+  benzene.H7 benzene.H10    0.493478    0.003881
+  benzene.H7 benzene.H11    0.427459    0.004933
+  benzene.H7 benzene.H12    0.247132    0.007626
+  benzene.H8  benzene.H9    0.247075    0.007551
+  benzene.H8 benzene.H10    0.427532    0.004903
+  benzene.H8 benzene.H11    0.493461    0.003883
+  benzene.H8 benzene.H12    0.427493    0.004916
+  benzene.H9 benzene.H10    0.247202    0.007670
+  benzene.H9 benzene.H11    0.427457    0.004896
+  benzene.H9 benzene.H12    0.493434    0.003855
+ benzene.H10 benzene.H11    0.247085    0.007631
+ benzene.H10 benzene.H12    0.427473    0.004878
+ benzene.H11 benzene.H12    0.247117    0.007672
