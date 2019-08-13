@@ -1,0 +1,193 @@
+============================================================================ 
+rismhi3d 0.245.1471
+rismhi3d begins at 2019-08-07,22:30:10
+siqin@siqinMBP.local: /Users/siqin/workspace/code/rismhi3d/Documents/rismhi3d/demo/step-3.run-rismhi3d
+rismhi3d -p /Users/siqin/code/rismhi3d/Documents/rismhi3d/demo/solvent/tip3p.gaff -s solute.ff -f solute.pdb -nr 60x60x60 -rc 1.2 -do-rismhi-kh -o output -rdf-grps 6-1,6-2,1-1,2-1 -rdf-bins 60 -log log.txt -significant-digits 4 
+---------------------------------------------------------------------------- 
+rismhi3d : process 50027 (nice 0), 4 threads
+rismhi3d trajectory: solute.pdb
+    solutes: 18 atoms in solute.pdb: TMP
+    solvents: 2 sites in: tip3p
+    solvent densities: 32.6149/32.6149
+    forcefield gaff, rvdw 1.2, rcoul 1.2, temperature 298
+> Frame 1, box=3x3x3 nm³, pbc=xyz, grid=0.05x0.05x0.05 nm³
+  HSHI step 1, stdev: 0.01653 (DIISx1)
+  HSHI step 2, stdev: 0.00136 (DIISx2)
+  HSHI step 3, stdev: 0.00019 (DIISx3)
+  HSHI step 4, stdev: 1.9e-05 (DIISx4)
+  HSHI step 5, stdev: 1.7e-06 (DIISx5)
+  HSHI step 6, stdev: 1.1e-07 (DIISx5)
+  HSHI step 7, stdev: 8.1e-09 (DIISx5)
+  HSHI step 8, stdev: 6.8e-10 (DIISx5)
+  HSHI step 9, stdev: 6.4e-11 (DIISx5)
+  HSHI step 10, stdev: 5.8e-12 (DIISx5)
+  HSHI step 11, stdev: 8.4e-13 (DIISx5)
+  RISM-KH step 1, stdev: 0.1186 (DIISx1)    
+  RISM-KH step 2, stdev: 0.0644 (DIISx2)    
+  RISM-KH step 3, stdev: 0.0315 (DIISx3)    
+  RISM-KH step 4, stdev: 0.0259 (DIISx4)    
+  RISM-KH step 5, stdev: 0.0231 (DIISx5)    
+  RISM-KH step 6, stdev: 0.0158 (DIISx5)    
+  RISM-KH step 7, stdev: 0.0090 (DIISx5)    
+  RISM-KH step 8, stdev: 0.0066 (DIISx5)    
+  RISM-KH step 9, stdev: 0.0054 (DIISx5)    
+  RISM-KH step 10, stdev: 0.0044 (DIISx5)    
+  RISM-KH step 11, stdev: 0.0037 (DIISx5)    
+  RISM-KH step 12, stdev: 0.0033 (DIISx5)    
+  RISM-KH step 13, stdev: 0.0030 (DIISx5)    
+  RISM-KH step 14, stdev: 0.0026 (DIISx5)    
+  RISM-KH step 15, stdev: 0.0023 (DIISx5)    
+  RISM-KH step 16, stdev: 0.0021 (DIISx5)    
+  RISM-KH step 17, stdev: 0.0017 (DIISx5)    
+  RISM-KH step 18, stdev: 0.0016 (DIISx5)    
+  RISM-KH step 19, stdev: 0.0016 (DIISx5)    
+  RISM-KH step 20, stdev: 0.0015 (DIISx5)    
+  RISM-KH step 21, stdev: 0.0015 (DIISx5)    
+  RISM-KH step 22, stdev: 0.0014 (DIISx5)    
+  RISM-KH step 23, stdev: 0.0013 (DIISx5)    
+  RISM-KH step 24, stdev: 0.0013 (DIISx5)    
+  RISM-KH step 25, stdev: 0.0012 (DIISx5)    
+  RISM-KH step 26, stdev: 0.0012 (DIISx5)    
+  RISM-KH step 27, stdev: 0.0011 (DIISx5)    
+  RISM-KH step 28, stdev: 0.0010 (DIISx5)    
+  RISM-KH step 29, stdev: 9.6e-04 (DIISx5)    
+  RISM-KH step 30, stdev: 9.0e-04 (DIISx5)    
+  RISM-KH step 31, stdev: 8.3e-04 (DIISx5)    
+  RISM-KH step 32, stdev: 7.9e-04 (DIISx5)    
+  RISM-KH step 33, stdev: 7.5e-04 (DIISx5)    
+  RISM-KH step 34, stdev: 7.1e-04 (DIISx5)    
+  RISM-KH step 35, stdev: 7.0e-04 (DIISx5)    
+  RISM-KH step 36, stdev: 6.9e-04 (DIISx5)    
+  RISM-KH step 37, stdev: 6.7e-04 (DIISx5)    
+  RISM-KH step 38, stdev: 6.4e-04 (DIISx5)    
+  RISM-KH step 39, stdev: 6.2e-04 (DIISx5)    
+  RISM-KH step 40, stdev: 6.1e-04 (DIISx5)    
+  RISM-KH step 41, stdev: 6.0e-04 (DIISx5)    
+  RISM-KH step 42, stdev: 5.8e-04 (DIISx5)    
+  RISM-KH step 43, stdev: 5.2e-04 (DIISx5)    
+  RISM-KH step 44, stdev: 4.8e-04 (DIISx5)    
+  RISM-KH step 45, stdev: 4.6e-04 (DIISx5)    
+  RISM-KH step 46, stdev: 4.3e-04 (DIISx5)    
+  RISM-KH step 47, stdev: 4.0e-04 (DIISx5)    
+  RISM-KH step 48, stdev: 3.6e-04 (DIISx5)    
+  RISM-KH step 49, stdev: 3.3e-04 (DIISx5)    
+  RISM-KH step 50, stdev: 3.1e-04 (DIISx5)    
+  RISM-KH step 51, stdev: 3.0e-04 (DIISx5)    
+  RISM-KH step 52, stdev: 2.9e-04 (DIISx5)    
+  RISM-KH step 53, stdev: 2.8e-04 (DIISx5)    
+  RISM-KH step 54, stdev: 2.7e-04 (DIISx5)    
+  RISM-KH step 55, stdev: 2.6e-04 (DIISx5)    
+  RISM-KH step 56, stdev: 2.5e-04 (DIISx5)    
+  RISM-KH step 57, stdev: 2.4e-04 (DIISx5)    
+  RISM-KH step 58, stdev: 2.3e-04 (DIISx5)    
+  RISM-KH step 59, stdev: 2.2e-04 (DIISx5)    
+  RISM-KH step 60, stdev: 2.1e-04 (DIISx5)    
+  RISM-KH step 61, stdev: 2.0e-04 (DIISx5)    
+  RISM-KH step 62, stdev: 1.8e-04 (DIISx5)    
+  RISM-KH step 63, stdev: 1.7e-04 (DIISx5)    
+  RISM-KH step 64, stdev: 1.6e-04 (DIISx5)    
+  RISM-KH step 65, stdev: 1.5e-04 (DIISx5)    
+  RISM-KH step 66, stdev: 1.4e-04 (DIISx5)    
+  RISM-KH step 67, stdev: 1.4e-04 (DIISx5)    
+  RISM-KH step 68, stdev: 1.3e-04 (DIISx5)    
+  RISM-KH step 69, stdev: 1.3e-04 (DIISx5)    
+  RISM-KH step 70, stdev: 1.3e-04 (DIISx5)    
+  RISM-KH step 71, stdev: 1.3e-04 (DIISx5)    
+  RISM-KH step 72, stdev: 1.2e-04 (DIISx5)    
+  RISM-KH step 73, stdev: 1.2e-04 (DIISx5)    
+  RISM-KH step 74, stdev: 1.2e-04 (DIISx5)    
+  RISM-KH step 75, stdev: 1.1e-04 (DIISx5)    
+  RISM-KH step 76, stdev: 1.1e-04 (DIISx5)    
+  RISM-KH step 77, stdev: 1.0e-04 (DIISx5)    
+  RISM-KH step 78, stdev: 9.7e-05 (DIISx5)    
+  RISM-KH step 79, stdev: 9.0e-05 (DIISx5)    
+  RISM-KH step 80, stdev: 8.5e-05 (DIISx5)    
+  RISM-KH step 81, stdev: 7.9e-05 (DIISx5)    
+  RISM-KH step 82, stdev: 7.3e-05 (DIISx5)    
+  RISM-KH step 83, stdev: 7.0e-05 (DIISx5)    
+  RISM-KH step 84, stdev: 6.8e-05 (DIISx5)    
+  RISM-KH step 85, stdev: 6.5e-05 (DIISx5)    
+  RISM-KH step 86, stdev: 6.4e-05 (DIISx5)    
+  RISM-KH step 87, stdev: 6.2e-05 (DIISx5)    
+  RISM-KH step 88, stdev: 6.1e-05 (DIISx5)    
+  RISM-KH step 89, stdev: 6.0e-05 (DIISx5)    
+  RISM-KH step 90, stdev: 5.9e-05 (DIISx5)    
+  RISM-KH step 91, stdev: 5.7e-05 (DIISx5)    
+  RISM-KH step 92, stdev: 5.5e-05 (DIISx5)    
+  RISM-KH step 93, stdev: 5.2e-05 (DIISx5)    
+  RISM-KH step 94, stdev: 5.0e-05 (DIISx5)    
+  RISM-KH step 95, stdev: 4.8e-05 (DIISx5)    
+  RISM-KH step 96, stdev: 4.4e-05 (DIISx5)    
+  RISM-KH step 97, stdev: 4.1e-05 (DIISx5)    
+  RISM-KH step 98, stdev: 3.8e-05 (DIISx5)    
+  RISM-KH step 99, stdev: 3.7e-05 (DIISx5)    
+  RISM-KH step 100, stdev: 3.5e-05 (DIISx5)  
+   Atom       mass         DN     DN_vac        -TS       LJSR    Coulomb       Uef1       Uef0        PMV
+     O1       16x1     -7.364      -8.08     -11.89      -42.2     -103.4    0.01352    0.01368    -0.2314
+     H2        1x2     -7.345     -7.652     -4.491          0      103.3    0.01728    0.01748    -0.2455
+  total      18.02     -7.361     -8.032     -11.07      -42.2    -0.0831     0.0308    0.03116     -0.233
+       r   6C6-1O   6C6-2H   1C1-1O   2C2-1O
+  0.0100   0.0000   0.0000   0.0000   0.0000
+  0.0300   0.0000   0.0000   0.0000   0.0000
+  0.0500   0.0000   0.0000   0.0000   0.0000
+  0.0700   0.0000   0.0000   0.0000   0.0000
+  0.0900   0.0000   0.0000   0.0000   0.0000
+  0.1100   0.0000   0.0000   0.0000   0.0000
+  0.1300   0.0000   0.0000   0.0000   0.0000
+  0.1500   0.0000   0.0000   0.0000   0.0000
+  0.1700   0.0000   0.0000   0.0000   0.0000
+  0.1900   0.0000   0.0000   0.0000   0.0000
+  0.2100   0.0000   0.0000   0.0000   0.0000
+  0.2300   0.0000   0.0054   0.0000   0.0000
+  0.2500   0.0000   0.0357   0.0000   0.0000
+  0.2700   0.0002   0.1431   0.0000   0.0000
+  0.2900   0.0141   0.2647   0.0140   0.0090
+  0.3100   0.1606   0.4000   0.0836   0.0893
+  0.3300   0.5656   0.5416   0.4057   0.3655
+  0.3500   0.8409   0.5990   0.5889   0.6631
+  0.3700   0.9769   0.6982   0.8736   0.8293
+  0.3900   0.9833   0.7821   0.8216   0.8115
+  0.4100   0.9172   0.8246   0.8550   0.8416
+  0.4300   0.9258   0.9032   0.8498   0.8742
+  0.4500   0.8288   0.8706   0.9277   0.9090
+  0.4700   0.8373   0.8786   0.9411   0.9466
+  0.4900   0.8529   0.8746   0.9423   0.9608
+  0.5100   0.8488   0.8752   0.9239   0.9361
+  0.5300   0.8410   0.8743   0.9287   0.9027
+  0.5500   0.8909   0.8797   0.9022   0.9328
+  0.5700   0.9155   0.8977   0.9349   0.9197
+  0.5900   0.9026   0.8930   0.9450   0.9420
+  0.6100   0.9450   0.9296   0.9636   0.9573
+  0.6300   0.9644   0.9589   0.9584   0.9701
+  0.6500   0.9658   0.9823   0.9896   0.9848
+  0.6700   1.0052   1.0050   0.9999   1.0056
+  0.6900   1.0434   1.0124   1.0172   1.0092
+  0.7100   1.0408   1.0135   1.0179   1.0200
+  0.7300   1.0401   1.0193   1.0143   1.0158
+  0.7500   1.0199   1.0139   1.0076   1.0080
+  0.7700   1.0060   1.0100   1.0019   1.0016
+  0.7900   0.9968   1.0076   0.9959   0.9960
+  0.8100   0.9904   1.0003   0.9927   0.9931
+  0.8300   0.9843   0.9949   0.9926   0.9932
+  0.8500   0.9849   0.9926   0.9933   0.9914
+  0.8700   0.9849   0.9917   0.9940   0.9946
+  0.8900   0.9876   0.9922   0.9942   0.9939
+  0.9100   0.9906   0.9941   0.9960   0.9964
+  0.9300   0.9951   0.9960   0.9976   0.9978
+  0.9500   1.0001   0.9986   0.9996   0.9998
+  0.9700   1.0044   1.0008   1.0016   1.0019
+  0.9900   1.0057   1.0023   1.0027   1.0027
+  1.0100   1.0055   1.0035   1.0016   1.0015
+  1.0300   1.0041   1.0039   1.0008   1.0009
+  1.0500   1.0028   1.0036   1.0007   1.0003
+  1.0700   1.0024   1.0020   1.0018   1.0013
+  1.0900   1.0022   1.0005   1.0023   1.0018
+  1.1100   1.0002   1.0004   1.0009   1.0009
+  1.1300   0.9973   1.0014   0.9988   0.9994
+  1.1500   0.9957   1.0021   0.9970   0.9971
+  1.1700   0.9950   1.0024   0.9964   0.9958
+  1.1900   0.9945   1.0028   0.9952   0.9952
+  save cmd,guv to "output.ts4s", totally 777.4 KB compressed from 3.296 MB
+Memory usage: totally 70 blocks assigned, 208.5 MB
+rismhi3d ends at 2019-08-07,22:30:15 (5.48 s)
+============================================================================ 

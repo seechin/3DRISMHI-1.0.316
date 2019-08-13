@@ -1,0 +1,14 @@
+; solute_GMX_OPLS.top created by acpype (v: 2018-09-20T16:44:17UTC) on Wed Aug  7 21:20:00 2019
+
+; Include forcefield parameters
+#include "ffoplsaa.itp"
+
+; Include solute_GMX.itp topology
+#include "solute_GMX.itp"
+
+[ system ]
+ solute
+
+[ molecules ]
+; Compound        nmols
+ solute           1     
