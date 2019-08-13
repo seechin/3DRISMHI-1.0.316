@@ -27,3 +27,6 @@ cp step-1.solute-confomation/solute.pdb step-3.run-rismhi3d
 cp step-2.solute-ff/solute.ff step-3.run-rismhi3d
 export IETLIB=`pwd`/solvent
 cd step-3.run-rismhi3d
+rismhi3d -p ../solvent/tip3p.gaff -s solute.ff -f solute.pdb -nr 60x60x60 -rc 1.2 -do-rismhi-kh -o output -rdf-grps 6-1,6-2,1-1,2-1 -rdf-bins 60 -significant-digits 4
+ts4sdump output.ts4s
+ts4sdump -e 2 output.ts4s
