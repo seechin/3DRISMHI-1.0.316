@@ -1,16 +1,8 @@
 const char * software_name = "rismhi3d";
-const char * software_version = "a.246.1472";
+const char * software_version = "a.250.1527";
 const char * copyright_string = "(c) Cao Siqin";
 
-#define     __REAL__    double
-#define     MACHINE_REASONABLE_ERROR    1e-12
-#define _TTYPROMPTCOLOR_
-
-#define MAX_SOL                     100     // Max atom site number
-#define MAX_CMD_PARAMS              20      // Max parameter number for a command
-#define MAX_THREADS                 100     // Max number of forks or threads
-#define MAX_DIIS                    100     // Max DIIS steps
-#define MAX_INCLUDE_RECURSIVE       20      // maximum include recursive levels
+#include    "main-header.h"
 
 #include    "header.h"
 #if defined(_GROMACS4_) || defined(_GROMACS5_) || defined(_GROMACS2016_) || defined(_GROMACS2018_)
@@ -75,8 +67,6 @@ const char * copyright_string = "(c) Cao Siqin";
 #define PI  3.1415926535897932384626433832795
 #define EE  2.7182818284590452353602874713527
 #define COULCOOEF 138.9354846
-#define MAX_PATH                1024
-#define MAX_WORD                200
 #define MAXTEXTFILEMB           16
 #define MAX_RDF_GRPS            1000        // Max number of groups to output RDF
 #define INITIAL_SOLUTE_ATOMS    500
@@ -320,7 +310,7 @@ char szfn_in[MAX_PATH];
 char szfn_out[MAX_PATH]; FILE * file_out = nullptr;
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 #ifdef _EXPERIMENTAL_
-    #include "main-experimental.h"
+    #include "experimental.h"
 #endif
 #include    "main-sys.h"
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -334,7 +324,7 @@ char szfn_out[MAX_PATH]; FILE * file_out = nullptr;
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 #include    "main-compress.cpp"
 #ifdef _EXPERIMENTAL_
-    #include "main-experimental.cpp"
+    #include "experimental.cpp"
 #endif
 #include    "main-analysis-param.cpp"
 #include    "main-preprocessing.cpp"
@@ -365,11 +355,13 @@ void init_software_constants(){
 }
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 //---------------------------------------------------------------------------------
-//-------------------------------   main procedure   ------------------------------
+//---------------------------   preparation procedure   ---------------------------
 //---------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------
-int main(int argc, char * argv[]){
-    bool success = true; int error = 0; init_timer();
+bool main_initialization(int argc, char * argv[], FILE ** _flog, int * _error=NULL, bool * _syntax_error=NULL){
+    bool success = true; int error = 0; FILE * flog = stdout;
+
+    init_timer();
     bool help_out = false;
     init_software_constants();
   // determine the debug level, detail level, log filename and check -h
@@ -387,13 +379,14 @@ int main(int argc, char * argv[]){
     sys->library_path = getenv("IETLIB"); //printf("ietalIB=%s\n", sys->library_path);
 
   // prepare the log file
-    FILE * flog = stdout; if (success){
+    if (success && _flog){
         if (!szfn_log[0]){
         } else if (StringNS::string(szfn_log)=="screen" || StringNS::string(szfn_log)=="con" || StringNS::string(szfn_log)=="stdout"){ flog = stdout;
         } else if (StringNS::string(szfn_log)=="stderr"){ flog = stderr;
         } else { flog = fopen(szfn_log, "a"); if (!flog) flog = stderr;
         }
-    }
+        *_flog = flog;
+    } else flog = stdout;
     sys->flog = flog; sys->is_log_tty = isatty(fileno(flog));
     if (szfn_log[0] && (StringNS::string(szfn_log)=="screen" || StringNS::string(szfn_log)=="con")) sys->is_log_tty = false;
   // print the startup information
@@ -409,10 +402,10 @@ int main(int argc, char * argv[]){
   #endif
   // analysis parameters
     if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: analysis_params()\n");
-    error = analysis_params(sys, argc, argv); if (error) return error;
+    error = analysis_params(sys, argc, argv); if (error){ if (_error) *_error = error; if (_syntax_error) *_syntax_error = true; return false; }
   // analysis parameters post
     if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: analysis_params_post()\n");
-    error = analysis_params_post(sys); if (error){ if (flog) fclose(flog); return error; }
+    error = analysis_params_post(sys); if (error){ if (flog) fclose(flog); if (_error) *_error = error; if (_syntax_error) *_syntax_error = true; return false; }
   // set priority
     if (sys->nice_level>0){
         if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: set priority to %d\n", sys->nice_level);
@@ -420,7 +413,7 @@ int main(int argc, char * argv[]){
     }
   // read topology: all solute atom sites
     if (sys->debug_level>=1) fprintf(sys->log(), "debug:: read_solute_ff(%s%s%s)\n", sys->is_log_tty?prompt_path_prefix:"\"", szfn_solute, sys->is_log_tty?prompt_path_suffix:"\"");
-    if (read_solute_ff(sys, szfn_solute) <= 0){ success = false; return error; }
+    if (read_solute_ff(sys, szfn_solute) <= 0){ success = false; if (_error) *_error = error; if (_syntax_error) *_syntax_error = true; return false; }
         //for (int i=0; i<sys->nas; i++){ printf("\33[37m Solute Atom %d%s:%d%s (%g, %g, %g, %g) has bond ", sys->as[i].iaa, sys->as[i].mole, sys->as[i].index, sys->as[i].name, sys->as[i].mass, sys->as[i].charge, sys->as[i].sigma, sys->as[i].epsilon); for (int j=0; j<sys->as[i].nbond; j++) printf("%d ", sys->as[i].ibond[j]); printf("\n\33[0m"); }
     if (success){
         sys->traj.count = sys->nas; sys->traj.box = Vector(0,0,0); sys->traj.atom = (PDBAtom*) memalloc(sizeof(PDBAtom) * (sys->nas+1));
@@ -519,7 +512,7 @@ int main(int argc, char * argv[]){
 
   // create threads or forks
   #ifdef _LOCALPARALLEL_
-    if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: create_subroutines(np=%d)\n", sys->nt);
+    if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: create_subroutines(%s=%d)\n", sys->mp_by_fork?"np":"nt", sys->nt);
     create_subroutines(sys, arr);
     if (sys->debug_level>=0){
         if (sys->nt<=1){
@@ -553,138 +546,26 @@ int main(int argc, char * argv[]){
     }
   lap_timer_io();
 
-  // list only: display setups
-    if (sys->listonly){
-        bool islogtty = flog? isatty(fileno(flog)) : true;
-        fprintf(flog, "%s# ==========================================================================%s\n", islogtty?prompt_comment_prefix:"", islogtty?prompt_comment_suffix:"");
-        list_sys_files(sys, flog, (char*)"# ");
-        fprintf(flog, "%s# ==========================================================================%s\n", islogtty?prompt_comment_prefix:"", islogtty?prompt_comment_suffix:"");
-        sys->dump_text(flog, "  ", "");
-        success = false;
-    }
-
-  // begin of run for no trajectory systems
-    if (success && !szfn_xtc[0]){
-        fprintf(flog, "%s%s : warning : trajectory (-f) not specified and nothing will be done.%s\n", sys->is_log_tty?color_string_of_warning:"", software_name, sys->is_log_tty?color_string_end:"");
-        success = false;
-    }
-
   // generate name of output file if not yet given
     if (!szfn_out[0]){
         generate_default_output_filename(sys, szfn_out, sizeof(szfn_out), szfn_xtc, sizeof(szfn_xtc));
         if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: generate_default_output_filename()=%s\n", szfn_out);
     }
 
-    //if (sys->log()) fflush(sys->log());
-  // read and do calculation of each frame
-    if (success){
-      // display trajectory, solute, solvent and force field information
-        fprintf(flog, "%s trajectory: %s\n", software_name, szfn_xtc);
-        main_print_solute_list(sys, arr, flog, "    ");
-        main_print_solvent_list(sys, arr, flog, "    ");
-        main_print_forcefield_info(sys, arr, flog, "    ");
-    }
+    if (_error) *_error = error;
+    return success;
+}
 
-  // flush log before performing calculation
-    if (sys->log()) fflush(sys->log());
-
-    int frame = 0; int nframe = 0; double tframe_last = 0; TPAppendix tpa; memset(&tpa, 0, sizeof(tpa)); size_t N3 = arr->nx * arr->ny * arr->nz; size_t N4 = sys->nv * N3;
-    if (success) while (szfn_xtc[0]){
-      // ====================================================================
-      // ====================================================================
-      // frame handling begins here =========================================
-      // ====================================================================
-      // ====================================================================
-        arr->is_rdf_calculated = true; // block the calculation of RDF for skipped frames
-
-      // read frame data
-        if (sys->debug_level>=3) fprintf(sys->log(), "DEBUG:: read_frame(%d)\n", frame+1);
-        int read_frame_ret = read_frame(&sys->traj, &frame, &tpa);
-        if (read_frame_ret==0){ break;
-        } else if (read_frame_ret==-1){
-            fprintf(sys->log(), "%s%s : error : cannot read trajectory %s%s\n", sys->is_log_tty?color_string_of_error:"", software_name, get_second_fn(szfn_xtc), sys->is_log_tty?color_string_end:""); break;
-        } else if (read_frame_ret==-2){
-            fprintf(sys->log(), "%s%s : error : incorrect number of atoms: %s%s\n", sys->is_log_tty?color_string_of_error:"", software_name, get_second_fn(szfn_xtc), sys->is_log_tty?color_string_end:""); break;
-        } else if (read_frame_ret<0){
-            fprintf(sys->log(), "%s%s : error : fail for %s%s\n", sys->is_log_tty?color_string_of_error:"", software_name, get_second_fn(szfn_xtc), sys->is_log_tty?color_string_end:""); break;
-        }
-      // frame control: skip unwanted frames
-        if (true){
-            if (sys->time_begin>0 && tpa.time<sys->time_begin) continue;
-            if (sys->time_end>0 && tpa.time>sys->time_end) break;
-            if (sys->time_step>0 && tpa.time-tframe_last<sys->time_step) continue;
-        };
-        nframe ++;
-        //if (sys->debug_level>=5){ for (int i=0; i<sys->nas; i++) fprintf(sys->log(), "DEBUG:::: %5s %5s : %12g %12g %12g\n", sys->as[i].mole, sys->as[i].name, sys->traj.atom[i].r.x, sys->traj.atom[i].r.y, sys->traj.atom[i].r.z);}
-      // display frame information
-        double drg[3]; drg[0] = sys->traj.box.x / sys->nr[0]; drg[1] = sys->traj.box.y / sys->nr[1]; drg[2] = sys->traj.box.z / sys->nr[2];
-        if (sys->mode_test){
-            if (sys->handling_xtc) fprintf(flog, "> testing: %.2f ps,", tpa.time); else fprintf(flog, "> testing: Frame %g,", tpa.time);
-            fprintf(flog, " box=%gx%gx%g nm³, grid=%gx%gx%g nm³\n", sys->traj.box.x, sys->traj.box.y, sys->traj.box.z,
-                    sys->traj.box.x/sys->nr[0], sys->traj.box.y/sys->nr[1], sys->traj.box.z/sys->nr[2]);
-            continue;
-        }
-        if (flog){
-            if (sys->handling_xtc) fprintf(flog, "> %g ps,", tpa.time); else fprintf(flog, "> Frame %g,", tpa.time);
-            fprintf(flog, " box=%gx%gx%g nm³, pbc=%s%s%s, grid=%gx%gx%g nm³\n", sys->traj.box.x, sys->traj.box.y, sys->traj.box.z,
-                (!sys->pbc_x&&!sys->pbc_y&&!sys->pbc_x)? "none" : sys->pbc_x?"x":"", sys->pbc_y?"y":"", sys->pbc_z?"z":"",
-                sys->traj.box.x/sys->nr[0], sys->traj.box.y/sys->nr[1], sys->traj.box.z/sys->nr[2]);
-        }
-        tframe_last = tpa.time;
-      lap_timer_io();
-
-      // initialize buffers for calculation
-        arr->reset_for_calculation();
-      lap_timer_io();
-
-      // set box and vecor scales, recalculating all dr and dk of 3D grids
-        if (flog && !arr->set_scales(sys, sys->traj.box)){
-            fprintf(flog, "%s%s : error : unable to init box, check wvv, nhkvv and frame box vector: %s", sys->is_log_tty?color_string_of_error:"", software_name, szfn_xtc);
-            if (sys->handling_xtc) fprintf(flog, " %g ps%s\n", tpa.time, sys->is_log_tty?color_string_end:""); else fprintf(flog, " frame %d%s\n", nframe, sys->is_log_tty?color_string_end:"");
-            continue;
-        }
-
-      // initialize flag variables for command processing
-        arr->is_energy_calculated = false; arr->is_rdf_calculated = false;
-
-      // run first frame commands for the first frame (commands with @begin)
-        if (nframe<=1) if (process_command_sequence(1, sys, arr, rdf,rdfs, &file_out, nframe, tpa.time)<0) break;
-
-      // run commands for each frame
-        if (process_command_sequence(0, sys, arr, rdf,rdfs, &file_out, nframe, tpa.time)<0) break;
-
-      // run implied commands
-        if (sys->cmd_flag_rdf_ever_display){
-            if (!arr->is_rdf_calculated){
-                double rcutoff = sys->rvdw>sys->rcoul?sys->rvdw:sys->rcoul;
-                if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: cmd[end-of-frame] = calculate_rdf(rc=%g, bins=%d)\n", rcutoff, sys->out_rdf_bins);
-                calculate_rdf(sys, arr, rdf, rcutoff, sys->out_rdf_bins);
-            }
-            if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: cmd[end-of-frame] = add_rdf_to_sum(bins=%d)\n", sys->out_rdf_bins);
-            add_rdf_to_sum(sys, arr, rdf, rdfs, sys->out_rdf_bins);
-        }
-
-      // ====================================================================
-      // ====================================================================
-      // frame handling ends here ===========================================
-      // ====================================================================
-      // ====================================================================
-        if (sys->log()) fflush(sys->log());
-    }
-
-  // end of run: process the post commands (commands with @end)
-    if (success){
-        if (process_command_sequence(-1, sys, arr, rdf,rdfs, &file_out, nframe, tpa.time)<0) success = false;
-
-        if (!sys->mode_test && !sys->cmd_flag_energy_ever_display && sys->cmd_flag_rism_ever_performed){
-            if (!arr->is_energy_calculated){ recalculate_energy(sys, arr); arr->is_energy_calculated = true; }
-            arr->display_solvation_energy_full(sys, flog, nullptr);
-        }
-    }
-
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+//---------------------------------------------------------------------------------
+//--------------------------------   finalization   -------------------------------
+//---------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------
+void main_dispose(IET_Param * sys, IET_arrays * arr, FILE ** _flog, bool success=true){
+    FILE * flog = _flog? *_flog : stdout;
   // end all subroutines
   #ifdef _LOCALPARALLEL_
-    if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: send stop signal to subroutines\n");
+    if (sys->debug_level>=2) fprintf(flog, "DEBUG:: send stop signal to subroutines\n");
     for (int i=1; i<MAX_THREADS; i++) sys->mp_tasks[i] = MPTASK_TERMINATE;
     //wait_subroutines_end(sys);
     wait_subroutines(sys);
@@ -714,5 +595,191 @@ int main(int argc, char * argv[]){
     mem_dispose_all(); lap_timer_alloc_memory();
     if (flog && flog!=stdout && flog!=stderr){ FILE * flog_close = flog; flog = nullptr; fclose(flog_close); }
     if (file_out && file_out!=stdout && file_out!=stderr) fclose(file_out);
+}
+
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+//---------------------------------------------------------------------------------
+//------------------------------   running commands   -----------------------------
+//---------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------
+bool main_run_empty_command_queue(IET_Param * sys, IET_arrays * arr, FILE * flog, int * _error=NULL){
+    bool success = true; int error = 0;
+
+  // list only: display setups
+    if (sys->listonly){
+        bool islogtty = flog? isatty(fileno(flog)) : true;
+        fprintf(flog, "%s# ==========================================================================%s\n", islogtty?prompt_comment_prefix:"", islogtty?prompt_comment_suffix:"");
+        list_sys_files(sys, flog, (char*)"# ");
+        fprintf(flog, "%s# ==========================================================================%s\n", islogtty?prompt_comment_prefix:"", islogtty?prompt_comment_suffix:"");
+        sys->dump_text(flog, "  ", "");
+        success = false;
+    }
+
+  // begin of run for no trajectory systems
+    if (success && !szfn_xtc[0]){
+        fprintf(flog, "%s%s : warning : trajectory (-f) not specified and nothing will be done.%s\n", sys->is_log_tty?color_string_of_warning:"", software_name, sys->is_log_tty?color_string_end:"");
+        success = false;
+    }
+
+
+    if (_error) *_error = error;
+    return success;
+}
+bool main_prepare_to_run_commands(IET_Param * sys, IET_arrays * arr, FILE * flog){
+  // display trajectory, solute, solvent and force field information
+    fprintf(flog, "%s trajectory: %s\n", software_name, szfn_xtc);
+    main_print_solute_list(sys, arr, flog, "    ");
+    main_print_solvent_list(sys, arr, flog, "    ");
+    main_print_forcefield_info(sys, arr, flog, "    ");
+
+  // flush log before performing calculation
+    if (sys->log()) fflush(sys->log());
+
+    return true;
+}
+int main_run_commands(IET_Param * sys, IET_arrays * arr, FILE * flog, int nframe, TPAppendix * _tpa){
+    bool success = true;
+    TPAppendix tpa; if (_tpa) memcpy(&tpa, _tpa, sizeof(TPAppendix)); else memset(&tpa, 0, sizeof(tpa));
+
+  // initialize buffers for calculation
+    arr->reset_for_calculation();
+  lap_timer_io();
+
+  // set box and vecor scales, recalculating all dr and dk of 3D grids
+    if (flog && !arr->set_scales(sys, sys->traj.box)){
+        fprintf(flog, "%s%s : error : unable to init box, check wvv, nhkvv and frame box vector: %s", sys->is_log_tty?color_string_of_error:"", software_name, szfn_xtc);
+        if (sys->handling_xtc) fprintf(flog, " %g ps%s\n", tpa.time, sys->is_log_tty?color_string_end:""); else fprintf(flog, " frame %d%s\n", nframe, sys->is_log_tty?color_string_end:"");
+        return 1;
+    }
+
+  // initialize flag variables for command processing
+    arr->is_energy_calculated = false; arr->is_rdf_calculated = false;
+
+  // run first frame commands for the first frame (commands with @begin)
+    if (nframe<=1) if (process_command_sequence(1, sys, arr, rdf,rdfs, &file_out, nframe, tpa.time)<0) return -1;
+
+  // run commands for each frame
+    if (process_command_sequence(0, sys, arr, rdf,rdfs, &file_out, nframe, tpa.time)<0) return -1;
+
+  // run implied commands
+    if (sys->cmd_flag_rdf_ever_display){
+        if (!arr->is_rdf_calculated){
+            double rcutoff = sys->rvdw>sys->rcoul?sys->rvdw:sys->rcoul;
+            if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: cmd[end-of-frame] = calculate_rdf(rc=%g, bins=%d)\n", rcutoff, sys->out_rdf_bins);
+            calculate_rdf(sys, arr, rdf, rcutoff, sys->out_rdf_bins);
+        }
+        if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: cmd[end-of-frame] = add_rdf_to_sum(bins=%d)\n", sys->out_rdf_bins);
+        add_rdf_to_sum(sys, arr, rdf, rdfs, sys->out_rdf_bins);
+    }
+
+    return 0;
+}
+bool main_run_finalizing_commands(IET_Param * sys, IET_arrays * arr, FILE * flog, RDF_data * rdf, RDF_data * rdfs, FILE ** _file_out, int nframe, TPAppendix & tpa){
+    if (process_command_sequence(-1, sys, arr, rdf,rdfs, _file_out, nframe, tpa.time)<0) return false;
+
+    if (!sys->mode_test && !sys->cmd_flag_energy_ever_display && sys->cmd_flag_rism_ever_performed){
+        if (!arr->is_energy_calculated){ recalculate_energy(sys, arr); arr->is_energy_calculated = true; }
+        arr->display_solvation_energy_full(sys, flog, nullptr);
+    }
+
+    return true;
+}
+
+
+
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+//---------------------------------------------------------------------------------
+//-------------------------------  Entry procedure   ------------------------------
+//---------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------
+int main(int argc, char * argv[]){
+    bool success = true; int error = 0; FILE * flog = stdout;
+  // initialization
+    if (success){
+        bool syntax_error = false;
+        success &= main_initialization(argc, argv, &flog, &error, &syntax_error);
+        if (!success && syntax_error) return 0;
+    }
+
+  // the commands to run when the command queue is empty
+    if (success){
+        success &= main_run_empty_command_queue(sys, arr, flog, &error);
+    }
+
+  // prepare to run commands
+    if (success){
+        success &= main_prepare_to_run_commands(sys, arr, flog);
+    }
+
+  // read each frame and run
+    int frame = 0; int nframe = 0; double tframe_last = 0; TPAppendix tpa; memset(&tpa, 0, sizeof(tpa)); size_t N3 = arr->nx * arr->ny * arr->nz; size_t N4 = sys->nv * N3;
+    if (success) while (szfn_xtc[0]){
+      // ====================================================================
+      // ====================================================================
+      // frame handling begins here =========================================
+      // ====================================================================
+      // ====================================================================
+        arr->is_rdf_calculated = true; // block the calculation of RDF for skipped frames
+
+      // read frame data
+        if (sys->debug_level>=3) fprintf(sys->log(), "DEBUG:: read_frame(%d)\n", frame+1);
+        int read_frame_ret = read_frame(&sys->traj, &frame, &tpa);
+        if (read_frame_ret==0){ break;
+        } else if (read_frame_ret==-1){
+            fprintf(sys->log(), "%s%s : error : cannot read trajectory %s%s\n", sys->is_log_tty?color_string_of_error:"", software_name, get_second_fn(szfn_xtc), sys->is_log_tty?color_string_end:""); break;
+        } else if (read_frame_ret==-2){
+            fprintf(sys->log(), "%s%s : error : incorrect number of atoms: %s%s\n", sys->is_log_tty?color_string_of_error:"", software_name, get_second_fn(szfn_xtc), sys->is_log_tty?color_string_end:""); break;
+        } else if (read_frame_ret<0){
+            fprintf(sys->log(), "%s%s : error : fail for %s%s\n", sys->is_log_tty?color_string_of_error:"", software_name, get_second_fn(szfn_xtc), sys->is_log_tty?color_string_end:""); break;
+        }
+      // frame control: skip unwanted frames
+        if (true){
+            if (sys->time_begin>0 && tpa.time<sys->time_begin) continue;
+            if (sys->time_end>0 && tpa.time>sys->time_end) break;
+            if (sys->time_step>0 && tpa.time-tframe_last<sys->time_step) continue;
+        };
+        nframe ++;
+
+        //if (sys->debug_level>=5){ for (int i=0; i<sys->nas; i++) fprintf(sys->log(), "DEBUG:::: %5s %5s : %12g %12g %12g\n", sys->as[i].mole, sys->as[i].name, sys->traj.atom[i].r.x, sys->traj.atom[i].r.y, sys->traj.atom[i].r.z);}
+      // display frame information
+        double drg[3]; drg[0] = sys->traj.box.x / sys->nr[0]; drg[1] = sys->traj.box.y / sys->nr[1]; drg[2] = sys->traj.box.z / sys->nr[2];
+        if (sys->mode_test){
+            if (sys->handling_xtc) fprintf(flog, "> testing: %.2f ps,", tpa.time); else fprintf(flog, "> testing: Frame %g,", tpa.time);
+            fprintf(flog, " box=%gx%gx%g nm³, grid=%gx%gx%g nm³\n", sys->traj.box.x, sys->traj.box.y, sys->traj.box.z,
+                    sys->traj.box.x/sys->nr[0], sys->traj.box.y/sys->nr[1], sys->traj.box.z/sys->nr[2]);
+            continue;
+        }
+        if (flog){
+            if (sys->handling_xtc) fprintf(flog, "> %g ps,", tpa.time); else fprintf(flog, "> Frame %g,", tpa.time);
+            fprintf(flog, " box=%gx%gx%g nm³, pbc=%s%s%s, grid=%gx%gx%g nm³\n", sys->traj.box.x, sys->traj.box.y, sys->traj.box.z,
+                (!sys->pbc_x&&!sys->pbc_y&&!sys->pbc_x)? "none" : sys->pbc_x?"x":"", sys->pbc_y?"y":"", sys->pbc_z?"z":"",
+                sys->traj.box.x/sys->nr[0], sys->traj.box.y/sys->nr[1], sys->traj.box.z/sys->nr[2]);
+        }
+        tframe_last = tpa.time;
+      lap_timer_io();
+
+      // ====================================================================
+      // ====================================================================
+      // frame processing begins here =======================================
+      // ====================================================================
+      // ====================================================================
+
+        int runstate = main_run_commands(sys, arr, flog, nframe, &tpa);
+        if (runstate>0) continue;
+        else if (runstate<0) break;
+
+      // ====================================================================
+      // ====================================================================
+      // frame handling ends here ===========================================
+      // ====================================================================
+      // ====================================================================
+        if (sys->log()) fflush(sys->log());
+
+    }
+
+  // end of run: process the post commands (commands with @end)
+    if (success) success &= main_run_finalizing_commands(sys, arr, flog, rdf, rdfs, &file_out, nframe, tpa);
+
+    main_dispose(sys, arr, &flog, success);
     if (!success) return 1; return 0;
 }

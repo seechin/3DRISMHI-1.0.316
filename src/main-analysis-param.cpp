@@ -681,7 +681,16 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
             fprintf(sys->log(), "%s : %s[%d] : unrecognizable option for output precision: %s\n", software_name, get_second_fn(script_name), script_line, argv[i]); ret = 1;
         }
     } else if (key == "-pagesize" || key == "pagesize" || key == "--pagesize" || key == "-page-size" || key == "page-size" || key == "--page-size" || key == "-page_size" || key == "page_size" || key == "--page_size"){
-        if (i+1<argc && StringNS::is_string_number(argv[i+1])) sys->compress_page_size = atoi(argv[++i]);
+        size_t compress_page_size = sys->compress_page_size;
+        if (i+1<argc && StringNS::is_string_number(argv[i+1])) compress_page_size = atol(argv[++i]);
+        if (compress_page_size<1024){
+            fprintf(sys->log(), "%s%s : warning : size of compress page too small (%lu), use 1KB instead%s\n", sys->is_log_tty?color_string_of_warning:"", software_name, compress_page_size, sys->is_log_tty?color_string_end:"");
+            compress_page_size = 1024;
+        } else if (compress_page_size>1024*1024*500){
+            fprintf(sys->log(), "%s%s : warning : size of compress page too large (%lu), use 500MB instead%s\n", sys->is_log_tty?color_string_of_warning:"", software_name, compress_page_size, sys->is_log_tty?color_string_end:"");
+            compress_page_size = 1024*1024*500;
+        }
+        sys->compress_page_size = compress_page_size;
     } else if (key == "-gvv" || key == "--gvv" || key == "gvv" || key == "-hvv" || key == "--hvv" || key == "hvv"){
         if (key == "-gvv" || key == "--gvv" || key == "gvv") sys->gvv_specification = 1; else sys->gvv_specification = -1;
         const char * error_message = nullptr;
@@ -1193,27 +1202,43 @@ int analysis_params_file(IET_Param * sys, char * filename, int recursive_layer){
         FILE * finfo = (StringNS::string(filename)=="screen" || StringNS::string(filename)=="con" || StringNS::string(filename)=="stdin")? stdin : fopen(filename, "r");
         if (finfo){
             if (sys->debug_level>=1 && sys->log()) fprintf(sys->log(), "debug:: analysis_params_file(%s%s%s)\n", sys->is_log_tty?prompt_path_prefix:"\"", filename, sys->is_log_tty?prompt_path_suffix:"\"");
-            char info_file_path[MAX_PATH]; info_file_path[0] = 0; if (finfo!=stdin) get_file_path(filename, info_file_path);
+            char info_file_path[MAX_PATH]; info_file_path[0] = 0; if (finfo!=stdin) get_file_path(filename, info_file_path); bool in_block_comment = false;
             while (fgets(input, sizeof(input)-1, finfo)){ nline++;
-                int nw = analysis_line_params(input, sl, MAX_WORD, true); if (nw<=0) continue ;
+
+                StringNS::string string_line = input;
+                if (in_block_comment){
+                    string_line.length = 0;
+                    for (int i=0; i<sizeof(input)-1&&input[i]; i++){
+                        if (input[i]=='*'&&input[i+1]=='/'){
+                            in_block_comment = false; string_line = &input[i+2]; break;
+                        }
+                    }
+                } else {
+                    for (int i=0; i<sizeof(input)-1&&input[i]; i++){
+                        if (input[i]=='/'&&input[i+1]=='*'){
+                            in_block_comment = true; string_line.length = i; break;
+                        }
+                    }
+                }
+                int nw = analysis_line_params(string_line, sl, MAX_WORD, true); if (nw<=0) continue ; //int nw = analysis_line_params(input, sl, MAX_WORD, true); if (nw<=0) continue ;
                 for (int i=0; i<nw; i++){ sl[i].text[sl[i].length] = 0; sltxt[i] = sl[i].text; } idx = 0;
                 if (sl[0].text[0] == ';'){ continue;
-                } else if ((sl[0]=="#echo") || (nw>1 && sl[0]=="#" && sl[1]=="echo")){
+                } else if ((sl[0]=="#echo"||sl[0]=="@echo") || (nw>1 && (sl[0]=="#"||sl[0]=="@") && sl[1]=="echo")){
                     if (istty) fprintf(sys->log(), "%s", color_string_of_echo);
-                    for (int i=(sl[0]=="#"?2:1); i<nw; i++) fprintf(sys->log(), "%s%s", sl[i].text, i==nw-1?"":" ");
+                    for (int i=((sl[0]=="#"||sl[0]=="@")?2:1); i<nw; i++) fprintf(sys->log(), "%s%s", sl[i].text, i==nw-1?"":" ");
                     if (istty) fprintf(stdout, "%s\n", color_string_end); else fprintf(sys->log(), "\n");
-                } else if ((sl[0]=="#warning") || (nw>1 && sl[0]=="#" && sl[1]=="warning")){
+                } else if ((sl[0]=="#warning"||sl[0]=="@warning") || (nw>1 && (sl[0]=="#"||sl[0]=="@") && sl[1]=="warning")){
                     fprintf(sys->log(), "%s : %s[%d]: WARNING: %s", software_name, get_second_fn(filename), nline, istty?color_string_of_warning:"");
-                    for (int i=(sl[0]=="#"?2:1); i<nw; i++) fprintf(sys->log(), "%s%s", sl[i].text, i==nw-1?"":" ");
+                    for (int i=((sl[0]=="#"||sl[0]=="@")?2:1); i<nw; i++) fprintf(sys->log(), "%s%s", sl[i].text, i==nw-1?"":" ");
                     fprintf(sys->log(), "%s\n", istty?color_string_end:"");
-                } else if ((sl[0]=="#error") || (nw>1 && sl[0]=="#" && sl[1]=="error")){
+                } else if ((sl[0]=="#error"||sl[0]=="@error") || (nw>1 && (sl[0]=="#"||sl[0]=="@") && sl[1]=="error")){
                     fprintf(sys->log(), "%s : %s[%d]: ERROR: %s", software_name, get_second_fn(filename), nline, istty?color_string_of_error:"");
-                    for (int i=(sl[0]=="#"?2:1); i<nw; i++) fprintf(sys->log(), "%s%s", sl[i].text, i==nw-1?"":" ");
+                    for (int i=((sl[0]=="#"||sl[0]=="@")?2:1); i<nw; i++) fprintf(sys->log(), "%s%s", sl[i].text, i==nw-1?"":" ");
                     fprintf(sys->log(), "%s\n", istty?color_string_end:"");
                     error = -1;
-                } else if ((nw>1 && (sl[0]=="include" || sl[0]=="#include")) || (nw>2 && sl[0]=="#" && sl[1]=="include")){
+                } else if ((nw>1 && (sl[0]=="include" || sl[0]=="#include" || sl[0]=="@include")) || (nw>2 && (sl[0]=="#"||sl[0]=="@") && sl[1]=="include")){
                     char filenameinclude[MAX_PATH]; filenameinclude [0] = 0;
-                    if (sl[0]=="#") strcpy(filenameinclude, sl[2].text); else strcpy(filenameinclude, sl[1].text);
+                    if (sl[0]=="#" || sl[0]=="@") strcpy(filenameinclude, sl[2].text); else strcpy(filenameinclude, sl[1].text);
                     if (recursive_layer >= MAX_INCLUDE_RECURSIVE){
                         fprintf(sys->log(), "%s : %s[%d]: error: too many includes\n", software_name, get_second_fn(filename), nline);
                         error = -1;
@@ -1894,6 +1919,31 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
                 } else {
                     char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
                     fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : \"%s\" undefined in saving%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
+                    success = false; sl[i].text[sl[i].length] = cc;
+                }
+                cmd.step = i_param_list;
+            } else if (cmd.command==IETCMD_SCALE){
+                int this_command_params_int = -1;
+                char sli_text[20]; strncpy(sli_text, sl[i].text, sizeof(sli_text)); if (sl[i].length<sizeof(sli_text)) sli_text[sl[i].length] = 0;
+                if (sl[i]=="lj") this_command_params_int = IETCMD_v_ulj;
+                else if (sl[i]=="coul") this_command_params_int = IETCMD_v_ucoul;
+                else if (sl[i]=="ff") this_command_params_int = IETCMD_v_uuv;
+                else if (sl[i]=="uuv") this_command_params_int = IETCMD_v_uuv;
+
+                if (this_command_params_int>0){
+                    if (i+1<nw && StringNS::is_string_number(sl[i+1])){
+                        if (i_param_list<MAX_CMD_PARAMS){
+                            cmd.command_params_int[i_param_list] = this_command_params_int;
+                            cmd.command_params_double[i_param_list] = atof(sl[i+1].text);
+                            i++;
+                            i_param_list ++;
+                        }
+                    } else {
+                        fprintf(sys->log(), "%s%s : %s[%d][%ld] : warning : scaling factor of %s not defined.%s\n", sys->is_log_tty?color_string_of_warning:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sli_text, sys->is_log_tty?color_string_end:"");
+                    }
+                } else {
+                    char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
+                    fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : \"%s\" undefined for scaling%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
                     success = false; sl[i].text[sl[i].length] = cc;
                 }
                 cmd.step = i_param_list;

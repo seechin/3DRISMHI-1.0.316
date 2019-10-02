@@ -1,6 +1,6 @@
 #include "compress.cpp"
 
-long int append_save_data(FILE ** pfile, char filename[MAX_PATH], FILE * flog, const char * title, const char * text, int nx, int ny, int nz, int nv, __REAL__ * data, double time_stamp, IET_Param * sys){
+size_t append_save_data(FILE ** pfile, char filename[MAX_PATH], FILE * flog, const char * title, const char * text, int nx, int ny, int nz, int nv, __REAL__ * data, double time_stamp, IET_Param * sys, void * _compressBuf, size_t _allocate_memory_size){
   // Append data directly to file. If file not exist then this will create one.
   // *pfile == stdin, will skip everything. This is to stop creating output files.
     if (!flog) return 0; if (!pfile || *pfile==stdin) return 0;
@@ -57,7 +57,7 @@ long int append_save_data(FILE ** pfile, char filename[MAX_PATH], FILE * flog, c
     }
     if (!*pfile || *pfile==stdin) return 0;
 
-    size_t N3 = nx*ny*nz; size_t N4 = nv * N3; int data_size = sizeof(__REAL__)*nx*ny*nz*nv;
+    size_t N3 = nx*ny*nz; size_t N4 = nv * N3; size_t data_size = sizeof(__REAL__)*nx*ny*nz*nv;
 
     /*if (sys->output_significant_digits<0 && -sys->output_significant_digits<sizeof(__REAL__)){
         if (-sys->output_significant_digits==sizeof(float)){
@@ -96,7 +96,7 @@ long int append_save_data(FILE ** pfile, char filename[MAX_PATH], FILE * flog, c
     unsigned short dimension[4]; dimension[0] = (unsigned short)nx; dimension[1] = (unsigned short)ny; dimension[2] = (unsigned short)nz; dimension[3] = (unsigned short)nv;
 
     bool show_save_details = sys->debug_level>0 || sys->detail_level>1;
-    return write_data_page(*pfile, filename, time_stamp, title, show_save_details?flog:nullptr, dimension, data, data_size, text?text:"", sys->output_compress_level, sys->compress_page_size);
+    return write_data_page(*pfile, filename, time_stamp, title, show_save_details?flog:nullptr, dimension, data, data_size, text?text:"", sys->output_compress_level, sys->compress_page_size, _compressBuf, _allocate_memory_size);
 }
 
 

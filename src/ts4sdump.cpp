@@ -1,9 +1,10 @@
 const char * software_name = "ts4sdump";
-const char * software_version = "0.231.1400";
+const char * software_version = "0.246.1489";
 const char * copyright_string = "(c) Cao Siqin";
 
 #define     __REAL__    double
 #define     MACHINE_REASONABLE_ERROR    1e-12
+#define _TTYPROMPTCOLOR_
 
 #include    "header.h"
 #include    <errno.h>
@@ -170,18 +171,31 @@ int main(int argc, char * argv[]){
                     if (work==WORK_LIST_HEADERS){
                       // display all headers
                         char print_buffer[4][128]; char title[5]; title[4] = 0; memcpy(title, header.title, 4);
-                        printf("%d %4s@%g, %s:%dx%dx%dx%d, CRC32: 0x%08X", nframe, title, header.time_stamp, bit_precision==sizeof(float)?"real4":bit_precision==sizeof(double)?"real8":"unknown precision", header.dimensions[0], header.dimensions[1], header.dimensions[2], header.dimensions[3], header.crc32);
-                        if ((header.compressor_version[0]&0xFF)=='u'){
-                            printf(", %s", print_memory_value(print_buffer[0], sizeof(print_buffer[0]), header.data_length));
+                        if (header.dimensions[0]<=1 && header.dimensions[1]<=1 && header.dimensions[2]<=1 && header.dimensions[3]<=1){
+                            printf("%d %4s@%g", nframe, title, header.time_stamp);
                         } else {
-                            bool ts4sdump_can_decode = true;
-                            if (compressor_version_compare(header.compressor_version, compressor_ver)!=0) ts4sdump_can_decode = false;
-                            if (((header.compressor_version[0]&0xFF)!='u') && (compressor_ver[1]<header.compressor_version[1] || compressor_ver[2]<header.compressor_version[2] || compressor_ver[3]<header.compressor_version[3])) ts4sdump_can_decode = false;
-                            printf(", %s (%s<- %s in %g KB, %s%s)", print_memory_value(print_buffer[0], sizeof(print_buffer[0]), header.data_length), ts4sdump_can_decode?"":is_stdout_tty?"\33[31m":"", print_memory_value(print_buffer[1], sizeof(print_buffer[1]), header.data_original_length), header.compressor_page_size/1024.0, print_percentage_value(print_buffer[3], sizeof(print_buffer[3]), header.data_length/(double)header.data_original_length), ts4sdump_can_decode?"":is_stdout_tty?"\33[0m":"");
+                            printf("%d %4s@%g, %s:%dx%dx%dx%d, CRC32: 0x%08X", nframe, title, header.time_stamp, bit_precision==sizeof(float)?"real4":bit_precision==sizeof(double)?"real8":"unknown precision", header.dimensions[0], header.dimensions[1], header.dimensions[2], header.dimensions[3], header.crc32);
+
+                            if ((header.compressor_version[0]&0xFF)=='u'){
+                                printf(", %s", print_memory_value(print_buffer[0], sizeof(print_buffer[0]), header.data_length));
+                            } else {
+                                bool ts4sdump_can_decode = true;
+                                if (compressor_version_compare(header.compressor_version, compressor_ver)!=0) ts4sdump_can_decode = false;
+                                if (((header.compressor_version[0]&0xFF)!='u') && (compressor_ver[1]<header.compressor_version[1] || compressor_ver[2]<header.compressor_version[2] || compressor_ver[3]<header.compressor_version[3])) ts4sdump_can_decode = false;
+                                printf(", %s (%s<- %s in %g KB, %s%s)", print_memory_value(print_buffer[0], sizeof(print_buffer[0]), header.data_length), ts4sdump_can_decode?"":is_stdout_tty?"\33[31m":"", print_memory_value(print_buffer[1], sizeof(print_buffer[1]), header.data_original_length), header.compressor_page_size/1024.0, print_percentage_value(print_buffer[3], sizeof(print_buffer[3]), header.data_length/(double)header.data_original_length), ts4sdump_can_decode?"":is_stdout_tty?"\33[0m":"");
+                            }
                         }
                         if (text_size>0){
                             //printf("%s  # %s%s\n", is_stdout_tty?"\33[37m":"", buffer, is_stdout_tty?"\33[0m":"");
-                            printf(" # %s\n", text_buffer);
+                            #ifdef _TTYPROMPTCOLOR_
+                                if (header.dimensions[0]<=1 && header.dimensions[1]<=1 && header.dimensions[2]<=1 && header.dimensions[3]<=1 && is_stdout_tty){
+                                    printf(" # \33[1m%s\33[0m\n", text_buffer);
+                                } else {
+                                    printf(" # %s\n", text_buffer);
+                                }
+                            #else
+                                printf(" # %s\n", text_buffer);
+                            #endif
                         } else printf("\n");
                     } else if (work==WORK_CHECK_DATA||(!data_alread_extracted && (work==WORK_EXTRACT_DATA || work==WORK_EXTRACT_EDATA))){
                       // relocate memory

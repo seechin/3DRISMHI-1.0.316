@@ -7,7 +7,7 @@ class EnergyReport {
   public:
     double mass, mass_mol, density;
     double lj, coulsr, coullr, entropy, N, N0, dN, Ng, dNg, pmv;
-    double Chandler_Guv[2], zeta[4], cuv, clr, chuv, Uef0, Uef1;
+    double Chandler_Guv[4], zeta[4], cuv, clr, chuv, Uef0, Uef1;
   public:
     void operator += (EnergyReport & o){
       // potential energy
@@ -19,6 +19,8 @@ class EnergyReport {
       // Chandler's
         Chandler_Guv[0] += o.Chandler_Guv[0];
         Chandler_Guv[1] += o.Chandler_Guv[1] * o.mass / o.mass_mol;
+        Chandler_Guv[2] += o.Chandler_Guv[2];
+        Chandler_Guv[3] += o.Chandler_Guv[3] * o.mass / o.mass_mol;
       // SSYBG's
         zeta[0] += o.zeta[0] * o.mass / o.mass_mol;
         zeta[1] += o.zeta[1];
@@ -35,7 +37,7 @@ class EnergyReport {
         mass *= scaling; mass_mol *= scaling; density *= scaling;
         lj *= scaling; coulsr *= scaling; coullr *= scaling; entropy *= scaling;
         N *= scaling; N0 *= scaling; Ng *= scaling; dNg *= scaling;
-        Chandler_Guv[0] *= scaling; Chandler_Guv[1] *= scaling;
+        for (int i=0; i<sizeof(Chandler_Guv)/sizeof(Chandler_Guv[0]); i++) Chandler_Guv[i] *= scaling;
         cuv *= scaling; clr *= scaling; Uef0 *= scaling; Uef1 *= scaling;
     }
 };
@@ -119,10 +121,13 @@ class IET_arrays {
     HIEquationSolver solver_hi;
     DIISNS::DIIS diis_hi;
   public:  // RISM&HI cache
-    __REAL__ **** rismhi_cache[MAX_CACHE_COUNT];
-        // rismhi_cache[0~1] are reserved for all time, should never be reused
+    __REAL__ **** rismhi_cache[MAX_CACHE_COUNT]; size_t n_extra_rismhi_cache[MAX_CACHE_COUNT];
+        // rismhi_cache[0~1] are reserved, should never be reused
         // rismhi_cache[2~3] are temporarily used within one command, e.g. by closure calculation
-        // rismhi_cache[4~5] are temporarily used within one grand command, e.g. reversed-rism-merge
+        //   rismhi_cache[2] is also used for compression
+        // rismhi_cache[4~5] are temporarily used within one super command, e.g. reversed-rism-merge
+        // size of rismhi_cache[i] = N4*sizeof(__REAL__) + n_extra_rismhi_cache[i]
+      __REAL__ * compress_buffer; size_t compress_buffer_size;
   public:  // HI&RISM cache pointer (note: CACHE pointers)
     __REAL__ **** res;
     DIISNS::DIIS * diis_current;
@@ -250,7 +255,10 @@ class IET_arrays {
         pseudoliquid_potential = debug_trace_init3d(sys, "pseudoliquid_potential", init_tensor3d<__REAL__>(nz, ny, nx, 0));
         phi = init_tensor4d(nvm, nz, ny, nx, 0);
         nphi = debug_trace_init4d(sys, "nphi", init_tensor4d(nvm, nz, ny, nx, 0));
-        for (int i=0; i<MAX_CACHE_COUNT; i++) rismhi_cache[i] = debug_trace_init4d(sys, "cache", init_tensor4d(nv, nz, ny, nx, 0));
+        for (int i=0; i<MAX_CACHE_COUNT; i++) n_extra_rismhi_cache[i] = 0;
+          n_extra_rismhi_cache[2] += (((size_t)nv)*nx*ny*nz / sys->compress_page_size + 1) * sys->compress_page_size * sizeof(unsigned int);;
+          for (int i=0; i<MAX_CACHE_COUNT; i++) rismhi_cache[i] = debug_trace_init4d(sys, "cache", init_tensor4d(nv, nz, ny, nx, n_extra_rismhi_cache[i]));
+          compress_buffer = &rismhi_cache[2][0][0][0][0]; compress_buffer_size = sizeof(__REAL__)*nx*ny*nz*nv + n_extra_rismhi_cache[2];
           res = rismhi_cache[0]; ddpot_hi = huv = rismhi_cache[1];
         for (int i=0; i<nvm; i++) guvm[i] = debug_trace_init3d(sys, "guvm", init_tensor3d<__REAL__>(nz, ny, nx, 0));
         fftin = debug_trace_init3d(sys, "fftin", init_tensor3d<__REAL__>(nz, ny, nx, 0));
@@ -339,6 +347,10 @@ class IET_arrays {
 //Chandler_Guv_this = huv1[i3]+1>hardsphere_guv_cutoff ? 0.5*huv1[i3]* cuv1[i3] * dN * (dd?dd1[i3]/nbulk : 1) / beta : 0;
                 site_energy[iv].Chandler_Guv[0] += Chandler_Guv_this;
                 site_energy[iv].Chandler_Guv[1] += Chandler_Guv_this;
+                if (huv1[i3]+1>hardsphere_guv_cutoff){
+                    site_energy[iv].Chandler_Guv[2] += Chandler_Guv_this;
+                    site_energy[iv].Chandler_Guv[3] += Chandler_Guv_this;
+                }
 
               // internal calculation
                 //if (huv1[i3]+1>hardsphere_guv_cutoff) site_energy[iv].cuv += (cuv1[i3]) * dN;
@@ -384,7 +396,7 @@ class IET_arrays {
         FILE * fout[2] = { flog, flog2 };
         for (int io=0; io<2; io++) if (fout[io]) fprintf(fout[io], "%s%7s %10s %10s %10s %10s %10s %10s\n", prefix, "Atom", "mass", "DeltaN", "-TS", "LJSR", "Coulomb", "Euv");
         for (int iv=0; iv<nv; iv++){
-            char mass_string[32];
+            char mass_string[MAX_NAME];
             snprintf(mass_string, sizeof(mass_string), "%.0fx%d", sys->av[iv].mass, sys->av[iv].multi);
             for (int io=0; io<2; io++) if (fout[io]) if (nv>1) fprintf(fout[io], "%s%7s %10s %10.4g %10.4g %10.4g %10.4g %10.4g\n", prefix, sys->av[iv].name, mass_string, site_energy[iv].dN, site_energy[iv].entropy, site_energy[iv].lj, site_energy[iv].coulsr+site_energy[iv].coullr, site_energy[iv].lj+site_energy[iv].coulsr+site_energy[iv].coullr);
         }
@@ -394,7 +406,7 @@ class IET_arrays {
         FILE * fout[2] = { flog, flog2 };
         if (b_title) for (int io=0; io<2; io++) if (fout[io]) fprintf(fout[io], "%s%7s %10s %10s %10s %10s %10s %10s %10s %10s %10s\n", prefix, "Atom", "mass", "DN", "DN_vac", "-TS", "LJSR", "Coulomb", "Uef1", "Uef0", "PMV");
         if (b_detail) for (int iv=0; iv<nv; iv++){
-            char mass_string[32];
+            char mass_string[MAX_NAME];
             snprintf(mass_string, sizeof(mass_string), "%.0fx%d", sys->av[iv].mass, sys->av[iv].multi);
             for (int io=0; io<2; io++) if (fout[io]) if (nv>1) fprintf(fout[io], "%s%7s %10s %10.4g %10.4g %10.4g %10.4g %10.4g %10.4g %10.4g %10.4g\n", prefix, sys->av[iv].name, mass_string, site_energy[iv].dN, site_energy[iv].dNg, site_energy[iv].entropy, site_energy[iv].lj, site_energy[iv].coulsr+site_energy[iv].coullr, site_energy[iv].Uef1,site_energy[iv].Uef0, site_energy[iv].pmv);
         }
@@ -404,7 +416,7 @@ class IET_arrays {
         FILE * fout[2] = { flog, flog2 };
         for (int io=0; io<2; io++) if (fout[io]) fprintf(fout[io], "%s%7s %7s %7s %10s %10s %10s %10s\n", prefix, "Atom", "mass", "DeltaN", "-TS", "LJSR", "Uef0", "Euv");
         for (int iv=0; iv<nv; iv++){
-            char mass_string[32];
+            char mass_string[MAX_NAME];
             snprintf(mass_string, sizeof(mass_string), "%.0fx%d", sys->av[iv].mass, sys->av[iv].multi);
             for (int io=0; io<2; io++) if (fout[io]) if (nv>1) fprintf(fout[io], "%s%7s %7s %7.2f %10.4g %10.4g %10.4g %10.4g\n", prefix, sys->av[iv].name, mass_string, site_energy[iv].dN, site_energy[iv].entropy, site_energy[iv].lj, site_energy[iv].Uef0, site_energy[iv].lj-2*site_energy[iv].Uef0*(1-1/sys->mean_dielect));
         }

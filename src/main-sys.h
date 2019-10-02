@@ -4,14 +4,14 @@
 //---------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------
 class AtomSite { public:
-    char name[32]; char mole[32]; const char * nele;
+    char name[MAX_NAME]; char mole[MAX_NAME]; const char * nele;
     double mass; double charge; double charge_esp, dipole;
     double sigma, sqrt_sigma; double epsilon, sqrt_epsilon; int iaa;
     int id, grp, multi; bool is_key;
     unsigned int reserved; double reverse_rism_factor;
     void init(int _id, int _grp, char * _mole, int _iaa, char * _name, double _mass, double _charge, double _sigma, double _epsilon){
-        memset(name, 0, sizeof(name)); int len = strlen(_name); if (len>31) len = 31; memcpy(name, _name, len);
-        memset(mole, 0, sizeof(mole)); len = strlen(_mole); if (len>31) len = 31; memcpy(mole, _mole, len);
+        memset(name, 0, sizeof(name)); int len = strlen(_name); if (len>MAX_NAME-1) len = MAX_NAME-1; memcpy(name, _name, len);
+        memset(mole, 0, sizeof(mole)); len = strlen(_mole); if (len>MAX_NAME-1) len = MAX_NAME-1; memcpy(mole, _mole, len);
         nele = ElementNS::get_atom_element(name);
         iaa = _iaa; mass = _mass; charge = _charge; charge_esp = _charge; dipole = 0;
         sigma = _sigma; sqrt_sigma = sqrt(fabs(sigma));
@@ -40,14 +40,14 @@ class RDFGroup { public:
   // index: >0: index; ==0: mathces anything; <0: ignore.
   // mol and atom name: can be string; or leave blank ("") or use "*" to match anything
     int is, iv; // index of solute and solvent. Begin with 1.
-    char ms[32], mv[32], as[32], av[32]; // mol and atom name, ignored if
+    char ms[MAX_NAME], mv[MAX_NAME], as[MAX_NAME], av[MAX_NAME]; // mol and atom name, ignored if
     void init(int _is, int _iv, StringNS::string _ms, StringNS::string _as, StringNS::string _mv, StringNS::string _av){
         memset(this, 0, sizeof(RDFGroup));
         is = _is; iv = _iv;
-        memcpy(ms, _ms.text, _ms.length>31?31:_ms.length);
-        memcpy(as, _as.text, _as.length>31?31:_as.length);
-        memcpy(mv, _mv.text, _mv.length>31?31:_mv.length);
-        memcpy(av, _av.text, _av.length>31?31:_av.length);
+        memcpy(ms, _ms.text, _ms.length>(MAX_NAME-1)?(MAX_NAME-1):_ms.length);
+        memcpy(as, _as.text, _as.length>(MAX_NAME-1)?(MAX_NAME-1):_as.length);
+        memcpy(mv, _mv.text, _mv.length>(MAX_NAME-1)?(MAX_NAME-1):_mv.length);
+        memcpy(av, _av.text, _av.length>(MAX_NAME-1)?(MAX_NAME-1):_av.length);
     }
 };
 class RDF_data { public:
@@ -160,7 +160,7 @@ class HIEquationSolver {
 //---------------------------------------------------------------------------------
 class SYSITEM_AtomNameList {
   public:
-    char name[32]; char mole[32]; int index; int grp; int iaa;
+    char name[MAX_NAME]; char mole[MAX_NAME]; int index; int grp; int iaa;
 };
 class SYSITEM_PairMapping { // mapping of gvv
   public:
@@ -186,22 +186,22 @@ int search_atom_list(int return_col, SYSITEM_AtomNameList * al, int begin, int n
     return default_ret;
 }
 int search_atom_list(int return_col, SYSITEM_AtomNameList * al, int begin, int nal, const char * compond, int default_ret){
-    char mole_name[32]; char atom_name[32]; memset(mole_name, 0, sizeof(mole_name)); memset(atom_name, 0, sizeof(atom_name));
+    char mole_name[MAX_NAME]; char atom_name[MAX_NAME]; memset(mole_name, 0, sizeof(mole_name)); memset(atom_name, 0, sizeof(atom_name));
     for (int i=0; compond[i]; i++){
         if (compond[i]=='.'){
-            memcpy(mole_name, compond, i>31?31:i); if (mole_name[0]==0) strcpy(mole_name, "*");
+            memcpy(mole_name, compond, i>(MAX_NAME-1)?(MAX_NAME-1):i); if (mole_name[0]==0) strcpy(mole_name, "*");
             const char * compond_next = &compond[i+1]; int compond_next_len = strlen(compond_next);
-            memcpy(atom_name, compond_next, compond_next_len>31?31:compond_next_len); if (atom_name[0]==0) strcpy(atom_name, "*");
+            memcpy(atom_name, compond_next, compond_next_len>(MAX_NAME-1)?(MAX_NAME-1):compond_next_len); if (atom_name[0]==0) strcpy(atom_name, "*");
             break;
         } else if (compond[i]==':' && compond[i+1]==':'){
-            memcpy(mole_name, compond, i>31?31:i); if (mole_name[0]==0) strcpy(mole_name, "*");
+            memcpy(mole_name, compond, i>(MAX_NAME-1)?(MAX_NAME-1):i); if (mole_name[0]==0) strcpy(mole_name, "*");
             const char * compond_next = &compond[i+2]; int compond_next_len = strlen(compond_next);
-            memcpy(atom_name, compond_next, compond_next_len>31?31:compond_next_len); if (atom_name[0]==0) strcpy(atom_name, "*");
+            memcpy(atom_name, compond_next, compond_next_len>(MAX_NAME-1)?(MAX_NAME-1):compond_next_len); if (atom_name[0]==0) strcpy(atom_name, "*");
             break;
         }
     }
     int compond_len = strlen(compond);
-    if (!atom_name[0]){ strcpy(mole_name, "*"); memcpy(atom_name, compond, compond_len>31?31:compond_len); }
+    if (!atom_name[0]){ strcpy(mole_name, "*"); memcpy(atom_name, compond, compond_len>(MAX_NAME-1)?(MAX_NAME-1):compond_len); }
     if (atom_name[0]=='*') return default_ret;
     return search_atom_list(return_col, al, begin, nal, mole_name, atom_name, default_ret);
 }
@@ -433,7 +433,7 @@ class IET_Param {
         cmd_flag_rism_ever_performed  = false;
         cmd_flag_rdf_ever_display = false;
 
-        output_override = 1; output_compress_level = 0; compress_page_size = 4096;
+        output_override = 1; output_compress_level = 0; compress_page_size = 4096*1024;
 
         b_save_original_xvv = true; b_output_filename_autogenerated = false;
     }

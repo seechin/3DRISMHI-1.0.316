@@ -155,55 +155,55 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                     }
                     //printf("\33[31m[%s]\n\33[0m", save_info_text);
                     arr->res[0][0][0][0] = 0;
-                    total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "cmd", save_info_text, 1, 1, 1, 1, arr->res, time_stamp, sys); original_size += write_original_size;
+                    total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "cmd", save_info_text, 1, 1, 1, 1, arr->res, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size); original_size += write_original_size;
                 } else if (cmd[ic].command_params_int[is]==IETCMD_v_ulj){
-                    total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "lj", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->ulj, time_stamp, sys); original_size += write_original_size;
+                    total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "lj", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->ulj, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size); original_size += write_original_size;
                     //total_size += append_save_data(pfout, szfn_out, flog, "lj", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, &arr->ulj[0][0][0][0], time_stamp, sys);
                     //original_size += arr->nv*N3*sizeof(__REAL__) + sizeof(CompressPageHeader);
                     //snprintf(filename, sizeof(filename), "%s.lj", szfn_out);
                     //compress_data(filename, "LJ", flog, arr->nv, arr->nx, arr->ny, arr->nz, &arr->ulj[0][0][0][0], sys->err_output_uv);
                 } else if (cmd[ic].command_params_int[is]==IETCMD_v_ucoul){
                     for (size_t i3=0; i3<N3; i3++) arr->res[0][0][0][i3] = arr->ucoulsr[0][0][i3] + arr->ucoullr[0][0][i3];
-                    total_size += append_save_data(pfout, szfn_out, flog, "coul", save_info_text, arr->nx, arr->ny, arr->nz, 1, &arr->res[0][0][0][0], time_stamp, sys);
+                    total_size += append_save_data(pfout, szfn_out, flog, "coul", save_info_text, arr->nx, arr->ny, arr->nz, 1, &arr->res[0][0][0][0], time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size);
                     original_size += 1*N3*sizeof(__REAL__) + sizeof(CompressPageHeader);
                     //snprintf(filename, sizeof(filename), "%s.coulomb", szfn_out);
                     //compress_data(filename, "Coulomb potential", flog, 1, arr->nx, arr->ny, arr->nz, &arr->res[0][0][0][0], sys->err_output_uv);
                 } else if (cmd[ic].command_params_int[is]==IETCMD_v_ucoul2){
-                    total_size += append_save_data(pfout, szfn_out, flog, "ef", save_info_text, arr->nx, arr->ny, arr->nz, 3, &arr->Ecoul0[0][0][0][0], time_stamp, sys);
+                    total_size += append_save_data(pfout, szfn_out, flog, "ef", save_info_text, arr->nx, arr->ny, arr->nz, 3, &arr->Ecoul0[0][0][0][0], time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size);
                     original_size += 3*N3*sizeof(__REAL__) + sizeof(CompressPageHeader);
                     //snprintf(filename, sizeof(filename), "%s.ef", szfn_out);
                     //compress_data(filename, "Electrostatic field", flog, 3, arr->nx, arr->ny, arr->nz, &arr->Ecoul0[0][0][0][0], sys->err_output_uv);
                 } else if (cmd[ic].command_params_int[is]==IETCMD_v_uuv){
-                    total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "uuv", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->uuv, time_stamp, sys); original_size += write_original_size;
+                    total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "uuv", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->uuv, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size); original_size += write_original_size;
                     //total_size += append_save_data(pfout, szfn_out, flog, "uuv", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, &arr->uuv[0][0][0][0], time_stamp, sys);
                     //original_size += arr->nv*N3*sizeof(__REAL__) + sizeof(CompressPageHeader);
                 } else if (cmd[ic].command_params_int[is]==IETCMD_v_ulr){
-                    total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "ulr", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->ulr, time_stamp, sys); original_size += write_original_size;
+                    total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "ulr", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->ulr, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size); original_size += write_original_size;
                     //total_size += append_save_data(pfout, szfn_out, flog, "ulr", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, &arr->ulr[0][0][0][0], time_stamp, sys);
                     //original_size += arr->nv*N3*sizeof(__REAL__) + sizeof(CompressPageHeader);
                 } else if (cmd[ic].command_params_int[is]==IETCMD_v_cuv){
-                    total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "cuv", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->cuv, time_stamp, sys); original_size += write_original_size;
+                    total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "cuv", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->cuv, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size); original_size += write_original_size;
                     //total_size += append_save_data(pfout, szfn_out, flog, "cuv", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, &arr->cuv[0][0][0][0], time_stamp, sys);
                     //original_size += arr->nv*N3*sizeof(__REAL__) + sizeof(CompressPageHeader);
                     //snprintf(filename, sizeof(filename), "%s.cuv", szfn_out);
                     //compress_data(filename, "cuv", flog, arr->nv, arr->nx, arr->ny, arr->nz, &arr->cuv[0][0][0][0], sys->err_output_uv);
                 } else if (cmd[ic].command_params_int[is]==IETCMD_v_clr){
-                    total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "clr", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->clr, time_stamp, sys); original_size += write_original_size;
+                    total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "clr", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->clr, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size); original_size += write_original_size;
                     //total_size += append_save_data(pfout, szfn_out, flog, "clr", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, &arr->clr[0][0][0][0], time_stamp, sys);
                     //original_size += arr->nv*N3*sizeof(__REAL__) + sizeof(CompressPageHeader);
                 } else if (cmd[ic].command_params_int[is]==IETCMD_v_huv){
-                    total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "huv", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->huv, time_stamp, sys); original_size += write_original_size;
+                    total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "huv", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->huv, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size); original_size += write_original_size;
                     //total_size += append_save_data(pfout, szfn_out, flog, "huv", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, &arr->huv[0][0][0][0], time_stamp, sys);
                     //original_size += arr->nv*N3*sizeof(__REAL__) + sizeof(CompressPageHeader);
                     //snprintf(filename, sizeof(filename), "%s.huv", szfn_out);
                     //compress_data(filename, "huv", flog, arr->nv, arr->nx, arr->ny, arr->nz, &arr->huv[0][0][0][0], sys->err_output_uv);
                 } else if (cmd[ic].command_params_int[is]==IETCMD_v_hlr){
-                    total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "hlr", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->hlr, time_stamp, sys); original_size += write_original_size;
+                    total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "hlr", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->hlr, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size); original_size += write_original_size;
                     //total_size += append_save_data(pfout, szfn_out, flog, "hlr", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, &arr->hlr[0][0][0][0], time_stamp, sys);
                     //original_size += arr->nv*N3*sizeof(__REAL__) + sizeof(CompressPageHeader);
                 } else if (cmd[ic].command_params_int[is]==IETCMD_v_dd){
                     if (arr->dd){
-                        total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "dd", save_info_text, arr->nx, arr->ny, arr->nz, arr->nvm, arr->dd, time_stamp, sys); original_size += write_original_size;
+                        total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "dd", save_info_text, arr->nx, arr->ny, arr->nz, arr->nvm, arr->dd, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size); original_size += write_original_size;
                         //total_size += append_save_data(pfout, szfn_out, flog, "dd", save_info_text, arr->nx, arr->ny, arr->nz, arr->nvm, &arr->dd[0][0][0][0], time_stamp, sys);
                         //original_size += arr->nvm*N3*sizeof(__REAL__) + sizeof(CompressPageHeader);
                         //snprintf(filename, sizeof(filename), "%s.dd", szfn_out);
@@ -211,7 +211,7 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                     } else if (show_run_info) fprintf(flog, "%s : cmd[%d] : waning : HI not performed and dd will not be saved.\n", software_name, ic+1);
                 } else if (cmd[ic].command_params_int[is]==IETCMD_v_ddp){
                     if (arr->dd){
-                        total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "ddp", save_info_text, arr->nx, arr->ny, arr->nz, arr->nvm, arr->ddpot_hi, time_stamp, sys); original_size += write_original_size;
+                        total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "ddp", save_info_text, arr->nx, arr->ny, arr->nz, arr->nvm, arr->ddpot_hi, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size); original_size += write_original_size;
                         //total_size += append_save_data(pfout, szfn_out, flog, "dd", save_info_text, arr->nx, arr->ny, arr->nz, arr->nvm, &arr->dd[0][0][0][0], time_stamp, sys);
                         //original_size += arr->nvm*N3*sizeof(__REAL__) + sizeof(CompressPageHeader);
                         //snprintf(filename, sizeof(filename), "%s.dd", szfn_out);
@@ -219,7 +219,7 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                     } else if (show_run_info) fprintf(flog, "%s : cmd[%d] : waning : HI not performed and ddp will not be saved.\n", software_name, ic+1);
                 } else if (cmd[ic].command_params_int[is]==-IETCMD_v_dd){
                     if (arr->nphi){
-                        total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "nphi", save_info_text, arr->nx, arr->ny, arr->nz, arr->nvm, arr->nphi, time_stamp, sys); original_size += write_original_size;
+                        total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "nphi", save_info_text, arr->nx, arr->ny, arr->nz, arr->nvm, arr->nphi, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size); original_size += write_original_size;
                     } else if (show_run_info) fprintf(flog, "%s : cmd[%d] : waning : HI not performed and nphi will not be saved.\n", software_name, ic+1);
                 } else if (cmd[ic].command_params_int[is]==IETCMD_v_guv){
                     //snprintf(filename, sizeof(filename), "%s.guv", szfn_out);
@@ -231,7 +231,7 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                             if (beta*arr->ulj[iv][0][0][i3]<sys->ucutoff_hs && arr->res[iv][0][0][i3]<MACHINE_REASONABLE_ERROR) arr->res[iv][0][0][i3] = MACHINE_REASONABLE_ERROR; // non hardsphere correction
                         }
                     }
-                    total_size += select_append_save_data(filter_array, filter_size, arr->rismhi_cache[2], &write_size, &write_original_size, pfout, szfn_out, flog, "guv", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->res, time_stamp, sys); original_size += write_original_size;
+                    total_size += select_append_save_data(filter_array, filter_size, arr->rismhi_cache[2], &write_size, &write_original_size, pfout, szfn_out, flog, "guv", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->res, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size); original_size += write_original_size;
                     //total_size += append_save_data(pfout, szfn_out, flog, "guv", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, &arr->res[0][0][0][0], time_stamp, sys);
                     //original_size += arr->nv*N3*sizeof(__REAL__) + sizeof(CompressPageHeader);
                     //compress_data(filename, "density profile", flog, arr->nv, arr->nx, arr->ny, arr->nz, &arr->res[0][0][0][0], sys->err_output_uv);
@@ -244,7 +244,7 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                             arr->res[0][0][0][i3] = -1;
                         }
                     }
-                    total_size += select_append_save_data(filter_array, filter_size, arr->rismhi_cache[2], &write_size, &write_original_size, pfout, szfn_out, flog, "rmin", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->res, time_stamp, sys); original_size += write_original_size;
+                    total_size += select_append_save_data(filter_array, filter_size, arr->rismhi_cache[2], &write_size, &write_original_size, pfout, szfn_out, flog, "rmin", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->res, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size); original_size += write_original_size;
                     //total_size += append_save_data(pfout, szfn_out, flog, "rmin", save_info_text, arr->nx, arr->ny, arr->nz, 1, &arr->res[0][0][0][0], time_stamp, sys);
                     //original_size += 1*N3*sizeof(__REAL__) + sizeof(CompressPageHeader);
                 } else if (cmd[ic].command_params_int[is]==IETCMD_v_rdf){
@@ -298,7 +298,7 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                     if (!arr->is_energy_calculated){ recalculate_energy(sys, arr); arr->is_energy_calculated = true; }
                     fprintf(flog, "  SovlentEntropy       %g\n", arr->total_energy.entropy);
                 } else if (cmd[ic].command_params_int[is]==IETCMD_v_Chandler_G){
-                    fprintf(flog, "  Chandler_SFE         %g %g\n", arr->total_energy.Chandler_Guv[0], arr->total_energy.Chandler_Guv[1]);
+                    fprintf(flog, "  Chandler_SFE         %g %g %g %g\n", arr->total_energy.Chandler_Guv[0], arr->total_energy.Chandler_Guv[1], arr->total_energy.Chandler_Guv[2], arr->total_energy.Chandler_Guv[3]);
                 } else if (cmd[ic].command_params_int[is]==IETCMD_v_HFE){
                   #ifdef _EXPERIMENTAL_
                     fprintf(flog, "  SolvationFreeEnergy  %g\n", experimental_calculate_solvation_free_energy(sys, arr));
@@ -535,6 +535,7 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                 build_force_field_auto(sys, arr, flog, nframe);
               // 2-6. TI windows
                 for (int iti=0; iti<cmd[ic].step; iti++){ double scale = (iti+1.0) / cmd[ic].step;
+                    arr->is_energy_calculated = false;
                     if (sys->detail_level>=1){
                         if (flog) fprintf(flog, " TI step %d of %d, scaling=%g:\n", iti+1, cmd[ic].step, scale);
                     } else {

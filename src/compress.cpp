@@ -50,7 +50,7 @@ int compressor_version_compare(unsigned short hd[4]/*data*/, unsigned short hc[4
     else return 1; // canont decode
 }
 
-int uncompress_page(FILE * file, const char * filename, int block_index, CompressPageHeader * header, unsigned short uncompressor_ver[4], unsigned char * compressed, unsigned int length_compressed, unsigned char * data, unsigned int length_max_data){
+int uncompress_page(FILE * file, const char * filename, int block_index, CompressPageHeader * header, unsigned short uncompressor_ver[4], unsigned char * compressed, size_t length_compressed, unsigned char * data, size_t length_max_data){
   // return:
     //  positive: length of uncompressed data; 0: not doing anything
     //  -1: memory overflow; -2: unknown precision; -3: compressor not match; -4: compressor version too low; -5: unknown compressor
@@ -91,7 +91,7 @@ int uncompress_page(FILE * file, const char * filename, int block_index, Compres
 //---------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------
 
-long int write_data_page(FILE * fo, const char * filename, double time_stamp, const char * title, FILE * flog, unsigned short dimensions[4], void * data, int data_size, StringNS::string comment, int compress_level, int page_size){
+size_t write_data_page(FILE * fo, const char * filename, double time_stamp, const char * title, FILE * flog, unsigned short dimensions[4], void * data, size_t data_size, StringNS::string comment, int compress_level, size_t page_size, void * _compressBuf, size_t _allocate_memory_size){
     if (!title) title = "";
     if (!fo) return 0;
     //double current_time = get_current_time_double();
@@ -111,11 +111,15 @@ long int write_data_page(FILE * fo, const char * filename, double time_stamp, co
   #ifdef _LIBZ_
     if (compress_level!=0){
         header.compressor_page_size = page_size;
-        int allocate_memory_size = data_size + (data_size/page_size+1)*page_size*sizeof(unsigned int);
+        size_t allocate_memory_size = data_size + (data_size/page_size+1)*page_size*sizeof(unsigned int);
 
         unsigned short version_number[4]; get_version_array_from_string(version_number, zlibVersion());
         header.compressor_version[0] = 'z'+'l'*256; for (int i=1; i<4; i++) header.compressor_version[i] = version_number[i-1];
-        compressBuf = (unsigned char *)malloc(allocate_memory_size);
+        if (_compressBuf && _allocate_memory_size>=allocate_memory_size){
+            compressBuf = (unsigned char *)_compressBuf;
+        } else {
+            compressBuf = (unsigned char *)malloc(allocate_memory_size);
+        }
           #ifdef MAX_MEMORYS
             if (!compressBuf){ fprintf(stderr, "%s : malloc failure, totally %d bolcks\n", software_name, _memory_blk_total); exit(-1); }
           #else
@@ -126,8 +130,8 @@ long int write_data_page(FILE * fo, const char * filename, double time_stamp, co
         int level = compress_level==-1? Z_DEFAULT_COMPRESSION : compress_level==2? Z_BEST_COMPRESSION : compress_level==1? Z_BEST_SPEED : Z_NO_COMPRESSION;
 
       // compress by blocks
-        int compressRet = 0; int last_compressedlen = 0;
-        for (int begin=0; begin<data_size; begin+=page_size){
+        size_t compressRet = 0; size_t last_compressedlen = 0;
+        for (size_t begin=0; begin<data_size; begin+=page_size){
             unsigned int * this_blk_size = (unsigned int *) &compressBuf[last_compressedlen]; last_compressedlen += sizeof(unsigned int); header.data_length += sizeof(unsigned int);
             unsigned long int originallen = begin+page_size<data_size? page_size : data_size-begin;
             if (originallen+last_compressedlen>allocate_memory_size){ header.data_length = 0; compressRet = -1; break; }
@@ -171,7 +175,7 @@ long int write_data_page(FILE * fo, const char * filename, double time_stamp, co
 
   // done and dispose all
   #ifdef _LIBZ_
-    if (compressBuf && compressBuf!=data) free(compressBuf);
+    if (compressBuf && compressBuf!=data && compressBuf!=_compressBuf) free(compressBuf);
   #endif
 
     return header.data_offset + header.data_length;;

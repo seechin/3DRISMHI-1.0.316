@@ -372,7 +372,7 @@ bool print_rdf(FILE * file, IET_Param * sys, IET_arrays * arr, RDF_data * rdf, d
       if (sys->output_significant_digits==-8) mask64 = generate_double_sig_dig_mask(15);
 
     fprintf(file, "%8s", "r"); for (int ig=0; ig<sys->n_rdf_grps; ig++){
-        char buffer[32];
+        char buffer[MAX_NAME];
         if (rdf[ig].is<0){
             snprintf(buffer, sizeof(buffer), "all-%d%s", rdf[ig].iv+1, sys->av[rdf[ig].iv].name);
         } else {
@@ -425,7 +425,7 @@ bool print_rdf(const char * filename, IET_Param * sys, IET_arrays * arr, RDF_dat
     if (!file){ fprintf(sys->log(), "%s : error : cannot write RDF to %s\n", software_name, filename); return false; }
 
     fprintf(file, "%7s", "r"); for (int ig=0; ig<sys->n_rdf_grps; ig++){
-        char buffer[32];
+        char buffer[MAX_NAME];
         if (rdf[ig].is<0){
             snprintf(buffer, sizeof(buffer), "all-%d%s", rdf[ig].iv+1, sys->av[rdf[ig].iv].nele);
         } else {
@@ -498,7 +498,15 @@ void main_print_header(IET_Param * sys, IET_arrays * arr, FILE * flog, int argc,
 void main_print_tailer(IET_Param * sys, IET_arrays * arr){
     FILE * flog = sys->log();
     char time_buffer[2][40];
+  #ifdef _LOCALPARALLEL_
+    if (sys->nt>1){
+        fprintf(flog, "%s ends at %s (%d %s, %s s)\n", software_name, get_current_time_text(time_buffer[0]), sys->nt, sys->mp_by_fork?"forks":"threads", display_time(__total_timer, time_buffer[1]));
+    } else {
+        fprintf(flog, "%s ends at %s (%s s)\n", software_name, get_current_time_text(time_buffer[0]), display_time(__total_timer, time_buffer[1]));
+    }
+  #else
     fprintf(flog, "%s ends at %s (%s s)\n", software_name, get_current_time_text(time_buffer[0]), display_time(__total_timer, time_buffer[1]));
+  #endif
     fprintf(flog, "============================================================================ \n");
 }
 
@@ -574,7 +582,7 @@ void print_save_extra_info(IET_Param * sys, char * buffer, size_t size){
     snprintf(buffer, size, "%s %s %s", software_name, software_version, get_current_time_text(time_buffer));
 }
 
-size_t select_append_save_data(int * filter, int nfilter, __REAL__ **** temp, size_t * total_size, size_t * original_size, FILE ** pfile, char filename[MAX_PATH], FILE * flog, const char * title, const char * text, int nx, int ny, int nz, int nv, __REAL__ **** data, double time_stamp, IET_Param * sys){
+size_t select_append_save_data(int * filter, int nfilter, __REAL__ **** temp, size_t * total_size, size_t * original_size, FILE ** pfile, char filename[MAX_PATH], FILE * flog, const char * title, const char * text, int nx, int ny, int nz, int nv, __REAL__ **** data, double time_stamp, IET_Param * sys, __REAL__ * _compressBuf, size_t _allocate_memory_size){
 
     bool save_all = false; bool save_none = true; int N3 = nx * ny * nz;
     if (!filter || nfilter<=0){
@@ -590,7 +598,7 @@ size_t select_append_save_data(int * filter, int nfilter, __REAL__ **** temp, si
         *total_size = *original_size = 0;
     } else if (save_all){
 //fprintf(stderr, "\33[31msave: all\n\33[0m");
-        *total_size += append_save_data(pfile, filename, flog, title, text, nx, ny, nz, nv, &data[0][0][0][0], time_stamp, sys);
+        *total_size += append_save_data(pfile, filename, flog, title, text, nx, ny, nz, nv, &data[0][0][0][0], time_stamp, sys, _compressBuf, _allocate_memory_size);
         *original_size = nx*ny*nz*nv*sizeof(__REAL__) + sizeof(CompressPageHeader);
     } else {
         int n_save_sites = 0;
@@ -603,7 +611,7 @@ size_t select_append_save_data(int * filter, int nfilter, __REAL__ **** temp, si
             //for (int j=0; j<N3; j++) dst[j] = src[j];
             //n_save_sites ++;
         }
-        *total_size = append_save_data(pfile, filename, flog, title, text, nx, ny, nz, n_save_sites, &temp[0][0][0][0], time_stamp, sys);
+        *total_size = append_save_data(pfile, filename, flog, title, text, nx, ny, nz, n_save_sites, &temp[0][0][0][0], time_stamp, sys, _compressBuf, _allocate_memory_size);
         *original_size = nx*ny*nz*n_save_sites*sizeof(__REAL__) + sizeof(CompressPageHeader);
     }
     return *total_size;

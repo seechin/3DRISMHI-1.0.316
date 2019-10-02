@@ -11,7 +11,7 @@ int analysis_line_params(StringNS::string sline, StringNS::string * sl, int maxn
                 if (sl[i]=="#include" || sl[i]=="#warning" || sl[i]=="#error" || sl[i]=="#echo"){
                 } else if (sl[i]=="#" && i+1<nw && (sl[i+1]=="include"||sl[i+1]=="warning"||sl[i+1]=="error"||sl[i+1]=="echo")){
                 } else nw = i;
-            } else if (sl[i].text[0]==';' || sl[i].text[0]=='@' || sl[i].text[0]=='%'){
+            } else if (sl[i].text[0]==';' || sl[i].text[0]=='%'){
                 nw = i;
             } else if (sl[i].text[0]=='/' && sl[i].length>1 && sl[i].text[1]=='/'){
                 nw = i;
@@ -141,7 +141,7 @@ bool is_a_text_file(char * filename){
                 stop = true;
             } else if (input[i]=='\n' || input[i]=='\r'){
                 line_comment = false;
-            } else if (input[i]=='#' || input[i]=='@'){
+            } else if (input[i]=='#'){
                 line_comment = true;
             } else if (input[i]=='/'){
                 if (i+1<br && input[i+1]=='/'){
@@ -173,9 +173,9 @@ bool is_a_text_file(char * filename){
 //------------------   Memory Management for Multi Processing   -------------------
 //---------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------
-#define MAX_MEMORYS 20000
+#define MAX_MEMORYS 65536
 int _memory_blk_total = 0; size_t _memory_total = 0; bool _ignore_memory_capacity = false;
-void * _memory_pointers[MAX_MEMORYS]; long int _memory_size[MAX_MEMORYS];
+void * _memory_pointers[MAX_MEMORYS]; size_t _memory_size[MAX_MEMORYS];
 size_t get_total_physical_memory(){
     size_t pages = sysconf(_SC_PHYS_PAGES);
     size_t page_size = sysconf(_SC_PAGE_SIZE);
@@ -308,11 +308,16 @@ double check_error_tol(double errtol){
 //---------------------------------------------------------------------------------
 #ifdef _LOCALPARALLEL_
     int * __active_threads = nullptr; pid_t * __forkpid;
-    pthread_t * __thread_list; void init_mp(){
+    pthread_t * __thread_list; bool * __thread_ready;
+    void init_mp(){
         __active_threads = (int*) memalloc(sizeof(int)); * __active_threads = 1;
 
         __thread_list = (pthread_t*) memalloc(sizeof(pthread_t)*MAX_THREADS);
         memset(__thread_list, 0, sizeof(pthread_t)*MAX_THREADS);
+
+        __thread_ready = (bool*) memalloc(sizeof(bool)*MAX_THREADS);
+        for (int i=0; i<MAX_THREADS; i++) __thread_ready[i] = false;
+
         #ifdef _LOCALPARALLEL_PTHREAD_
             __thread_list[0] = pthread_self();
         #else

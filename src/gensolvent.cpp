@@ -1,11 +1,14 @@
 const char * software_name = "gensolvent";
-const char * software_version = "0.231.1400";
+const char * software_version = "0.249.1496";
 const char * copyright_string = "(c) Cao Siqin";
 
 #define     __REAL__    double
 #define     MAX_SOL     100     // Max atom site number
 
 #include    "header.h"
+#if defined(_GROMACS4_) || defined(_GROMACS5_) || defined(_GROMACS2016_) || defined(_GROMACS2018_)
+  #define _GROMACS_
+#endif
 #include    <errno.h>
 #include    <stdio.h>
 #include    <stdlib.h>
@@ -29,11 +32,7 @@ const char * copyright_string = "(c) Cao Siqin";
 #endif
 
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-#define PI  3.1415926535897932384626433832795
-#define EE  2.7182818284590452353602874713527
-#define COULCOOEF 138.9354846
-#define MAX_PATH        1024
-#define MAX_WORD        200
+#include    "main-header.h"
 #define MAX_ITER_TIMES  20
 #define MAX_ITEMS       50
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -44,9 +43,6 @@ const char * szHelp = "\
     -nice               nice level of process, default 0\n\
     -f, -traj           trajectory file: pdb/gro/xtc\n\
     -o                  output file, default: screen/con\n\
-      gvv (in -p file)  output solvent-RDF file, default: screen/con\n\
-      zvv (in -p file)  output solvent-zeta file, default: screen/con\n\
-    -gvv, -zeta         files to output gvv or zeta\n\
     -b, -e, -dt         time of begin, end and step of reading traj\n\
     -ff opls/amber/gaff force field type indicator\n\
     -arith/geo-sigma    LJ sigma combination rule: arithmetic or geometric\n\
@@ -68,7 +64,7 @@ const char * szHelp = "\
 #include    "read_frame_abr.cpp"
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 class AtomSite { public:
-    char name[32]; char mole[32]; char nmele[32];
+    char name[MAX_NAME]; char mole[MAX_NAME]; char nmele[MAX_NAME];
     double mass; double charge;
     double sigma, sqrt_sigma; double epsilon, sqrt_epsilon; int iaa;
     int id, grp, multi; bool is_key;
@@ -162,7 +158,6 @@ bool show_warning = false; bool show_debug = false; bool force_override = false;
 bool arith_sigma = false; int ff_specifier = 0; // amber, opls, gaff
 double time_begin = 0; double time_end = 0; double time_step = 0;
 double rvdw = 1; double rcoul = 1; double rcutoff = 0;
-double drrism = 0; double drhi = 0; int bins = 0; bool use_bins = false; int bins_rism = 0; int bins_hi = 0;
 AtomSite av[MAX_SOL]; int av_i_in_mol[MAX_SOL]; int nav = 0; int nmv = 0; int ngv = 0;
 GroupInfo gpi[MAX_SOL];
 PDBAtomSet pdb_atom_set; AtomIndex * ai = nullptr; MoleculeIndex * mi = nullptr; int nm = 0;
@@ -171,8 +166,6 @@ char szfp[MAX_PATH] = { 0, 0, 0, 0 };
 char szfs[MAX_PATH] = { 0, 0, 0, 0 }; StringNS::string str_ext_fs = "";
 char szff[MAX_PATH] = { 0, 0, 0, 0 }; StringNS::string str_ext_ff = "";
 char szfo[MAX_PATH] = { 0, 0, 0, 0 };
-char szfo_gvv[MAX_PATH] = { 0, 0, 0, 0 };
-char szfo_zvv[MAX_PATH] = { 0, 0, 0, 0 };
 char path_cwd[MAX_PATH]; char path_top[MAX_PATH];
 NameSubstitution nss[MAX_ITEMS]; int n_nss = 0;
 StringNS::string file_extension(StringNS::string fn){
@@ -228,14 +221,6 @@ bool analysis_args(int argc, char *argv[], int first_argv){
                     if (i+1<argc && argv[i+1][0]!='-'){
                         i++; strncpy(szfo, argv[i], sizeof(szff));
                     }
-                } else if (key == "-gvv" || key == "--gvv"){
-                    if (i+1<argc && argv[i+1][0]!='-'){
-                        i++; strncpy(szfo_gvv, argv[i], sizeof(szfo_gvv));
-                    }
-                } else if (key == "-zeta" || key == "--zeta" || key == "-zkvv" || key == "--zkvv"){
-                    if (i+1<argc && argv[i+1][0]!='-'){
-                        i++; strncpy(szfo_zvv, argv[i], sizeof(szfo_zvv));
-                    }
                 } else if (key == "-nice" || key == "--nice"){
                     if (i+1<argc && argv[i+1][0]!='-'){ i++; nice_level = atoi(argv[i]); }
                 } else if (key == "-b" || key == "-begin" || key == "--begin"){
@@ -244,10 +229,6 @@ bool analysis_args(int argc, char *argv[], int first_argv){
                     if (i+1<argc && argv[i+1][0]!='-'){ i++; time_end = atof(argv[i]); }
                 } else if (key == "-dt" || key == "--dt"){
                     if (i+1<argc && argv[i+1][0]!='-'){ i++; time_step = atof(argv[i]); }
-                } else if (key == "-dr" || key == "--dr"){
-                    if (i+1<argc && argv[i+1][0]!='-'){ i++; drrism = drhi = atof(argv[i]); use_bins = false; }
-                } else if (key == "-bins" || key == "--bins"){
-                    if (i+1<argc && argv[i+1][0]!='-'){ i++; bins = bins_rism = bins_hi = atoi(argv[i]); use_bins = true; }
                 } else if (key == "-rc" || key == "--rc" || key == "-rcutoff" || key == "--rcutoff"){
                     if (i+1<argc && argv[i+1][0]!='-'){ i++; rvdw = rcoul = atof(argv[i]); }
                 } else if (key == "-rvdw" || key == "--rvdw"){
@@ -369,27 +350,7 @@ bool read_solvent(char * filename, int iter_time){
         } else {
             if (on_compile==1){         // [solvent] section
               if (nw>1){
-                if (sl[0]=="gvv"){
-                    strncpy(szfo_gvv, sl[1].text, sizeof(szfo_gvv));
-                } else if (sl[0]=="zvv" || sl[0]=="zeta"){
-                    strncpy(szfo_zvv, sl[1].text, sizeof(szfo_zvv));
-                } else if (sl[0]=="dr"){
-                    drrism = drhi = atof(sl[1].text); use_bins = false;
-                } else if (sl[0]=="drrism"){
-                    drrism = atof(sl[1].text); use_bins = false;
-                } else if (sl[0]=="drhi"){
-                    drhi = atof(sl[1].text);
-                } else if (sl[0]=="rcoul"){
-                    rcoul = atof(sl[1].text);
-                } else if (sl[0]=="rvdw"){
-                    rvdw = atof(sl[1].text);
-                } else if (sl[0]=="ffoplsaa" || sl[0]=="ffopls" || sl[0]=="oplsaaff" || sl[0]=="oplsff"){
-                    arith_sigma = false; ff_specifier = 2;
-                } else if (sl[0]=="ffamber" || sl[0]=="amberff"){
-                    arith_sigma = true; ff_specifier = 1;
-                } else if (sl[0]=="ffgaff" || sl[0]=="gaff"){
-                    arith_sigma = true; ff_specifier = 3;
-                } else if (sl[0]=="ff" || sl[0]=="forcefield"){
+                if (sl[0]=="ff" || sl[0]=="forcefield"){
                     if (sl[1]=="opls" || sl[1]=="oplsaa"){
                         arith_sigma = false; ff_specifier = 2;
                     } else if (sl[1]=="gaff"){
@@ -400,6 +361,16 @@ bool read_solvent(char * filename, int iter_time){
                         fprintf(stderr, "%s : %s[%d] : unkown forcefield type: %s\n", software_name, filename, iline, sl[1].text);
                         success = false;
                     }
+                } else if (sl[0]=="rcoul"){
+                    rcoul = atof(sl[1].text);
+                } else if (sl[0]=="rvdw"){
+                    rvdw = atof(sl[1].text);
+                } else if (sl[0]=="ffoplsaa" || sl[0]=="ffopls" || sl[0]=="oplsaaff" || sl[0]=="oplsff"){
+                    arith_sigma = false; ff_specifier = 2;
+                } else if (sl[0]=="ffamber" || sl[0]=="amberff"){
+                    arith_sigma = true; ff_specifier = 1;
+                } else if (sl[0]=="ffgaff" || sl[0]=="gaff"){
+                    arith_sigma = true; ff_specifier = 3;
                 }
               }
             } else if (on_compile==2){  // [atom] section
@@ -449,23 +420,8 @@ int main(int argc, char *argv[]){
     if (argc<=1) return 0;
     if (success) success = read_solvent(szfp, 0);
     if (success) success = analysis_args(argc, &argv[0], 1);
-    if (szfo_gvv[0] || szfo_zvv[0]) allow_xvv_calculation = true; else allow_xvv_calculation = false;
     if (success){
         rcutoff = rvdw<rcoul? rcoul : rvdw;
-        if (use_bins){
-            drrism = rcutoff / bins;
-            drhi = rcutoff / bins;
-        } else {
-            bins_rism = drrism<=0? 1 : rcutoff/drrism;
-            bins_hi = drhi<=0? 1 : rcutoff/drhi;
-            bins = bins_rism>bins_hi? bins_rism : bins_hi;
-        }
-        if (bins<=2 || rcutoff<0 || drrism<0 || drhi<0 || drrism>rcutoff*0.5 || drhi>rcutoff*0.5){
-            if (allow_xvv_calculation){
-                fprintf(stderr, "%s : error : incorrect dr(%g)/rc(%g) settings\n", software_name, drrism, rcutoff);
-                success = false;
-            }
-        }
       // reassign group id
         int i_new_grp[MAX_SOL]; int now_i_new_grp = 1;
         for (int i=0; i<nav; i++){
@@ -477,6 +433,14 @@ int main(int argc, char *argv[]){
         for (int i=0; i<nav; i++) if (av[i].iaa+1>=nmv) nmv = av[i].iaa+1;
         for (int i=0; i<nav; i++) if (av[i].grp>=ngv) ngv = av[i].grp;
         //printf("total moles: %d, total grps: %d\n", nmv, ngv);
+    }
+    if (success){
+        if (!szfs[0]){ fprintf(stderr, "%s : error : atom structure file not specified (see -s)\n", software_name); success = false; }
+        if (!szfp[0]){ fprintf(stderr, "%s : error : top file not specified (see -p)\n", software_name); success = false; }
+        if (!szff[0]){
+            memcpy(szff, szfs, MAX_PATH);
+            str_ext_ff = str_ext_fs;
+        }
     }
     if (success){
         if (!szfo[0]) strcpy(szfo, "stdout");
@@ -499,7 +463,6 @@ int main(int argc, char *argv[]){
             }
         }
     }
-    //printf("paths:\n    %s\n    %s\n", path_cwd, path_top); printf("-o: %s %s %s\n", szfo, szfo_gvv, szfo_zvv);
     //for (int i=0; i<nav; i++) printf("atom[%d] of %d = %s.%s : %s, in grp %d\n", i, av[i].iaa, av[i].mole, av[i].name, av[i].nmele, av[i].grp);
   // set priority
     if (nice_level>0){ if (setpriority(PRIO_PROCESS, getpid(), nice_level)!=0) fprintf(stderr, "%s : warning : fail to change nice level\n", software_name); }
@@ -600,25 +563,13 @@ int main(int argc, char *argv[]){
     }
   // prepare other things
     double *** mol_pair_dist = nullptr; double *** mol_pair_dist_count = nullptr;
-    double *** gvv = nullptr;
-    double *** uvv = nullptr; double *** uvv_count = nullptr;
-    double *** zeta = nullptr;
     if (success){
         memset(dipole_mv, 0, sizeof(dipole_mv)); memset(n_dipole_mv, 0, sizeof(n_dipole_mv));
         mol_pair_dist = init_tensor3d<double>(nav, nav, 2); mol_pair_dist_count = init_tensor3d<double>(nav, nav, 1);
-        if (allow_xvv_calculation){
-            gvv = init_tensor3d<double>(ngv, ngv, bins_rism);
-            uvv = init_tensor3d<double>(nmv, nmv, bins_hi); uvv_count = init_tensor3d<double>(nmv, nmv, bins_hi);
-            zeta = init_tensor3d<double>(nmv, nmv, bins_hi);
-        }
-        if (!mol_pair_dist || (allow_xvv_calculation && (!gvv || !zeta || !uvv || !uvv_count))){ fprintf(stderr, "%s : malloc failure\n", software_name); success = false; }
+        if (!mol_pair_dist){ fprintf(stderr, "%s : malloc failure\n", software_name); success = false; }
         else {
             clear_tensor3d<double>(mol_pair_dist, nav, nav, 2);
             clear_tensor3d<double>(mol_pair_dist_count, nav, nav, 2);
-            if (gvv) clear_tensor3d<double>(gvv, ngv, ngv, bins_rism);
-            if (uvv) clear_tensor3d<double>(uvv, nmv, nmv, bins_hi);
-            if (uvv_count) clear_tensor3d<double>(uvv_count, nmv, nmv, bins_hi);
-            if (zeta) clear_tensor3d<double>(zeta, nmv, nmv, bins_hi);
         }
     }
 
@@ -676,49 +627,6 @@ int main(int argc, char *argv[]){
 //if (show_debug) printf("  bond %2d %2d : %12g (%8.3f %8.3f %8.3f) - (%8.3f %8.3f %8.3f)\n", iv, jv, r, a[ia].r.x, a[ia].r.y, a[ia].r.z, a[ja].r.x, a[ja].r.y, a[ja].r.z);
                 }
             }
-           // gvv and zeta
-            if (allow_xvv_calculation && (szfo_gvv[0] || szfo_zvv[0])) for (int im=0; im<nm; im++) for (int jm=im+1; jm<nm; jm++) if (im!=jm){
-                Vector ri, rj; ri = rj = Vector(0, 0, 0); double Evdw = 0; double Ecoul = 0;
-                for (int ia=mi[im].ibegin; ia<mi[im].iend; ia++) for (int ja=mi[jm].ibegin; ja<mi[jm].iend; ja++){
-                    //double r = pbc_rm_v(a[ia].r - a[ja].r, pdb_atom_set.box).mod();
-                    double r = pbc_v_sub_partial(a[ia].r, a[ja].r, pdb_atom_set.box).mod();
-                  // gvv
-                    if (szfo_gvv[0]){
-                        int ir = (int) floor(r / drrism);
-                        if (ir>=0 && ir<bins_rism){
-                            double inc = 1.0 / (4*PI*(r*r*drrism));
-                            //double ra = ir*drrism; double rb = (ir+1)*drrism;
-                            //double inc = 1.0 / (4*PI*(rb*rb*rb - ra*ra*ra)/3);
-                            gvv[ai[ia].grp-1][ai[ja].grp-1][ir] += inc;
-                            gvv[ai[ja].grp-1][ai[ia].grp-1][ir] += inc;
-                        }
-                    }
-                  // zeta
-                    if (szfo_zvv[0]){
-                        if (ai[ia].is_center && ai[ja].is_center){ ri = a[ia].r; rj = a[ja].r; }
-                        int iv = ai[ia].index-1;
-                        int jv = ai[ja].index-1;
-                        double sigma = arith_sigma? (av[iv].sigma + av[jv].sigma)/2 : (av[iv].sqrt_sigma * av[jv].sqrt_sigma);
-                        double epsilon = 4 * av[iv].sqrt_epsilon * av[jv].sqrt_epsilon;
-                        double s = sigma / r; double s2 = s*s; double s6 = s2*s2*s2; double s12 = s6*s6;
-                        Evdw += epsilon * (s12 - s6);
-                        Ecoul += COULCOOEF * av[iv].charge * av[jv].charge / r;
-//if (epsilon*(s12-s6)>10) printf("%s (%d) vs %s (%d) : sigma %f %f -> %f, epsilon %f %f -> %f, r=%f\n", av[iv].name, pdb_atom_set.atom[ia].index, av[jv].name, pdb_atom_set.atom[ja].index, av[iv].sigma, av[jv].sigma, sigma, av[iv].epsilon, av[jv].epsilon, epsilon, r);
-                    }
-                }
-              // zeta
-                if (szfo_zvv[0]){
-                    double r = pbc_v_sub_partial(ri, rj, pdb_atom_set.box).mod();
-                    int ir = (int) floor(r / drhi);
-                    int imv = av[ai[mi[im].ibegin].index-1].iaa;
-                    int jmv = av[ai[mi[jm].ibegin].index-1].iaa;
-                    if (ir>=0 && ir<bins_hi){
-                        uvv[imv][jmv][ir] += (Ecoul + Evdw);
-                        uvv_count[imv][jmv][ir] += 1;
-                        uvv_count[jmv][imv][ir] += 1;
-                    }
-                }
-            }
         }
         if (report_count>0) fprintf(stderr, "\n");
     }
@@ -727,33 +635,6 @@ int main(int argc, char *argv[]){
     if (success && nframe>0){
         inverse_V /= nframe;
         for (int i=0; i<nmv; i++) dipole_mv[i] /= n_dipole_mv[i];
-        if (allow_xvv_calculation && szfo_gvv[0]){
-            for (int ir=0; ir<bins_rism; ir++) for (int iv=0; iv<ngv; iv++) for (int jv=iv; jv<ngv; jv++) gvv[iv][jv][ir] /= nframe * gpi[iv].multi * gpi[jv].multi * gpi[iv].nmole * gpi[jv].nmole * inverse_V;
-        }
-        if (allow_xvv_calculation && szfo_zvv[0]){
-            for (int ir=0; ir<bins_hi; ir++){
-                for (int iv=0; iv<nmv; iv++) for (int jv=iv; jv<nmv; jv++){
-                    if (uvv_count[iv][jv][ir]<=0) uvv[iv][jv][ir] = 0; else uvv[iv][jv][ir] /= uvv_count[iv][jv][ir];
-                    double ra = ir*drhi; double rb = (ir+1)*drhi;
-                    uvv_count[iv][jv][ir] /= nframe * nmole_mv[iv] * nmole_mv[jv] * inverse_V * (4*PI*(rb*rb*rb - ra*ra*ra)/3);
-    //printf(" %11f %11f (%11f)", uvv[iv][jv][ir], uvv_count[iv][jv][ir], uvv[iv][jv][ir] * uvv_count[iv][jv][ir]);
-                }
-    //printf("\n");
-            }
-        }
-        if (allow_xvv_calculation && szfo_zvv[0]){
-            double rcutoff_max = minimal_rcutoff(minimal_box);
-            int bins_hi_max = rcutoff_max / drhi; if (bins_hi_max > bins_hi) bins_hi_max = bins_hi;
-            for (int iv=0; iv<nmv; iv++) for (int jv=iv; jv<nmv; jv++){
-                double Integral = 0; for (int ir=0; ir<bins_hi_max; ir++){
-                    Integral += (ir==0? (uvv[iv][jv][ir+1]-uvv[iv][jv][ir]) : ir==bins_hi_max-1? (uvv[iv][jv][ir] - uvv[iv][jv][ir-1]) : (uvv[iv][jv][ir+1]- uvv[iv][jv][ir-1])/2) * uvv_count[iv][jv][ir];
-                    zeta[iv][jv][ir] = Integral;
-                }
-                Integral = zeta[iv][jv][bins_hi_max-1];
-                for (int ir=0; ir<bins_hi_max; ir++) zeta[iv][jv][ir] -= Integral;
-                for (int ir=bins_hi_max; ir<bins_hi; ir++) zeta[iv][jv][ir] = 0;
-            }
-        }
       // rename atoms and molecules
         if (force_rename_atom_names){
             for (int iv=0; iv<nav; iv++) snprintf(av[iv].name, sizeof(av[iv].name), "%s%d%s", av[iv].nmele, av[iv].id, av[iv].charge>0.95?"+":av[iv].charge<-0.95?"-":"");
@@ -784,12 +665,6 @@ int main(int argc, char *argv[]){
         if (ff_specifier==3) fprintf(flog, " ff           gaff\n");
         fprintf(flog, " rvdw         %g\n", rvdw);
         fprintf(flog, " rcoul        %g\n", rcoul);
-        if (allow_xvv_calculation){
-            fprintf(flog, " drrism       %g\n", drrism);
-            if (StringNS::string(szfo_gvv)!="con"&&StringNS::string(szfo_gvv)!="screen"&&StringNS::string(szfo_gvv)!="stdout"&&StringNS::string(szfo_gvv)!="stderr") fprintf(flog, " gvv          %s\n", szfo_gvv); else fprintf(flog, " gvv          \n");
-            fprintf(flog, " drhi         %g\n", drhi);
-            if (StringNS::string(szfo_zvv)!="con"&&StringNS::string(szfo_zvv)!="screen"&&StringNS::string(szfo_zvv)!="stdout"&&StringNS::string(szfo_zvv)!="stderr") fprintf(flog, " zvv          %s\n", szfo_zvv); else fprintf(flog, " zvv          \n");
-        }
         fprintf(flog, " density      "); for (int i=0; i<nmv; i++){ fprintf(flog, "%g ", nmole_mv[i] * inverse_V); }; fprintf(flog, "\n");
         fprintf(flog, " bulk-density "); for (int i=0; i<nmv; i++){ fprintf(flog, "%g ", nmole_mv[i] * inverse_V); }; fprintf(flog, "\n");
         fprintf(flog, " dipole       "); for (int i=0; i<nmv; i++) fprintf(flog, "%g ", dipole_mv[i]); fprintf(flog, "\n");
@@ -803,14 +678,18 @@ int main(int argc, char *argv[]){
         //fprintf(flog, "\n");
       // report [bond]
         fprintf(flog, "[bond]\n"); // fprintf(flog, "%s[bond]\n%s", istty?"\33[31m":"", istty?"\33[30m":"");
-        fprintf(flog, "%s#%11s %11s %11s %11s\n%s", istty?"\33[37m":"", "atom1", "atom2", "bond(nm)", "stdev(nm)", istty?"\33[0m":"");
+        fprintf(flog, "%s#%11s %11s %11s %11s\n%s", istty?"\33[37m":"", "atom1", "atom2", "bond(nm)", nframe>1?"stdev(nm)":"", istty?"\33[0m":"");
         for (int i=0; i<nav; i++) for (int j=i+1; j<nav; j++) if (av[i].iaa == av[j].iaa){
             mol_pair_dist[i][j][0] /= mol_pair_dist_count[i][j][0]; mol_pair_dist[i][j][1] /= mol_pair_dist_count[i][j][0];
             mol_pair_dist[i][j][1] = sqrt(fabs(mol_pair_dist[i][j][1] - mol_pair_dist[i][j][0]*mol_pair_dist[i][j][0]));
             char compound_names[2][72];
             snprintf(compound_names[0], sizeof(compound_names[0]), "%s.%s", av[i].mole, av[i].name);
             snprintf(compound_names[1], sizeof(compound_names[1]), "%s.%s", av[j].mole, av[j].name);
-            fprintf(flog, " %11s %11s %11f %11f\n", compound_names[0], compound_names[1], mol_pair_dist[i][j][0], mol_pair_dist[i][j][1]);
+            if (nframe>1){
+                fprintf(flog, " %11s %11s %11f %11f\n", compound_names[0], compound_names[1], mol_pair_dist[i][j][0], mol_pair_dist[i][j][1]);
+            } else {
+                fprintf(flog, " %11s %11s %11f\n", compound_names[0], compound_names[1], mol_pair_dist[i][j][0]);
+            }
         }
         //fprintf(flog, "\n");
       // finished
@@ -818,61 +697,6 @@ int main(int argc, char *argv[]){
         fprintf(flog, "\n");
     }
 
-  // report : gvv
-    if (success && szfo_gvv[0]){
-      // prepare file and path
-        FILE * flog = nullptr;
-        if (StringNS::string(szfo_gvv)=="con"||StringNS::string(szfo_gvv)=="screen"||StringNS::string(szfo_gvv)=="stdout"){ flog = stdout;
-        } else if (StringNS::string(szfo_gvv)=="stderr"){ flog = stderr;
-        } else { if (force_override) flog = fopen(szfo_gvv, "w"); else { flog = fopen(szfo_gvv, "r"); if (flog){ fclose(flog); flog = stdout; fprintf(stderr, "%s : warning : -o %s already exist, output to screen instead\n", software_name, szfo_gvv); } else flog = fopen(szfo_gvv, "w"); }
-        }
-        if (!flog){ flog = stdout; fprintf(stderr, "%s : warning : cannot write gvv file %s, output to screen instead\n", software_name, szfo_gvv); }
-        bool istty = flog? isatty(fileno(flog)) : true;
-      // output gvv
-        if (flog==stdout || flog==stderr){
-            if (StringNS::string(szfo_gvv)=="stdout" || StringNS::string(szfo_gvv)=="stderr" || StringNS::string(szfo_gvv)=="screen" || StringNS::string(szfo_gvv)=="con") fprintf(flog, "%sFile -gvv %s%s.%gnm.gvv :\n%s", istty?"\33[31m":"", av[0].mole, nmv>1?"-etc":"", drrism, istty?"\33[0m":"");
-            else fprintf(flog, "%sFile -gvv %s :\n%s", istty?"\33[31m":"", szfo_gvv, istty?"\33[0m":"");
-        }
-      // output gvv
-        double rcutoff_max = minimal_rcutoff(minimal_box);
-        for (int ir=0; ir<bins_rism; ir++){
-            if (ir*drrism >= rcutoff_max) break;
-            for (int iv=0; iv<ngv; iv++) for (int jv=iv; jv<ngv; jv++){
-                fprintf(flog, " %11f", gvv[iv][jv][ir]);
-            }
-            fprintf(flog, "\n");
-        }
-      // finished
-        if (flog && flog!=stdout && flog!=stderr) fclose(flog);
-    }
-
-  // report : zvv
-    if (success && szfo_zvv[0]){
-      // prepare file and path
-        FILE * flog = nullptr;
-        if (StringNS::string(szfo_zvv)=="con"||StringNS::string(szfo_zvv)=="screen"||StringNS::string(szfo_zvv)=="stdout"){ flog = stdout;
-        } else if (StringNS::string(szfo_zvv)=="stderr"){ flog = stderr;
-        } else { if (force_override) flog = fopen(szfo_zvv, "w"); else { flog = fopen(szfo_zvv, "r"); if (flog){ fclose(flog); flog = stdout; fprintf(stderr, "%s : warning : -o %s already exist, output to screen instead\n", software_name, szfo_zvv); } else flog = fopen(szfo_zvv, "w"); }
-        }
-        if (!flog){ flog = stdout; fprintf(stderr, "%s : warning : cannot write gvv file %s, output to screen instead\n", software_name, szfo_zvv); }
-        bool istty = flog? isatty(fileno(flog)) : true;
-      // output gvv
-        if (flog==stdout || flog==stderr){
-            if (StringNS::string(szfo_zvv)=="stdout" || StringNS::string(szfo_zvv)=="stderr" || StringNS::string(szfo_zvv)=="screen" || StringNS::string(szfo_zvv)=="con") fprintf(flog, "%sFile -zvv %s%s.%gnm.zeta :\n%s", istty?"\33[31m":"", av[0].mole, nmv>1?"-etc":"", drrism, istty?"\33[0m":"");
-            else fprintf(flog, "%sFile -zvv %s :\n%s", istty?"\33[31m":"", szfo_zvv, istty?"\33[0m":"");
-        }
-      // output zvv
-        double rcutoff_max = minimal_rcutoff(minimal_box);
-        for (int ir=0; ir<bins_rism; ir++){
-            if (ir*drrism >= rcutoff_max) break;
-            for (int iv=0; iv<nmv; iv++) for (int jv=iv; jv<nmv; jv++){
-                fprintf(flog, " %11f", zeta[iv][jv][ir]);
-            }
-            fprintf(flog, "\n");
-        }
-      // finished
-        if (flog && flog!=stdout && flog!=stderr) fclose(flog);
-    }
 
 
 

@@ -7,6 +7,7 @@
         #else
             __thread_list[id] = 0;
         #endif
+        __thread_ready[id] = true;
         int jobs_done_total = 0; double jobs_time_total = 0;
         //double get_current_time_double
 
@@ -72,7 +73,7 @@
         if (nt<=1) return true;
         double time0 = get_current_time_double();
         while (true){
-            bool finished = true; for (int i=1; i<nt; i++) if (mp_tasks[i]!=MPTASK_NONE){ finished = false; break; }
+            bool finished = true; for (int i=1; i<nt; i++) if (__thread_ready[i] && mp_tasks[i]!=MPTASK_NONE){ finished = false; break; }
             if (finished) return true;
             if (timeup_ms>0 && get_current_time_double()-time0 > timeup_ms) return false;
             usleep(100);

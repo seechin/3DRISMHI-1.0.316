@@ -1,15 +1,18 @@
+#define __REAL__  double
+#define MACHINE_REASONABLE_ERROR 1e-12
+#define _TTYPROMPTCOLOR_
 
-#define     _GROMACS4_
-//#define     _FFTWMPPARALLEL_                // fftw multithreading
-#define     _LOCALPARALLEL_                 // general local paralleling
-#define     _LIBZ_                          // use libz to compress TENSOR4D
-#define     _INTERACTIVE_                   // allow interactive mode, undef this will disable main-interactive.cpp
+#define PI  3.1415926535897932384626433832795
+#define EE  2.7182818284590452353602874713527
+#define COULCOOEF 138.9354846
 
-#if defined(_LOCALPARALLEL_) || !defined(_FFTWMPPARALLEL_)
-  #define   _LOCALPARALLEL_FFTW_            // local paralleling with manually assign fftw to multithreads
-#endif
-#ifdef _LOCALPARALLEL_
-  #define   _LOCALPARALLEL_PTHREAD_         // enable parallel by thread
-#endif
+#define MAX_SOL                 100     // Max atom site number
+#define MAX_CMD_PARAMS          20      // Max parameter number for a command
+#define MAX_THREADS             100     // Max number of forks or threads
+#define MAX_DIIS                100     // Max DIIS steps
+#define MAX_INCLUDE_RECURSIVE   20      // maximum include recursive levels
 
-//#undef      _TTYPROMPTCOLOR_
+
+#define MAX_PATH                1024    // Maximum length of filename/path strings
+#define MAX_NAME                64      // Maximum length of molecule/atom names
+#define MAX_WORD                200     // Maximum number of words in line analysis
