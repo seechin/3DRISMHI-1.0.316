@@ -674,6 +674,10 @@ int main_run_commands(IET_Param * sys, IET_arrays * arr, FILE * flog, int nframe
 
     return 0;
 }
+
+IET_Param * get_default_sys(){ return sys; }
+IET_arrays * get_default_array(){ return arr; }
+
 bool main_run_finalizing_commands(IET_Param * sys, IET_arrays * arr, FILE * flog, RDF_data * rdf, RDF_data * rdfs, FILE ** _file_out, int nframe, TPAppendix & tpa){
     if (process_command_sequence(-1, sys, arr, rdf,rdfs, _file_out, nframe, tpa.time)<0) return false;
 
