@@ -1,5 +1,5 @@
 const char * software_name = "rismhi3d";
-const char * software_version = "a.250.1527";
+const char * software_version = "a.255.1542";
 const char * copyright_string = "(c) Cao Siqin";
 
 #include    "main-header.h"
@@ -67,9 +67,8 @@ const char * copyright_string = "(c) Cao Siqin";
 #define PI  3.1415926535897932384626433832795
 #define EE  2.7182818284590452353602874713527
 #define COULCOOEF 138.9354846
-#define MAXTEXTFILEMB           16
 #define MAX_RDF_GRPS            1000        // Max number of groups to output RDF
-#define INITIAL_SOLUTE_ATOMS    500
+#define INITIAL_SOLUTE_ATOMS    500         // page size for solute atoms
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 #ifdef _LOCALPARALLEL_
 #define MPTASK_NONE             0
@@ -333,12 +332,17 @@ char szfn_out[MAX_PATH]; FILE * file_out = nullptr;
 #include    "main-rism.cpp"
 #include    "main-mp.cpp"
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+//---------------------------------------------------------------------------------
+//---------------------------------  Global Data ----------------------------------
+//---------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------
+IET_Param  * global_sys = nullptr;
+IET_arrays * global_arr = nullptr;
+FILE       * global_flog = stdout;
+RDF_datas    global_rdf_datas;
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 #include    "main-sub.cpp"
 #include    "main-command.cpp"
-IET_Param  * sys = nullptr;
-IET_arrays * arr = nullptr;
-RDF_data   * rdf = nullptr; int n_rdf_pairs = 0;    // RDF of current frame
-RDF_data   * rdfs = nullptr; int n_rdfs_pairs = 0;  // RDF of all frames
 #ifdef _INTERACTIVE_
   #include    "main-interactive.cpp"
 #endif
@@ -358,10 +362,13 @@ void init_software_constants(){
 //---------------------------   preparation procedure   ---------------------------
 //---------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------
-bool main_initialization(int argc, char * argv[], FILE ** _flog, int * _error=NULL, bool * _syntax_error=NULL){
-    bool success = true; int error = 0; FILE * flog = stdout;
+bool main_initialization(int argc, char * argv[], IET_Param ** _sys, IET_arrays ** _arr, FILE ** _flog, RDF_datas * _rdf_datas, int * _error=NULL, bool * _syntax_error=NULL){
+    bool success = true; int error = 0;
+    if (!_sys || !_arr) return false;
+    IET_Param * sys = nullptr; IET_arrays * arr = nullptr; FILE * flog = stdout;
 
     init_timer();
+    init_volatile_mp_tasks();
     bool help_out = false;
     init_software_constants();
   // determine the debug level, detail level, log filename and check -h
@@ -371,10 +378,12 @@ bool main_initialization(int argc, char * argv[], FILE ** _flog, int * _error=NU
     memset(hostname, 0, sizeof(hostname)); gethostname(hostname, sizeof(hostname)-1);
     memset(username, 0, sizeof(username)); getlogin_r(username, sizeof(username)-1);
     sys = (IET_Param*) memalloc(sizeof(IET_Param)); if (sys) sys->init(argc, argv); else success = false;
+      *_sys = sys;
       if (sys && debug_level>=0) sys->debug_level = debug_level;
       if (sys && detail_level>=0) sys->detail_level = detail_level;
       if (sys) sys->nt = maximum_default_processors();
     arr = (IET_arrays*) memalloc(sizeof(IET_arrays)); if (!arr) success = false;
+      *_arr = arr;
     szfn_path[0] = 0; char * p_szfn_path = getcwd(szfn_path, sizeof(szfn_path));
     sys->library_path = getenv("IETLIB"); //printf("ietalIB=%s\n", sys->library_path);
 
@@ -428,11 +437,11 @@ bool main_initialization(int argc, char * argv[], FILE ** _flog, int * _error=NU
     }
   lap_timer_analysis_param();
   // prepare RDF pairs
-    if (sys->n_rdf_grps>0){
+    if (sys->n_rdf_grps>0 && _rdf_datas){
         if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: rdf_grps_to_pairs()\n");
-        main_prepair_rdf_grps_to_pairs(sys, arr, &rdf, &n_rdf_pairs);
-        main_prepair_rdf_grps_to_pairs(sys, arr, &rdfs, &n_rdfs_pairs);
-    }
+        main_prepair_rdf_grps_to_pairs(sys, arr, &_rdf_datas->rdf_datas[0], &_rdf_datas->n_rdf_datas[0]);
+        main_prepair_rdf_grps_to_pairs(sys, arr, &_rdf_datas->rdf_datas[1], &_rdf_datas->n_rdf_datas[1]);
+    } else sys->n_rdf_grps = 0;
   lap_timer_analysis_param();
   // checking and other preparation
     if (sys->nv>MAX_SOL){ fprintf(flog, "%s%s : error : too many solvent sites (%d > %d)%s\n", sys->is_log_tty?color_string_of_error:"", software_name, sys->nv, MAX_SOL, sys->is_log_tty?color_string_end:""); success = false; }
@@ -566,7 +575,7 @@ void main_dispose(IET_Param * sys, IET_arrays * arr, FILE ** _flog, bool success
   // end all subroutines
   #ifdef _LOCALPARALLEL_
     if (sys->debug_level>=2) fprintf(flog, "DEBUG:: send stop signal to subroutines\n");
-    for (int i=1; i<MAX_THREADS; i++) sys->mp_tasks[i] = MPTASK_TERMINATE;
+    for (int i=1; i<MAX_THREADS; i++) __mp_tasks[i] = MPTASK_TERMINATE;
     //wait_subroutines_end(sys);
     wait_subroutines(sys);
     if (sys->debug_level>=2){ char buffer[1024];
@@ -596,6 +605,10 @@ void main_dispose(IET_Param * sys, IET_arrays * arr, FILE ** _flog, bool success
     if (flog && flog!=stdout && flog!=stderr){ FILE * flog_close = flog; flog = nullptr; fclose(flog_close); }
     if (file_out && file_out!=stdout && file_out!=stderr) fclose(file_out);
 }
+
+
+
+
 
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 //---------------------------------------------------------------------------------
@@ -637,12 +650,12 @@ bool main_prepare_to_run_commands(IET_Param * sys, IET_arrays * arr, FILE * flog
 
     return true;
 }
-int main_run_commands(IET_Param * sys, IET_arrays * arr, FILE * flog, int nframe, TPAppendix * _tpa){
+int main_run_commands(IET_Param * sys, IET_arrays * arr, FILE * flog, RDF_data * rdf, RDF_data * rdfs, int nframe, TPAppendix * _tpa){
     bool success = true;
     TPAppendix tpa; if (_tpa) memcpy(&tpa, _tpa, sizeof(TPAppendix)); else memset(&tpa, 0, sizeof(tpa));
 
   // initialize buffers for calculation
-    arr->reset_for_calculation();
+    arr->reset_for_calculation(false, true, true, false);
   lap_timer_io();
 
   // set box and vecor scales, recalculating all dr and dk of 3D grids
@@ -674,10 +687,6 @@ int main_run_commands(IET_Param * sys, IET_arrays * arr, FILE * flog, int nframe
 
     return 0;
 }
-
-IET_Param * get_default_sys(){ return sys; }
-IET_arrays * get_default_array(){ return arr; }
-
 bool main_run_finalizing_commands(IET_Param * sys, IET_arrays * arr, FILE * flog, RDF_data * rdf, RDF_data * rdfs, FILE ** _file_out, int nframe, TPAppendix & tpa){
     if (process_command_sequence(-1, sys, arr, rdf,rdfs, _file_out, nframe, tpa.time)<0) return false;
 
@@ -691,28 +700,46 @@ bool main_run_finalizing_commands(IET_Param * sys, IET_arrays * arr, FILE * flog
 
 
 
+
+
+
+
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+//---------------------------------------------------------------------------------
+//-------------------   exported procedures for external call   -------------------
+//---------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------
+#ifdef _EXPORT_CALL_
+    #include    "main-export.cpp"
+#endif
+
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 //---------------------------------------------------------------------------------
 //-------------------------------  Entry procedure   ------------------------------
 //---------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------
 int main(int argc, char * argv[]){
-    bool success = true; int error = 0; FILE * flog = stdout;
+    bool success = true; int error = 0; //FILE * flog = stdout;
   // initialization
     if (success){
         bool syntax_error = false;
-        success &= main_initialization(argc, argv, &flog, &error, &syntax_error);
+        success &= main_initialization(argc, argv, &global_sys, &global_arr, &global_flog, &global_rdf_datas, &error, &syntax_error);
         if (!success && syntax_error) return 0;
     }
 
+    IET_Param  * sys = global_sys;
+    IET_arrays * arr = global_arr;
+    RDF_data * rdf = global_rdf_datas.rdf_datas[0];
+    RDF_data * rdfs = global_rdf_datas.rdf_datas[1];
+
   // the commands to run when the command queue is empty
     if (success){
-        success &= main_run_empty_command_queue(sys, arr, flog, &error);
+        success &= main_run_empty_command_queue(sys, arr, global_flog, &error);
     }
 
   // prepare to run commands
     if (success){
-        success &= main_prepare_to_run_commands(sys, arr, flog);
+        success &= main_prepare_to_run_commands(sys, arr, global_flog);
     }
 
   // read each frame and run
@@ -748,14 +775,14 @@ int main(int argc, char * argv[]){
       // display frame information
         double drg[3]; drg[0] = sys->traj.box.x / sys->nr[0]; drg[1] = sys->traj.box.y / sys->nr[1]; drg[2] = sys->traj.box.z / sys->nr[2];
         if (sys->mode_test){
-            if (sys->handling_xtc) fprintf(flog, "> testing: %.2f ps,", tpa.time); else fprintf(flog, "> testing: Frame %g,", tpa.time);
-            fprintf(flog, " box=%gx%gx%g nm³, grid=%gx%gx%g nm³\n", sys->traj.box.x, sys->traj.box.y, sys->traj.box.z,
+            if (sys->handling_xtc) fprintf(global_flog, "> testing: %.2f ps,", tpa.time); else fprintf(global_flog, "> testing: Frame %g,", tpa.time);
+            fprintf(global_flog, " box=%gx%gx%g nm³, grid=%gx%gx%g nm³\n", sys->traj.box.x, sys->traj.box.y, sys->traj.box.z,
                     sys->traj.box.x/sys->nr[0], sys->traj.box.y/sys->nr[1], sys->traj.box.z/sys->nr[2]);
             continue;
         }
-        if (flog){
-            if (sys->handling_xtc) fprintf(flog, "> %g ps,", tpa.time); else fprintf(flog, "> Frame %g,", tpa.time);
-            fprintf(flog, " box=%gx%gx%g nm³, pbc=%s%s%s, grid=%gx%gx%g nm³\n", sys->traj.box.x, sys->traj.box.y, sys->traj.box.z,
+        if (global_flog){
+            if (sys->handling_xtc) fprintf(global_flog, "> %g ps,", tpa.time); else fprintf(global_flog, "> Frame %g,", tpa.time);
+            fprintf(global_flog, " box=%gx%gx%g nm³, pbc=%s%s%s, grid=%gx%gx%g nm³\n", sys->traj.box.x, sys->traj.box.y, sys->traj.box.z,
                 (!sys->pbc_x&&!sys->pbc_y&&!sys->pbc_x)? "none" : sys->pbc_x?"x":"", sys->pbc_y?"y":"", sys->pbc_z?"z":"",
                 sys->traj.box.x/sys->nr[0], sys->traj.box.y/sys->nr[1], sys->traj.box.z/sys->nr[2]);
         }
@@ -768,7 +795,7 @@ int main(int argc, char * argv[]){
       // ====================================================================
       // ====================================================================
 
-        int runstate = main_run_commands(sys, arr, flog, nframe, &tpa);
+        int runstate = main_run_commands(sys, arr, global_flog, rdf, rdfs, nframe, &tpa);
         if (runstate>0) continue;
         else if (runstate<0) break;
 
@@ -782,8 +809,8 @@ int main(int argc, char * argv[]){
     }
 
   // end of run: process the post commands (commands with @end)
-    if (success) success &= main_run_finalizing_commands(sys, arr, flog, rdf, rdfs, &file_out, nframe, tpa);
+    if (success) success &= main_run_finalizing_commands(sys, arr, global_flog, rdf, rdfs, &file_out, nframe, tpa);
 
-    main_dispose(sys, arr, &flog, success);
+    main_dispose(sys, arr, &global_flog, success);
     if (!success) return 1; return 0;
 }

@@ -159,7 +159,7 @@ bool perform_hi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, dou
     bool is_out_tty = sys->is_log_tty;
     bool success = false;
     size_t N3 = arr->nx * arr->ny * arr->nz; size_t N4 = sys->nv * N3; size_t N4m = sys->nvm * N3;
-    
+
   // step 1: prepare initial guess of n[]
     for (int iv=0; iv<sys->nvm; iv++) for (size_t i3=0; i3<=N3; i3++) arr->dd[iv][0][0][i3] = sys->nbulk[iv];
     //for (int iv=0; iv<sys->nvm; iv++){ for (int jv=0; jv<sys->nvm; jv++){ printf(" %11g", arr->zeta[iv][jv][0]); }; printf("\n"); }
@@ -186,7 +186,7 @@ bool perform_hi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, dou
           // 5.1. calculate potential -> arr->ddpot_hi
             calculate_potential_HI(arr->ddpot_hi, arr->dd, arr->convolution_zeta, arr->guvm, arr->phi, llambda, arr->res, arr->ddpot_hi, sys, arr);
           #ifdef _LOCALPARALLEL_
-            for (int i=1; i<sys->nt; i++) sys->mp_tasks[i] = MPTASK_HI_SOLVER;
+            for (int i=1; i<sys->nt; i++) __mp_tasks[i] = MPTASK_HI_SOLVER;
             subroutine_hi_solver(sys, arr, 0);
             wait_subroutines(sys);
           #else

@@ -225,9 +225,23 @@ void * memalloc(size_t size){
             _memory_size[_memory_blk_total] = size;
         }
         _memory_blk_total ++; _memory_total += size;
+        memset(p, 0, size);
     }
 
     return p;
+}
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+//---------------------------------------------------------------------------------
+//-------------------   Volatile Variables for Paralleling    ---------------------
+//---------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------
+volatile int __mp_tasks_default[MAX_THREADS];
+volatile int * __mp_tasks = __mp_tasks_default;
+void init_volatile_mp_tasks(){
+    #ifdef _LOCALPARALLEL_
+        __mp_tasks = (volatile int *) memalloc(sizeof(int) * MAX_THREADS);
+        for (int i=0; i<MAX_THREADS; i++) __mp_tasks[i] = 0;
+    #endif
 }
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 //---------------------------------------------------------------------------------
@@ -563,7 +577,7 @@ class RISMHI3D_FFTW_MP {
     double dx, dy, dz;
     double dkx, dky, dkz, dk, xvv_k_shift, convolution_factor;
     size_t N3; int nf1k;
-    int * mp_tasks; int n_active_jobs;
+    volatile int * mp_tasks; int n_active_jobs;
   public:
     __REAL__ **** f3r; __REAL__ *** f1k; __REAL__ **** out;
   public:
@@ -572,7 +586,7 @@ class RISMHI3D_FFTW_MP {
         dkx = 2*PI/(nx * dx); dky = 2*PI/(ny * dy); dkz = 2*PI/(nz * dz);
         convolution_factor = 1.0 / (nx * ny * nz);
     }
-    void init(int _np, int * _mp_tasks, int _nx, int _ny, int _nz, double _xvv_k_shift){
+    void init(int _np, volatile int * _mp_tasks, int _nx, int _ny, int _nz, double _xvv_k_shift){
         np = _np; mp_tasks = _mp_tasks; n_active_jobs = 0; xvv_k_shift = _xvv_k_shift;
         nx = _nx; ny = _ny; nz = _nz; N3 = nx * ny * nz;
         for (int i=0; i<np; i++) fft[i].init(nx, ny, nz);
@@ -782,11 +796,11 @@ class RISMHI3D_FFSR_MP {
     __REAL__ *** pseudoliquid_potential[MAX_THREADS];
     //RISMHI3D_FFTW_MP_UNIT fft[MAX_THREADS];
     int np, nx, ny, nz, nv, N3, N4;
-    int * mp_tasks;
+    volatile int * mp_tasks;
   public:
     bool param_b[10]; int param_i[10]; double param_d[10]; __REAL__ *** param_t3[10]; __REAL__ **** param_t4[10];
   public:
-    void init(int _np, int * _mp_tasks, int _nx, int _ny, int _nz, int _nv){
+    void init(int _np, volatile int * _mp_tasks, int _nx, int _ny, int _nz, int _nv){
         np = _np; mp_tasks = _mp_tasks;
         nx = _nx; ny = _ny; nz = _nz; nv = _nv;
         N3 = nx * ny * nz; N4 = nv * N3;

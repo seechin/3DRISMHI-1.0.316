@@ -285,7 +285,7 @@ namespace RISMHI3D_RISMNS {
     }
     void perform_closure(IET_Param * sys, IET_arrays * arr){
       #ifdef _LOCALPARALLEL_
-        for (int i=1; i<sys->nt; i++) sys->mp_tasks[i] = MPTASK_RISM_CLOSURE;
+        for (int i=1; i<sys->nt; i++) __mp_tasks[i] = MPTASK_RISM_CLOSURE;
         perform_closure(sys, arr, 0);
         wait_subroutines(sys);
       #else

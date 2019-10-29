@@ -16,6 +16,7 @@ const char * szHelpInteractive = "\
     [other commands]                execute OS command via system(...)\n\
 ";
 void subroutine_interactive(void * _id){
+    IET_Param * sys = global_sys; IET_arrays * arr = global_arr;
     FILE * fin = stdin;
     FILE * fout = stderr;
     bool run_first_time = true;
@@ -159,7 +160,7 @@ void subroutine_interactive(void * _id){
         //if (nw>0) fprintf(fout, "%s@%s $ ", software_name, szfn_path);
     }
     #ifdef _LOCALPARALLEL_
-        for (int i=0; i<sys->nt; i++) sys->mp_tasks[i] = MPTASK_TERMINATE;
+        for (int i=0; i<sys->nt; i++) __mp_tasks[i] = MPTASK_TERMINATE;
     #endif
     exit(0);
 }

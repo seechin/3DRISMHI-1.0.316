@@ -212,7 +212,7 @@ void merge_force_field_mp_data(IET_Param * sys, IET_arrays * arr, int id){
 }
 void merge_force_field_mp_data(IET_Param * sys, IET_arrays * arr){
   #ifdef _LOCALPARALLEL_
-    for (int i=1; i<sys->nt; i++) sys->mp_tasks[i] = MPTASK_MERGE_FF_DATA;
+    for (int i=1; i<sys->nt; i++) __mp_tasks[i] = MPTASK_MERGE_FF_DATA;
     merge_force_field_mp_data(sys, arr, 0);
     wait_subroutines(sys);
   #else
@@ -407,16 +407,16 @@ void build_force_field_lr(IET_Param * sys, IET_arrays * arr, bool clear_data_fir
     for (int iz=0; iz<nz; iz++) for (int iy=0; iy<ny; iy++) for (int ix=0; ix<nx; ix++) arr->ucoullr[iz][iy][ix] += arr->fftin[iz][iy][ix];
 
   // 4. do partial derivatives and get long range Ecoul0
-    Vector shift;
-    shift = Vector(-arr->box.x /1000, 0, 0);
+    Vector shift; Vector shift_box = Vector(arr->box.x/arr->nx, arr->box.y/arr->ny, arr->box.z/arr->nz);
+    shift = Vector(-shift_box.x /1000, 0, 0);
       build_charge_mesh(sys, arr, arr->fftin, &shift); perform_PME(sys, arr, gamma);
-      for (int iz=0; iz<nz; iz++) for (int iy=0; iy<ny; iy++) for (int ix=0; ix<nx; ix++) arr->Ecoul0[0][iz][iy][ix] += (arr->fftin[iz][iy][ix] - arr->ucoullr[iz][iy][ix]) / (arr->box.x /1000);
-    shift = Vector(0, -arr->box.y /1000, 0);
+      for (int iz=0; iz<nz; iz++) for (int iy=0; iy<ny; iy++) for (int ix=0; ix<nx; ix++) arr->Ecoul0[0][iz][iy][ix] += (arr->fftin[iz][iy][ix] - arr->ucoullr[iz][iy][ix]) / (shift_box.x /1000);
+    shift = Vector(0, -shift_box.y /1000, 0);
       build_charge_mesh(sys, arr, arr->fftin, &shift); perform_PME(sys, arr, gamma);
-      for (int iz=0; iz<nz; iz++) for (int iy=0; iy<ny; iy++) for (int ix=0; ix<nx; ix++) arr->Ecoul0[1][iz][iy][ix] += (arr->fftin[iz][iy][ix] - arr->ucoullr[iz][iy][ix]) / (arr->box.y /1000);
-    shift = Vector(0, 0, -arr->box.z /1000);
+      for (int iz=0; iz<nz; iz++) for (int iy=0; iy<ny; iy++) for (int ix=0; ix<nx; ix++) arr->Ecoul0[1][iz][iy][ix] += (arr->fftin[iz][iy][ix] - arr->ucoullr[iz][iy][ix]) / (shift_box.y /1000);
+    shift = Vector(0, 0, -shift_box.z /1000);
       build_charge_mesh(sys, arr, arr->fftin, &shift); perform_PME(sys, arr, gamma);
-      for (int iz=0; iz<nz; iz++) for (int iy=0; iy<ny; iy++) for (int ix=0; ix<nx; ix++) arr->Ecoul0[2][iz][iy][ix] += (arr->fftin[iz][iy][ix] - arr->ucoullr[iz][iy][ix]) / (arr->box.z /1000);
+      for (int iz=0; iz<nz; iz++) for (int iy=0; iy<ny; iy++) for (int ix=0; ix<nx; ix++) arr->Ecoul0[2][iz][iy][ix] += (arr->fftin[iz][iy][ix] - arr->ucoullr[iz][iy][ix]) / (shift_box.z /1000);
 }
 
 

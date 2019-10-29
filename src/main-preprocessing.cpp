@@ -191,11 +191,12 @@ bool generate_solvent_xvv(IET_Param * sys, IET_arrays * arr, char * filename, in
             for (int i=0; i<nv; i++) if (sys->av[i].grp == sys->bond_list[ib].grpj){ addrj = i; break; };
             double bond = sys->bond_list[ib].bond;      //printf("bond: %d %d %g\n", addri, addrj, bond);
             double bond_sigma = sys->bond_list[ib].bond_stdev;
+            double weight = sys->bond_list[ib].weight;
             if (addri>=0 && addrj>=0 && addri<nv && addrj<nv){
                 for (int i=0; i<xvv_length+2; i++){
                     double k = i<xvv_length? (i+1) * dk : 0; double ksigma = k * bond_sigma;
-                    xvv[addri][addrj][i] += ((k*bond == 0 ? 1 : (sin(k*bond) / (k*bond))) / sys->av[addri].multi) * exp(-ksigma*ksigma/2);
-                    xvv[addrj][addri][i] += ((k*bond == 0 ? 1 : (sin(k*bond) / (k*bond))) / sys->av[addrj].multi) * exp(-ksigma*ksigma/2);
+                    xvv[addri][addrj][i] += ((k*bond == 0 ? 1 : (sin(k*bond) / (k*bond))) / sys->av[addri].multi) * exp(-ksigma*ksigma/2) * weight;
+                    xvv[addrj][addri][i] += ((k*bond == 0 ? 1 : (sin(k*bond) / (k*bond))) / sys->av[addrj].multi) * exp(-ksigma*ksigma/2) * weight;
                 }
             }
         };

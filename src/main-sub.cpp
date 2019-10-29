@@ -21,6 +21,7 @@ const char * get_command_name(int cmd){
         case IETCMD_dielect      : return "dielect";
         case IETCMD_density      : return "density";
         case IETCMD_BUILD_FF     : return "build-ff";
+        case -IETCMD_BUILD_FF    : return "skip-ff";
         case IETCMD_TI           : return "TI";
         case IETCMD_TEST         : return "test";
         case IETCMD_TEST_SAVE    : return "test-and-save";
@@ -168,6 +169,7 @@ void main_generate_default_gvv_map(IET_Param * sys, IET_arrays * arr, FILE * flo
 void build_force_field_auto(IET_Param * sys, IET_arrays * arr, FILE * flog, int nframe){
     if (arr->frame_stamp != nframe) arr->uuv_is_ready = false;
     if (!arr->uuv_is_ready){
+        arr->reset_for_calculation(true, false, false, false);
      // short range, as well as short range part of coulomb_p2
         if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: build_force_field_sr()\n");
         build_force_field_sr(sys, arr);
@@ -616,6 +618,16 @@ size_t select_append_save_data(int * filter, int nfilter, __REAL__ **** temp, si
     }
     return *total_size;
 }
+
+size_t append_save_data_immediately(IET_Param * sys, IET_arrays * arr, FILE * flog, __REAL__ * data1, int nx, int ny, int nz, int nv, FILE ** pfout, const char * _filename, const char * title=nullptr, const char * text=nullptr, double time_stamp=0, int * filter_array=nullptr, int filter_size=0){
+    if (!sys || !arr || !flog || !data1 || !_filename) return 0;
+    char filename[MAX_PATH]; memset(filename, 0, sizeof(filename)); strncpy(filename, _filename, sizeof(filename));
+    return append_save_data(pfout, filename, flog, title, text, nx, ny, nz, nv, data1, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size);
+}
+
+
+
+
 
 
 void perform_sub_test(IET_Param * sys, IET_arrays * arr, IET_command * cmd){

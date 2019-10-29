@@ -107,7 +107,7 @@ void printf_matrix(FILE * o, MatrixNS::Matrix & m){
             } else {
                 for (int i=0; i<nthread; i++) for (int j=0; j<=ndiis; j++) A_buffer[i][j] = 0;
                 for (int i=1; i<nthread; i++){
-                    sys->mp_tasks[i] = MPTASK_DIIS_WEIGHT;
+                    __mp_tasks[i] = MPTASK_DIIS_WEIGHT;
                 }
                 calc_weights_sub(0); wait_subroutines(sys);
                 for (int id=0; id<nthread; id++) for (int i=0; i<A.n&&i<ndiis; i++) A_public[i] += A_buffer[id][i];
@@ -144,7 +144,7 @@ void printf_matrix(FILE * o, MatrixNS::Matrix & m){
             if (nthread<=1) {
                 step_in_mp_parallel(0, count);
             } else {
-                for (int i=1; i<nthread; i++) sys->mp_tasks[i] = MPTASK_DIIS_STEPIN;
+                for (int i=1; i<nthread; i++) __mp_tasks[i] = MPTASK_DIIS_STEPIN;
                 step_in_mp_parallel(0);
                 wait_subroutines(sys);
             }

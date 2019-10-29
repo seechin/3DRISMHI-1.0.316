@@ -50,7 +50,8 @@ double calculate_zeta_by_chuv(int closure, double factor, double uuv, double huv
         case CLOSURE_MSA            : t_over_ch = 1; break; // t_over_ch = chuv==0? 1 : (ln(1-uuv+chuv) + uuv)/chuv; break;
         case CLOSURE_KGK            : t_over_ch = 1; break; // t_over_ch = chuv==0? 1 : (ln(1-uuv+chuv) + uuv)/chuv; break;
         case CLOSURE_PY             : t_over_ch = 1; break; // t_over_ch = chuv==0? 1 : ln(1+chuv)/chuv; break;
-        case CLOSURE_D2             : t_over_ch = 1 - chuv/2; break;
+        //case CLOSURE_D2             : t_over_ch = 1 - chuv/2; break;
+        case CLOSURE_D2             : t_over_ch = 1; break;
         case CLOSURE_HNCB           : t_over_ch = 1; break;  // undefined
         //case CLOSURE_KH             : t_over_ch = -uuv+chuv<=0? 1 : chuv==0? 1 : (ln(1-uuv+chuv) + uuv)/chuv; break;
         case CLOSURE_KH             : t_over_ch = 1; break;
@@ -196,6 +197,7 @@ class IET_arrays {
         box = _box;
         if (nx<=0 || ny<=0 || nz<=0) return false;
         if (box.x<=0 || box.y<=0 || box.z<=0) return false;
+        drrism = sys->drrism; drhi = sys->drhi;
         //if (dr<=0 || n_wvv<=0 || n_nhkvv<=0) return false;
         factor_sinfft_f_wvv = factor_sinfft_f_nhkvv = 2*PI * drrism;
         factor_sinfft_f_zeta = 2*PI * drhi;
@@ -267,9 +269,9 @@ class IET_arrays {
       #ifdef _LOCALPARALLEL_
         char debug_output_title[128];
         snprintf(debug_output_title, sizeof(debug_output_title), "allocating memory for ff x%d paralleling", sys->nt); debug_trace_memory_allocation(sys, debug_output_title);
-        ffsr_mp.init(sys->nt, sys->mp_tasks, nx, ny, nz, nv);
+        ffsr_mp.init(sys->nt, __mp_tasks, nx, ny, nz, nv);
         snprintf(debug_output_title, sizeof(debug_output_title), "allocating memory for fftw x%d paralleling", sys->nt); debug_trace_memory_allocation(sys, debug_output_title);
-        fftw_mp.init(sys->nt, sys->mp_tasks, nx, ny, nz, sys->xvv_k_shift);
+        fftw_mp.init(sys->nt, __mp_tasks, nx, ny, nz, sys->xvv_k_shift);
       #else
       #endif
       #ifdef _FFTWMPPARALLEL_
@@ -347,7 +349,8 @@ class IET_arrays {
 //Chandler_Guv_this = huv1[i3]+1>hardsphere_guv_cutoff ? 0.5*huv1[i3]* cuv1[i3] * dN * (dd?dd1[i3]/nbulk : 1) / beta : 0;
                 site_energy[iv].Chandler_Guv[0] += Chandler_Guv_this;
                 site_energy[iv].Chandler_Guv[1] += Chandler_Guv_this;
-                if (huv1[i3]+1>hardsphere_guv_cutoff){
+                //if (huv1[i3]+1>hardsphere_guv_cutoff){
+                if (dn>sys->gcutoff_liquid_occupation){
                     site_energy[iv].Chandler_Guv[2] += Chandler_Guv_this;
                     site_energy[iv].Chandler_Guv[3] += Chandler_Guv_this;
                 }
@@ -358,11 +361,15 @@ class IET_arrays {
                 site_energy[iv].cuv += (cuv1[i3]) * dN; site_energy[iv].clr += (clr1[i3]) * dN;
                 //if (huv1[i3]+1>hardsphere_guv_cutoff) site_energy[iv].clr += (ln(huv1[i3]+1)*beta + uuv1[i3])*dn;
                 double zeta_this = calculate_zeta_by_chuv(sys->closures[iv], sys->closure_factors[iv], uuv1[i3], huv1[i3], cuv1[i3], hlr1[i3]);
+                //double zeta_exclude_this = -sys->degree_of_freedom[ivm]/2;
                 if (dn>sys->gcutoff_liquid_occupation){
                     site_energy[iv].zeta[0] += zeta_this * dN * (dd1? dd1[i3]:nbulk) ;
                     site_energy[iv].zeta[1] += zeta_this * dN * sys->av[iv].multi * (dd1? dd1[i3]:nbulk) ;
-                    site_energy[iv].zeta[2] += clr[iv][0][0][i3] * dN * (dd1? dd1[i3]:nbulk) ;
-                    site_energy[iv].zeta[3] += clr[iv][0][0][i3] * dN * sys->av[iv].multi * (dd1? dd1[i3]:nbulk) ;
+                    site_energy[iv].zeta[2] += zeta_this * dN;
+                    site_energy[iv].zeta[3] += zeta_this * dN * sys->av[iv].multi;
+                } else {
+                    //site_energy[iv].zeta[2] += zeta_exclude_this * dN;
+                    //site_energy[iv].zeta[3] += zeta_exclude_this * dN * sys->av[iv].multi;
                 }
                 //if (huv1[i3]+1>hardsphere_guv_cutoff) site_energy[iv].chuv += cuv1[i3]*dN + 0.5*(cuv1[i3]) * (dn - dN);
                 if (huv1[i3]+1>hardsphere_guv_cutoff) site_energy[iv].chuv += (huv1[i3] - cuv1[i3])*dN;
@@ -425,7 +432,7 @@ class IET_arrays {
   public:
     void display_solvation_correlations(IET_Param * sys, FILE * flog, FILE * flog2, const char * prefix = ""){
         FILE * fout[2] = { flog, flog2 };
-        for (int io=0; io<2; io++) if (fout[io]) fprintf(fout[io], "%s%7s %8s %8s %8s %8s %8s %8s %8s %8s\n", prefix, "Atom", "Ng", "cuv", "clr", "chuv", "zetasr_m", "zetasr_a", "zetalr_m", "zetalr_a");
+        for (int io=0; io<2; io++) if (fout[io]) fprintf(fout[io], "%s%7s %8s %8s %8s %8s %8s %8s %8s %8s\n", prefix, "Atom", "Ng", "cuv", "clr", "chuv", "zetasr_m", "zetasr_a", "zeta_m2", "zeta_a2");
         for (int iv=0; iv<nv; iv++){
             for (int io=0; io<2; io++) if (fout[io]) if (nv>1) fprintf(fout[io], "%s%7s %8.2f %8.2f %8.2f %8.2f %8.2f %8.2f %8.2f %8.2f\n", prefix, sys->av[iv].name, site_energy[iv].dNg, site_energy[iv].cuv, site_energy[iv].clr, site_energy[iv].chuv, site_energy[iv].zeta[0], site_energy[iv].zeta[1], site_energy[iv].zeta[2], site_energy[iv].zeta[3]);
         }

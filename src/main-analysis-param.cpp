@@ -292,6 +292,7 @@ bool analysis_solvent_bond(IET_Param * sys, char * argv[], int * argi, int argc,
         if (StringNS::is_string_number(st_argv1)) atomj = atoi(argv[1]); else if (sys->atom_list) atomj = search_atom_list_grp(sys->atom_list, 0, sys->n_atom_list, argv[1], -1);
         double bond = atof(argv[2]);
         double bond_stdev = nargs>=4? atof(argv[3]) : 0;
+        double bond_weight = nargs>=5? atof(argv[4]) : 1;
         if (bond<=0){
             fprintf(sys->log(), "%s%s : warning : ignoring bond[%s-%s]=%g%s\n", sys->is_log_tty?color_string_of_warning:"", software_name, argv[0], argv[1], bond, sys->is_log_tty?color_string_end:"");
         } else {
@@ -311,6 +312,7 @@ bool analysis_solvent_bond(IET_Param * sys, char * argv[], int * argi, int argc,
                 sys->bond_list[sys->n_bond_list].grpj = atomj;
                 sys->bond_list[sys->n_bond_list].bond = bond;
                 sys->bond_list[sys->n_bond_list].bond_stdev = bond_stdev;
+                sys->bond_list[sys->n_bond_list].weight = (bond_weight>1||bond_weight<=0)? 1 : bond_weight;
                 sys->n_bond_list ++;
             } else {
                 fprintf(sys->log(), "%s%s : error : undefined", sys->is_log_tty?color_string_of_error:"", software_name);
@@ -1023,6 +1025,10 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
                 fprintf(sys->log(), "%s : %s[%d] : unknown -check-zero-xvv specifier \"%s\"\n", software_name, get_second_fn(script_name), script_line, argv[i]); ret = 1;
             }
         }
+    } else if (key=="-dof" || key=="--dof" || key=="dof" || key=="-degree-of-freedom" || key=="-degree-of-freedom" || key=="degree-of-freedom" || key=="-degree_of_freedom" || key=="--degree_of_freedom" || key=="degree_of_freedom"){
+        sys->n_degree_of_freedom = 0; while (i+1<argc && StringNS::is_string_number(argv[i+1])){
+            i++; if (sys->n_degree_of_freedom<MAX_SOL) sys->degree_of_freedom[sys->n_degree_of_freedom++] = atof(argv[i]);
+        }
     } else if (key=="-scale.zeta" || key=="--scale.zeta" || key=="scale.zeta"){
         sys->n_zeta_scaling_factor = 0; while (i+1<argc && StringNS::is_string_number(argv[i+1])){
             i++; if (sys->n_zeta_scaling_factor<MAX_SOL) sys->zeta_scaling_factor[sys->n_zeta_scaling_factor++] = atof(argv[i]);
@@ -1658,6 +1664,8 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
       // cmd: kernel calculation: HI, IET
         } else if (sl[0]=="build-force-field" || sl[0]=="build_force_field" || sl[0]=="build-ff" || sl[0]=="build_ff" || sl[0]=="rebuild-force-field" || sl[0]=="rebuild_force_field" || sl[0]=="rebuild-ff" || sl[0]=="rebuild_ff"){
             cmd_type = 13; cmd.command = IETCMD_BUILD_FF; cmd.step = 1;
+        } else if (sl[0]=="no-build-force-field" || sl[0]=="no_build_force_field" || sl[0]=="no-build-ff" || sl[0]=="no_build_ff" || sl[0]=="skip-force-field" || sl[0]=="skip_force_field" || sl[0]=="skip-ff" || sl[0]=="skip_ff"){
+            cmd_type = 13; cmd.command = -IETCMD_BUILD_FF; cmd.step = 1;
         } else if (sl[0]=="hi"){        cmd_type = 10; cmd.command = 2000+HIAL_HSHI;      cmd.step = sys->stepmax_hi;
             check_hi_diis_default_steps(sys);
             //fprintf(sys->log(), "%s : %s[%d][%ld] : warning : \"%s\" redirected to \"hshi\"\n", software_name, script_name, script_line, 1+sl[0].text-line+first_char_offset, sl[0].text);
@@ -1948,7 +1956,9 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
                 }
                 cmd.step = i_param_list;
             } else if (cmd.command==IETCMD_DISPLAY){
-                if (sl[i]=="all"||sl[i]=="everything"||sl[i]=="anything"){
+                if (StringNS::is_string_number(sl[i])){
+                    cmd.command_params_double[i_param_list>0?i_param_list-1:i_param_list] = atof(sl[i].text);
+                } else if (sl[i]=="all"||sl[i]=="everything"||sl[i]=="anything"){
                     if (i_param_list+10 < MAX_CMD_PARAMS){
                         cmd.command_params_int[i_param_list++] = IETCMD_v_DeltaN;
                         cmd.command_params_int[i_param_list++] = IETCMD_v_DeltaN0;
