@@ -20,9 +20,49 @@ char * get_current_time_text(char time_buffer[20]){
 StringNS::string file_extension(StringNS::string fn){
     int ie = 0;
     for (ie=fn.length-1; ie>=0; ie--) if (fn.text[ie]=='.') break;
-    if (ie==0||fn.text[ie]!='.') return StringNS::string((char*)"");
+    if (fn.text[ie]!='.') return StringNS::string((char*)"");
     while (ie<fn.length && fn.text[ie]=='.') ie++;
     return fn.Substring(ie, fn.length-ie);
+}
+StringNS::string file_without_extension(StringNS::string fn, char * buffer=nullptr){
+    int ie = 0;
+    for (ie=fn.length-1; ie>=0; ie--) if (fn.text[ie]=='.') break;
+    if (ie<0) return "";
+    if (fn.text[ie]!='.'){ if (buffer) memcpy(buffer, fn.text, fn.length); buffer[fn.length] = 0; return fn; }
+    while (ie>0 && fn.text[ie]=='.') ie--;
+    while (ie<fn.length && fn.text[ie]!='.') ie++;
+    if (buffer){ memcpy(buffer, fn.text, ie); buffer[ie] = 0; }
+    return fn.Substring(0, ie);
+}
+bool get_nonoverwrite_filename(char * filename, FILE * flog=nullptr){    // overwrite filename if succeed
+    const char * filename_dir  = dirname(filename);
+    const char * filename_base = basename(filename);
+    StringNS::string file_ext = file_extension(filename_base);
+    char filename_without_ext[MAX_PATH]; file_without_extension(filename_base, filename_without_ext);
+
+    char filename_new[MAX_PATH]; filename_new[0] = 0;
+    bool file_name_available = false;
+    for (int i=1; i<MAX_RENAME_COUNT; i++){
+        if (!filename_dir || filename_dir[0]==0 || StringNS::string(filename_dir)=="."){
+            snprintf(filename_new, sizeof(filename_new), "%s._%d.%s", filename_without_ext, i, file_ext.text);
+        } else {
+            snprintf(filename_new, sizeof(filename_new), "%s/%s._%d.%s", filename_dir, filename_without_ext, i, file_ext.text);
+        }
+        if (access(filename_new, F_OK) == -1){
+            strncpy(filename, filename_new, MAX_PATH); file_name_available = true;
+            break;
+        }
+    }
+    if (flog && !file_name_available){
+        fprintf(flog, "%s : error : too many backup files: %s._1.%s ~ %s._%d.%s. No output hence.\n", software_name, filename_without_ext, file_ext.text, filename_without_ext, MAX_RENAME_COUNT, file_ext.text);
+    }
+    return file_name_available;
+}
+
+bool is_dir(const char * filename){
+    DIR* directory = opendir(filename);
+    if(directory != NULL){ closedir(directory); return true; }
+    return false;
 }
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 //---------------------------------------------------------------------------------

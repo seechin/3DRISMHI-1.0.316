@@ -191,6 +191,16 @@ void mem_dispose_all(){
     for (int i=0; i<_memory_blk_total; i++) free(_memory_pointers[i]);
   #endif
 }
+void exit_on_memalloc_failure(){ char buffer[64];
+    #ifdef _LOCALPARALLEL_
+      fprintf(stderr, "%s : mmap failure. Mapped memory: %d bolcks, %s\n", software_name, _memory_blk_total, print_memory_value(buffer, sizeof(buffer), _memory_total));
+      mem_dispose_all(); exit(-1);
+    #else
+      fprintf(stderr, "%s : malloc failure. Totally %d bolcks, %s was allocated and mapped.\n", software_name, _memory_blk_total, print_memory_value(buffer, sizeof(buffer), _memory_total));
+      mem_dispose_all(); exit(-1);
+    #endif
+}
+void exit_on_pointer_overflow(){ fprintf(stderr, "%s : pointer overflow\n", software_name); mem_dispose_all(); exit(-1); }
 void * memalloc(size_t size){
     if (!_ignore_memory_capacity){
         size_t physical_memory = get_total_physical_memory();
@@ -205,19 +215,21 @@ void * memalloc(size_t size){
 //fprintf(stderr, "\33[1;31m::MEMALLOC: %12lu (%d %d)\n\33[0m", (long int)size, sizeof(long int), sizeof(size_t)); fflush(stderr);
   #ifdef _LOCALPARALLEL_
     void * p = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
-    if (p==MAP_FAILED){ char buffer[64];
+    if (p==MAP_FAILED) exit_on_memalloc_failure();
+    /*if (p==MAP_FAILED){ char buffer[64];
         fprintf(stderr, "%s : mmap failure. Mapped memory: %d bolcks, %s\n", software_name, _memory_blk_total, print_memory_value(buffer, sizeof(buffer), _memory_total));
         mem_dispose_all(); exit(-1);
-    }
+    }*/
 //fprintf(stderr, "\033[34mmmap: %p\n\033[0m", p);
 //printf("\33[31m    allocated pointer %d\33[0m\n", (char *)p);
     if (p && p!=MAP_FAILED){
   #else
     void * p = malloc(size);
-    if (!p){ char buffer[64];
+    if (!p) exit_on_memalloc_failure();
+    /*if (!p){ char buffer[64];
         fprintf(stderr, "%s : malloc failure. Totally %d bolcks, %s was allocated and mapped.\n", software_name, _memory_blk_total, print_memory_value(buffer, sizeof(buffer), _memory_total));
         mem_dispose_all(); exit(-1);
-    }
+    }*/
     if (p){
   #endif
         if (_memory_blk_total<MAX_MEMORYS){
@@ -510,6 +522,7 @@ inline double interpolate(double k, __REAL__ * fk, double xvv_k_shift, int nr, d
 }
 
 void perform_3rx1k_convolution(__REAL__ *** f3r[], int nx, int ny, int nz, Vector box, int ni, int nj, __REAL__ *** f1k, double dk, double xvv_k_shift, int nf1k, __REAL__ *** out[], double *** fftin, double *** fftout, fftw_plan & planf, fftw_plan & planb, bool clear_out=true){
+  // serial convolution
     double dx = box.x/nx; double dy = box.y/ny; double dz = box.z/nz; // int flips[3] = { nx, ny, nz };
     double dkx = 2*PI/(nx * dx); double dky = 2*PI/(ny * dy); double dkz = 2*PI/(nz * dz);
     double convolution_factor = 1.0 / (nx * ny * nz);
@@ -557,23 +570,30 @@ void perform_3rx1k_convolution(__REAL__ *** f3r[], int nx, int ny, int nz, Vecto
 //---------------------------------------------------------------------------------
 class RISMHI3D_FFTW_MP_UNIT {
   public:
+    int ntf;
     __REAL__ *** fftin;
     __REAL__ *** fftout;
     fftw_plan planf, planb;
     int si, sj;
     bool task_done; __REAL__ * out1;
-    void init(int nx, int ny, int nz){
-        si = sj = 0;
+    void init(int nx, int ny, int nz, int _ntf){
+        si = sj = 0; ntf = _ntf;
         fftin = init_tensor3d<__REAL__>(nz, ny, nx, 0);
         fftout = init_tensor3d<__REAL__>(nz, ny, nx, 0);
+      #ifdef _FFTWMPPARALLEL_
+        fftw_plan_with_nthreads(ntf);
+      #endif
         planf = fftw_plan_r2r_3d(nz, ny, nx, &fftin[0][0][0], &fftout[0][0][0], (fftw_r2r_kind)FFTW_FORWARD, (fftw_r2r_kind)FFTW_FORWARD, (fftw_r2r_kind)FFTW_FORWARD, FFTW_ESTIMATE);
+      #ifdef _FFTWMPPARALLEL_
+        fftw_plan_with_nthreads(ntf);
+      #endif
         planb = fftw_plan_r2r_3d(nz, ny, nx, &fftout[0][0][0], &fftin[0][0][0], (fftw_r2r_kind)FFTW_BACKWARD, (fftw_r2r_kind)FFTW_BACKWARD, (fftw_r2r_kind)FFTW_BACKWARD, FFTW_ESTIMATE);
     }
 };
 class RISMHI3D_FFTW_MP {
   public:
     RISMHI3D_FFTW_MP_UNIT fft[MAX_THREADS];
-    int nx, ny, nz, np;
+    int nx, ny, nz, np; int ntf;
     double dx, dy, dz;
     double dkx, dky, dkz, dk, xvv_k_shift, convolution_factor;
     size_t N3; int nf1k;
@@ -586,10 +606,10 @@ class RISMHI3D_FFTW_MP {
         dkx = 2*PI/(nx * dx); dky = 2*PI/(ny * dy); dkz = 2*PI/(nz * dz);
         convolution_factor = 1.0 / (nx * ny * nz);
     }
-    void init(int _np, volatile int * _mp_tasks, int _nx, int _ny, int _nz, double _xvv_k_shift){
-        np = _np; mp_tasks = _mp_tasks; n_active_jobs = 0; xvv_k_shift = _xvv_k_shift;
+    void init(int _np, int _ntf, volatile int * _mp_tasks, int _nx, int _ny, int _nz, double _xvv_k_shift){
+        np = _np; ntf = _ntf; mp_tasks = _mp_tasks; n_active_jobs = 0; xvv_k_shift = _xvv_k_shift;
         nx = _nx; ny = _ny; nz = _nz; N3 = nx * ny * nz;
-        for (int i=0; i<np; i++) fft[i].init(nx, ny, nz);
+        for (int i=0; i<np; i++) fft[i].init(nx, ny, nz, ntf);
     }
     void set_field(__REAL__ **** _f3r, __REAL__ *** _f1k, double _dk, int _nf1k, __REAL__ **** _out){
         f3r = _f3r; f1k = _f1k; out = _out; dk = _dk; nf1k = _nf1k;
@@ -603,6 +623,7 @@ class RISMHI3D_FFTW_MP {
 };
 
 void perform_3rx1k_convolution_r1(int id, RISMHI3D_FFTW_MP * param, int si, int sj){
+  // single thread process of multithreading convolution
     __REAL__ **** f3r = param->f3r;
     __REAL__ ***  f1k = param->f1k;
     //__REAL__ **** out = param->out;
@@ -650,22 +671,6 @@ void perform_3rx1k_convolution_r1(int id, RISMHI3D_FFTW_MP * param, int si, int 
 }
 
 #ifdef _LOCALPARALLEL_
-    /*
-    void sumback_3rx1k_convolution_r1(RISMHI3D_FFTW_MP * fftw_mp, int id){
-        int it = id;
-        if (fftw_mp->fft[it].task_done){
-            size_t N3 = fftw_mp->nx * fftw_mp->ny * fftw_mp->nz;
-            __REAL__ * out1 = fftw_mp->fft[it].out1;
-            double * in1 = &fftw_mp->fft[it].fftin[0][0][0];
-            for (size_t i3=0; i3<N3; i3++) out1[i3] += in1[i3];
-            fftw_mp->fft[it].task_done = false;
-        }
-    }
-    void sumback_3rx1k_convolution_r1(RISMHI3D_FFTW_MP * fftw_mp){
-        for (int it=0; it<fftw_mp->np; it++) sumback_3rx1k_convolution_r1(fftw_mp, it);
-    }
-     */
-
     void sumback_3rx1k_convolution_t1(RISMHI3D_FFTW_MP * fftw_mp, int id, int n_active_jobs){
         size_t N3 = fftw_mp->nx * fftw_mp->ny * fftw_mp->nz;
         size_t begin = N3 / fftw_mp->np * id; size_t end = N3 / fftw_mp->np * (id+1); if (id+1 >= fftw_mp->np) end = N3;
@@ -692,7 +697,7 @@ void perform_3rx1k_convolution_r1(int id, RISMHI3D_FFTW_MP * param, int si, int 
 
 void perform_3rx1k_convolution(RISMHI3D_FFTW_MP * fftw_mp, __REAL__ *** f3r[], int nx, int ny, int nz, Vector box, int ni, int nj, __REAL__ *** f1k, double dk, double xvv_k_shift, int nf1k, __REAL__ *** out[], double *** fftin, double *** fftout, fftw_plan & planf, fftw_plan & planb, bool clear_out){
 
-  #if defined(_LOCALPARALLEL_) && defined(_LOCALPARALLEL_FFTW_)
+  #if defined(_LOCALPARALLEL_)
     if (fftw_mp && fftw_mp->np>1){
         fftw_mp->set_scale(box);
         fftw_mp->set_field(f3r, f1k, dk, nf1k, out);
@@ -726,47 +731,6 @@ void perform_3rx1k_convolution(RISMHI3D_FFTW_MP * fftw_mp, __REAL__ *** f3r[], i
           // 4. others
             fftw_mp->n_active_jobs = 0;
         }
-
-        /*
-        for (int ss=0; ss<ni*nj; ss++){
-            int si = ss/nj; int sj = ss%nj;
-            if (fftw_mp->assign_task_to_node_0 && fftw_mp->np>1){
-                int i_task_idle = 0;
-                for (int i=1; i<fftw_mp->np; i++) if (fftw_mp->mp_tasks[i]==MPTASK_NONE){ i_task_idle = i; break; }
-                if (i_task_idle>0){
-                    sumback_3rx1k_convolution_r1(fftw_mp, i_task_idle);
-                    fftw_mp->fft[i_task_idle].si = si; fftw_mp->fft[i_task_idle].sj = sj;
-                    fftw_mp->mp_tasks[i_task_idle] = MPTASK_FFTW;
-                } else {
-                    perform_3rx1k_convolution_r1(0, fftw_mp, si, sj);
-                    sumback_3rx1k_convolution_r1(fftw_mp);
-                }
-            } else {
-                while (true){
-                    int i_task_idle = 0;
-                    for (int i=1; i<fftw_mp->np; i++) if (fftw_mp->mp_tasks[i]==MPTASK_NONE){ i_task_idle = i; break; }
-                    if (i_task_idle>0){
-                        sumback_3rx1k_convolution_r1(fftw_mp, i_task_idle);
-                        fftw_mp->fft[i_task_idle].si = si; fftw_mp->fft[i_task_idle].sj = sj;
-                        fftw_mp->mp_tasks[i_task_idle] = MPTASK_FFTW;
-                        break;
-                    } else {
-                        usleep(1000); continue;
-                    }
-                }
-            }
-        }
-
-        double time0 = get_current_time_double();
-        double timeup_ms = -1;
-        while (true){
-            bool finished = true; for (int i=1; i<fftw_mp->np; i++) if (fftw_mp->mp_tasks[i]!=MPTASK_NONE){ finished = false; break; }
-            if (finished) break;
-            if (timeup_ms>0 && get_current_time_double()-time0 > timeup_ms) break;
-            usleep(100);
-        }
-        sumback_3rx1k_convolution_r1(fftw_mp);
-         */
     } else {
         perform_3rx1k_convolution(f3r, nx, ny, nz, box, ni, nj, f1k, dk, xvv_k_shift, nf1k, out, fftin, fftout, planf, planb, clear_out);
     }
@@ -788,39 +752,66 @@ void perform_3rx1k_convolution(RISMHI3D_FFTW_MP * fftw_mp, __REAL__ *** f3r[], i
 class RISMHI3D_FFSR_MP {
   public:
     int irange[MAX_THREADS][3];
-    __REAL__ **** lj[MAX_THREADS];
-    __REAL__ **** others[MAX_THREADS];
-    __REAL__ *** coulsr[MAX_THREADS];
-    __REAL__ *** coulp2[MAX_THREADS][3];
-    __REAL__ *** r2uvmin[MAX_THREADS];
-    __REAL__ *** pseudoliquid_potential[MAX_THREADS];
+    __REAL__ **** lj[MAX_THREADS];          // memory for LJ
+    __REAL__ **** ljr[MAX_THREADS];         // memory for LJ remaining on certain purpose, optional
+    __REAL__ **** tensor3s_here[MAX_THREADS];
+    int n_tensor3s_here;
+    __REAL__ *** coulsr[MAX_THREADS];       // tensor3s_here[][0]
+    __REAL__ *** coulp2[MAX_THREADS][3];    // tensor3s_here[][3~5]
+    __REAL__ *** r2uvmin[MAX_THREADS];      // tensor3s_here[][1]
     //RISMHI3D_FFTW_MP_UNIT fft[MAX_THREADS];
     int np, nx, ny, nz, nv, N3, N4;
     volatile int * mp_tasks;
   public:
     bool param_b[10]; int param_i[10]; double param_d[10]; __REAL__ *** param_t3[10]; __REAL__ **** param_t4[10];
   public:
-    void init(int _np, volatile int * _mp_tasks, int _nx, int _ny, int _nz, int _nv){
+    void init(int _np, volatile int * _mp_tasks, int _nx, int _ny, int _nz, int _nv, bool allow_coulp2, bool allow_r2uvmin, bool allow_ljr){
         np = _np; mp_tasks = _mp_tasks;
         nx = _nx; ny = _ny; nz = _nz; nv = _nv;
         N3 = nx * ny * nz; N4 = nv * N3;
         for (int it=0; it<np; it++){
             lj[it] = init_tensor4d(nv, nz, ny, nx, 0);
-            others[it] = init_tensor4d(7, nz, ny, nx, 0);
-            coulsr[it] = others[it][0];
-            r2uvmin[it] = others[it][1];
-            coulp2[it][0] = others[it][3];
-            coulp2[it][1] = others[it][4];
-            coulp2[it][2] = others[it][5];
-            pseudoliquid_potential[it] = others[it][6];
+            if (allow_ljr) ljr[it] = init_tensor4d(nv, nz, ny, nx, 0); else ljr[it] = nullptr;
+
+            if (allow_coulp2 && allow_r2uvmin){
+                n_tensor3s_here = 5;
+                tensor3s_here[it] = init_tensor4d(n_tensor3s_here, nz, ny, nx, 0);
+                coulsr[it] = tensor3s_here[it][0];
+                r2uvmin[it] = tensor3s_here[it][1];
+                coulp2[it][0] = tensor3s_here[it][2];
+                coulp2[it][1] = tensor3s_here[it][3];
+                coulp2[it][2] = tensor3s_here[it][4];
+            } else if (!allow_coulp2 && allow_r2uvmin){
+                n_tensor3s_here = 2;
+                tensor3s_here[it] = init_tensor4d(n_tensor3s_here, nz, ny, nx, 0);
+                coulsr[it] = tensor3s_here[it][0];
+                r2uvmin[it] = tensor3s_here[it][1];
+                coulp2[it][0] = coulp2[it][1] = coulp2[it][2] = nullptr;
+            } else if (allow_coulp2 && !allow_r2uvmin){
+                n_tensor3s_here = 4;
+                tensor3s_here[it] = init_tensor4d(n_tensor3s_here, nz, ny, nx, 0);
+                coulsr[it] = tensor3s_here[it][0];
+                coulp2[it][0] = tensor3s_here[it][1];
+                coulp2[it][1] = tensor3s_here[it][2];
+                coulp2[it][2] = tensor3s_here[it][3];
+                r2uvmin[it] = nullptr;
+            } else {
+                n_tensor3s_here = 1;
+                tensor3s_here[it] = init_tensor4d(n_tensor3s_here, nz, ny, nx, 0);
+                coulsr[it] = tensor3s_here[it][0];
+                r2uvmin[it] = coulp2[it][0] = coulp2[it][1] = coulp2[it][2] = nullptr;
+            }
         }
     }
     void reset_for_calculation(bool _clj, bool _ccoul){
         for (int it=0; it<np; it++){
             irange[it][0] = irange[it][1] = irange[it][2] = 0;
             if (_clj) clear_tensor4d(lj[it], N4);
-            if (_ccoul) clear_tensor4d(others[it], N3*7);
-            if (_ccoul) for (size_t i3=0; i3<N3; i3++) r2uvmin[it][0][0][i3] = -1;
+            if (_clj && ljr[it]) clear_tensor4d(ljr[it], N4);
+            if (_ccoul){
+                clear_tensor4d(tensor3s_here[it], N3*n_tensor3s_here);
+                if (r2uvmin[it]) for (size_t i3=0; i3<N3; i3++) r2uvmin[it][0][0][i3] = -1;
+            }
         }
         for (int i=0; i<10; i++){ param_b[i] = false; param_i[i] = 0; param_d[i] = 0; param_t3[i] = nullptr; param_t4[i] = nullptr; }
     }
@@ -832,103 +823,3 @@ class RISMHI3D_FFSR_MP {
 //------------------------------   Other procedures   -----------------------------
 //---------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-/*
-
-typedef double convolution_kernel_ptr(double k, int si, int sj, void * params);
-
-void perform_3rxf1k_convolution(__REAL__ *** f3r[], int nx, int ny, int nz, Vector box, int ni, int nj, convolution_kernel_ptr * kernel_function, void * kernel_param, __REAL__ *** out[], double *** fftin, double *** fftout, fftw_plan & planf, fftw_plan & planb, bool clear_out=true){
-    double dx = box.x/nx; double dy = box.y/ny; double dz = box.z/nz; // int flips[3] = { nx, ny, nz };
-    double dkx = 2*PI/(nx * dx); double dky = 2*PI/(ny * dy); double dkz = 2*PI/(nz * dz);
-    double convolution_factor = 1.0 / (nx * ny * nz);
-    size_t N3 = nx * ny * nz;
-
-    double * fftin1 = &fftin[0][0][0];
-    double * fftout1 = &fftout[0][0][0];
-
-    if (clear_out) clear_tensor4d(out, ni * N3);
-    for (int si=0; si<ni; si++){
-        __REAL__ * out1 = &out[si][0][0][0];
-        for (int sj=0; sj<nj; sj++){
-            __REAL__ * f3r1 = &f3r[sj][0][0][0];
-          // f3k_j = FFT[f3r_j] -> fftout
-            for (size_t i3=0; i3<N3; i3++) fftin1[i3] = f3r1[i3];
-            fftw_execute(planf);
-          // f1k_ij f3k_j -> fftout
-            for (int iz=0; iz<=nz/2; iz++) for (int iy=0; iy<=ny/2; iy++) for (int ix=0; ix<=nx/2; ix++){
-                double kx = dkx * (ix+0); double ky = dky * (iy+0); double kz = dkz * (iz+0);
-                double k = sqrt(kx*kx + ky*ky + kz*kz);
-                double intp = kernel_function(k, si, sj, kernel_param);
-                double intp_factor = intp;
-                unsigned int mask = 0; if (ix==0||ix>=nx-ix) mask |= 1; if (iy==0||iy>=ny-iy) mask |= 2; if (iz==0||iz>=nz-iz) mask |= 4;
-                fftout[iz][iy][ix] *= intp_factor;
-                if (!(mask&1)) fftout[iz][iy][nx-ix] *= intp_factor;
-                if (!(mask&2)) fftout[iz][ny-iy][ix] *= intp_factor;
-                if (!(mask&3)) fftout[iz][ny-iy][nx-ix] *= intp_factor;
-                if (!(mask&4)) fftout[nz-iz][iy][ix] *= intp_factor;
-                if (!(mask&5)) fftout[nz-iz][iy][nx-ix] *= intp_factor;
-                if (!(mask&6)) fftout[nz-iz][ny-iy][ix] *= intp_factor;
-                if (!(mask&7)) fftout[nz-iz][ny-iy][nx-ix] *= intp_factor;
-            }
-          // FFTi[f1k_ij f3k_j] -> fftin
-            fftw_execute(planb);
-          // f1r_ij * f3k_j -(+)-> out_i
-            for (size_t i3=0; i3<N3; i3++) out1[i3] += fftin1[i3] * convolution_factor;
-        }
-    }
-}
-*/
-
-void perform_3rxf1k_convolution(__REAL__ *** f3r[], int nx, int ny, int nz, Vector box, int ni, int nj, __REAL__ *** f1k, double dk, double xvv_k_shift, int nf1k, __REAL__ *** out[], double *** fftin, double *** fftout, fftw_plan & planf, fftw_plan & planb, bool clear_out=true){
-    double dx = box.x/nx; double dy = box.y/ny; double dz = box.z/nz; // int flips[3] = { nx, ny, nz };
-    double dkx = 2*PI/(nx * dx); double dky = 2*PI/(ny * dy); double dkz = 2*PI/(nz * dz);
-    double convolution_factor = 1.0 / (nx * ny * nz);
-    size_t N3 = nx * ny * nz;
-
-    double * fftin1 = &fftin[0][0][0];
-    double * fftout1 = &fftout[0][0][0];
-
-    if (clear_out) clear_tensor4d(out, ni * N3);
-    for (int si=0; si<ni; si++){
-        __REAL__ * out1 = &out[si][0][0][0];
-        for (int sj=0; sj<nj; sj++){
-            __REAL__ * f3r1 = &f3r[sj][0][0][0];
-          // f3k_j = FFT[f3r_j] -> fftout
-            for (size_t i3=0; i3<N3; i3++) fftin1[i3] = f3r1[i3];
-            fftw_execute(planf);
-          // f1k_ij f3k_j -> fftout
-            for (int iz=0; iz<=nz/2; iz++) for (int iy=0; iy<=ny/2; iy++) for (int ix=0; ix<=nx/2; ix++){
-                double kx = dkx * (ix+0); double ky = dky * (iy+0); double kz = dkz * (iz+0);
-                double k = sqrt(kx*kx + ky*ky + kz*kz);
-                //double intp = interpolate(k, f1k[si][sj], xvv_k_shift*dk, nf1k, dk);
-                double density = 33.4; double ksigma = k * pow(fabs(1.0/density/4.0*3.0/PI), 1.0/3);
-                double intp = k==0? 1 : (4*PI*(sin(ksigma) - ksigma*cos(ksigma))/k/k/k)*density;
-                double intp_factor = intp;
-                unsigned int mask = 0; if (ix==0||ix>=nx-ix) mask |= 1; if (iy==0||iy>=ny-iy) mask |= 2; if (iz==0||iz>=nz-iz) mask |= 4;
-                fftout[iz][iy][ix] *= intp_factor;
-                if (!(mask&1)) fftout[iz][iy][nx-ix] *= intp_factor;
-                if (!(mask&2)) fftout[iz][ny-iy][ix] *= intp_factor;
-                if (!(mask&3)) fftout[iz][ny-iy][nx-ix] *= intp_factor;
-                if (!(mask&4)) fftout[nz-iz][iy][ix] *= intp_factor;
-                if (!(mask&5)) fftout[nz-iz][iy][nx-ix] *= intp_factor;
-                if (!(mask&6)) fftout[nz-iz][ny-iy][ix] *= intp_factor;
-                if (!(mask&7)) fftout[nz-iz][ny-iy][nx-ix] *= intp_factor;
-            }
-          // FFTi[f1k_ij f3k_j] -> fftin
-            fftw_execute(planb);
-          // f1r_ij * f3k_j -(+)-> out_i
-            for (size_t i3=0; i3<N3; i3++) out1[i3] += fftin1[i3] * convolution_factor;
-        }
-    }
-}

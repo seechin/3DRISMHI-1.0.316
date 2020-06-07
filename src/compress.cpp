@@ -91,7 +91,7 @@ int uncompress_page(FILE * file, const char * filename, int block_index, Compres
 //---------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------
 
-size_t write_data_page(FILE * fo, const char * filename, double time_stamp, const char * title, FILE * flog, unsigned short dimensions[4], void * data, size_t data_size, StringNS::string comment, int compress_level, size_t page_size, void * _compressBuf, size_t _allocate_memory_size){
+size_t write_data_page(FILE * fo, const char * filename, double time_stamp, const char * title, FILE * flog, unsigned short dimensions[4], void * data, size_t data_size, StringNS::string comment, int compress_level, size_t page_size, void * _compressBuf=nullptr, size_t _allocate_memory_size=0){
     if (!title) title = "";
     if (!fo) return 0;
     //double current_time = get_current_time_double();

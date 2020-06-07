@@ -26,6 +26,7 @@ int read_frame_pdb(PDBAtomSet* atoms, Vector * box, int * iframe){
         if (!fgets(input, sizeof(input), file)) return 0;
         int idx = 0; StringNS::string s = StringNS::seek_first_word(StringNS::string(input), &idx);
         if (StringNS::string(s.text, MIN(s.length, 4))=="ATOM" || StringNS::string(s.text, MIN(s.length, 6))=="HETATM"){
+start_record = true;
             PDBAtom atmp; atmp.read_pdb_line(StringNS::string(input));
             if (ia>=atoms->count) return -2;
             atoms->atom[ia++].r = atmp.r;
@@ -114,7 +115,14 @@ int read_frame_gro(PDBAtomSet* atoms, Vector * box, int * iframe){
       public:
         gmx_bool  valid;
         t_fileio* file;
-        int     na, step;
+        int     na;
+        #if defined(_GROMACS4_) || defined(_GROMACS5_)
+          int   step;
+        #elif defined(_GROMACS2016_) || defined(_GROMACS2018_)
+          long long step;
+        #else
+          long long step;
+        #endif
         matrix  box;
         rvec    *x;
         real    time, prec;

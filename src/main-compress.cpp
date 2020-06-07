@@ -1,6 +1,6 @@
 #include "compress.cpp"
 
-size_t append_save_data(FILE ** pfile, char filename[MAX_PATH], FILE * flog, const char * title, const char * text, int nx, int ny, int nz, int nv, __REAL__ * data, double time_stamp, IET_Param * sys, void * _compressBuf, size_t _allocate_memory_size){
+size_t append_save_data(FILE ** pfile, char filename[MAX_PATH], FILE * flog, const char * title, const char * text, int nx, int ny, int nz, int nv, __REAL__ * data, double time_stamp, IET_Param * sys, void * _compressBuf=nullptr, size_t _allocate_memory_size=0){
   // Append data directly to file. If file not exist then this will create one.
   // *pfile == stdin, will skip everything. This is to stop creating output files.
     if (!flog) return 0; if (!pfile || *pfile==stdin) return 0;
@@ -12,35 +12,7 @@ size_t append_save_data(FILE ** pfile, char filename[MAX_PATH], FILE * flog, con
             *pfile = stderr;
         } else {
             if (sys->output_override==0 && access(filename, F_OK) != -1){ // file already exist and not appendable
-                char filename_new[MAX_PATH]; filename_new[0] = 0;
-                bool file_name_available = false;
-                int max_rename_count = 10000;
-                for (int i=1; i<max_rename_count; i++){
-                    const char * filename_dir  = dirname(filename);
-                    const char * filename_base = basename(filename);
-                    if (!filename_dir || filename_dir[0]==0 || StringNS::string(filename_dir)=="."){
-                        snprintf(filename_new, sizeof(filename_new), "#%s.%d#", filename_base, i);
-                    } else {
-                        snprintf(filename_new, sizeof(filename_new), "%s/#%s.%d#", filename_dir, filename_base, i);
-                    }
-
-                    if (access(filename_new, F_OK) == -1){
-                        strncpy(filename, filename_new, MAX_PATH); file_name_available = true;
-                        /*
-                        rename(filename, filename_new);
-                        if (access(filename, F_OK) != -1){
-                            fprintf(flog, "%s : error : %s already exist and cannot be renamed. No output hence.\n", software_name, filename);
-                            *pfile = stdin;
-                        } else {
-                            fprintf(flog, "%s : file %s is renamed to %s\n", software_name, filename, filename_new);
-                            file_name_available = true;
-                        }
-                        */
-                        break;
-                    }
-                }
-                if (!file_name_available){
-                    fprintf(flog, "%s : error : too many backup files: #%s.1# ~ #%s.%d#. No output hence.\n", software_name, filename, filename, max_rename_count);
+                if (!get_nonoverwrite_filename(filename, flog)){
                     *pfile = stdin;
                 }
             } else if (sys->output_override==-1 && access(filename, F_OK) != -1){
@@ -99,10 +71,27 @@ size_t append_save_data(FILE ** pfile, char filename[MAX_PATH], FILE * flog, con
     return write_data_page(*pfile, filename, time_stamp, title, show_save_details?flog:nullptr, dimension, data, data_size, text?text:"", sys->output_compress_level, sys->compress_page_size, _compressBuf, _allocate_memory_size);
 }
 
+size_t append_save_data_immediately(IET_Param * sys, IET_arrays * arr, FILE * flog, __REAL__ * data1, int nx, int ny, int nz, int nv, FILE ** pfout, const char * _filename, const char * title=nullptr, const char * text=nullptr, double time_stamp=0, int * filter_array=nullptr, int filter_size=0){
+    if (!sys || !arr || !flog || !data1 || !_filename) return 0;
+    char filename[MAX_PATH]; memset(filename, 0, sizeof(filename)); strncpy(filename, _filename, sizeof(filename));
+    return append_save_data(pfout, filename, flog, title, text, nx, ny, nz, nv, data1, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size);
+}
 
+size_t append_save_data_immediately(IET_Param * sys, IET_arrays * arr, __REAL__ * data1, int nx, int ny, int nz, int nv, FILE ** pfout, const char * _filename, const char * title=nullptr, const char * text=nullptr, double time_stamp=0, int * filter_array=nullptr, int filter_size=0){
+    FILE * flog = sys->log();
+    if (!sys || !arr || !flog || !data1 || !_filename) return 0;
+    char filename[MAX_PATH]; memset(filename, 0, sizeof(filename)); strncpy(filename, _filename, sizeof(filename));
+    return append_save_data(pfout, filename, flog, title, text, nx, ny, nz, nv, data1, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size);
+}
 
-
-
+size_t save_data_immediately(IET_Param * sys, IET_arrays * arr, __REAL__ * data1, int nx, int ny, int nz, int nv, const char * _filename, const char * title=nullptr, const char * text=nullptr, double time_stamp=0, int * filter_array=nullptr, int filter_size=0){
+    FILE * flog = sys->log(); FILE * fout = nullptr;
+    if (!sys || !arr || !flog || !data1 || !_filename) return 0;
+    char filename[MAX_PATH]; memset(filename, 0, sizeof(filename)); strncpy(filename, _filename, sizeof(filename));
+    size_t ret = append_save_data(&fout, filename, flog, title, text, nx, ny, nz, nv, data1, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size);
+    if (fout) fclose(fout);
+    return ret;
+}
 
 
 

@@ -47,6 +47,79 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
             arr->is_energy_calculated = false;
             arr->is_rdf_calculated = false;
             reset_rdf(sys, rdf, sys->out_rdf_bins);
+        } else if (cmd[ic].command==IETCMD_HI_SOLVER){
+            if (cmd[ic].step>=2){
+                sys->lse_a = cmd[ic].command_params_double[0];
+                sys->lse_b = cmd[ic].command_params_double[1];
+              #ifdef _EXPERIMENTAL_
+                perform_experimental_cmd_hi_solver(sys, arr, cmd[ic].command_params_double, cmd[ic].step);
+              #else
+                arr->solver_hi.set_param(sys->lse_a, sys->lse_b, 0, 2, true);
+                fprintf(sys->log(), "solver_hi.set_param(A=%g, B=%g)\n", sys->lse_a, sys->lse_b);
+              #endif
+            } else {
+              fprintf(sys->log(), "%s : LSE: A=%g B=%g\n", software_name, sys->lse_a, sys->lse_b);
+            }
+        } else if (cmd[ic].command==IETCMD_LSE){
+            if (cmd[ic].step>=1){
+              #ifdef _EXPERIMENTAL_
+                experimental_read_IETCMD_LSE(sys, cmd, ic);
+              #else
+                double lse_a = sys->lse_a; bool lse_a_set = false;
+                double lse_b = sys->lse_b; bool lse_b_set = false;
+                for (int i=0; i<MAX_CMD_PARAMS; i++) if (cmd[ic].command_params_int[i]!=0){
+                    if (cmd[ic].command_params_int[i]==1){
+                        lse_a = cmd[ic].command_params_double[i]; lse_a_set = true;
+                    } else if (cmd[ic].command_params_int[i]==2){
+                        lse_b = cmd[ic].command_params_double[i]; lse_b_set = true;
+                    }
+                }
+                if (lse_a_set) sys->lse_a = lse_a;
+                if (lse_b_set) sys->lse_b = lse_b;
+                if (lse_a_set&&!lse_b_set){
+                    sys->calc_ab_automatically = 2;
+                } else if (!lse_a_set&&lse_b_set){
+                    sys->calc_ab_automatically = 1;
+                }
+              #endif
+                calculate_lse_ab_automatically(sys, arr);
+                #ifdef _EXPERIMENTAL_
+                    arr->solver_hi.set_param(sys->lse_a, sys->lse_b, &sys->ex, 0, 2, true);
+                #else
+                    arr->solver_hi.set_param(sys->lse_a, sys->lse_b, 0, 2, true);
+                #endif
+                if (sys->debug_level>=1) fprintf(sys->log(), "debug:: solver_hi.set_param(A=%g, B=%g)\n", sys->lse_a, sys->lse_b);
+            } else {
+                if (sys->debug_level>=1) fprintf(sys->log(), "debug:: LSE: A=%g B=%g\n", sys->lse_a, sys->lse_b);
+            }
+
+        /*
+          #ifdef _EXPERIMENTAL_
+            experimental_read_IETCMD_LSE(sys, cmd, ic);
+          #else
+            double lse_a = sys->lse_a; bool lse_a_set = false;
+            double lse_b = sys->lse_b; bool lse_b_set = false;
+            for (int i=0; i<MAX_CMD_PARAMS; i++) if (cmd[ic].command_params_int[i]!=0){
+                if (cmd[ic].command_params_int[i]==1){
+                    lse_a = cmd[ic].command_params_double[i]; lse_a_set = true;
+                } else if (cmd[ic].command_params_int[i]==2){
+                    lse_b = cmd[ic].command_params_double[i]; lse_b_set = true;
+                }
+            }
+            if (lse_a_set&&!lse_b_set){
+                sys->calc_ab_automatically = 2;
+            } else if (!lse_a_set&&lse_b_set){
+                sys->calc_ab_automatically = 1;
+            }
+          #endif
+            calculate_lse_ab_automatically(sys, arr);
+            if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: LSE: A=%g B=%g\n", sys->lse_a, sys->lse_b);
+            #ifdef _EXPERIMENTAL_
+                arr->solver_hi.set_param(sys->lse_a, sys->lse_b, &sys->ex, 0, 2, true);
+            #else
+                arr->solver_hi.set_param(sys->lse_a, sys->lse_b, 0, 2, true);
+            #endif
+            */
         } else if (cmd[ic].command==IETCMD_SET       ){
             for (int i=0; i<cmd[ic].step&&i<MAX_CMD_PARAMS; i++){
                 if (cmd[ic].command_params_int[i] == IETCMD_v_rism_dielect){
@@ -78,13 +151,16 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                     load_ret = load_array_from_file(&arr->ucoulsr[0][0][0], 1, arr->nz, arr->ny, arr->nx, filename, "coulomb", flog);
                     if (load_ret) clear_tensor3d(arr->ucoullr, arr->nz, arr->ny, arr->nx);
                     if (load_ret) force_field_loaded[1] = true;
-                } else if (cmd[ic].command_params_int[is]==IETCMD_v_ucoul2){
+                } else if (cmd[ic].command_params_int[is]==IETCMD_v_ucoul2 && arr->Ecoul0){
                     snprintf(filename, sizeof(filename), "%s.ef", szfn_in);
                     load_ret = load_array_from_file(&arr->Ecoul0[0][0][0][0], 3, arr->nz, arr->ny, arr->nx, filename, "electrostatic field", flog);
                     if (load_ret) force_field_loaded[2] = true;
                 } else if (cmd[ic].command_params_int[is]==IETCMD_v_cuv){
                     snprintf(filename, sizeof(filename), "%s.cuv", szfn_in);
                     load_ret = load_array_from_file(&arr->cuv[0][0][0][0], sys->nv, arr->nz, arr->ny, arr->nx, filename, "cuv", flog);
+                } else if (cmd[ic].command_params_int[is]==IETCMD_v_csr){
+                    snprintf(filename, sizeof(filename), "%s.cuv", szfn_in);
+                    load_ret = load_array_from_file(&arr->cuv[0][0][0][0], sys->nv, arr->nz, arr->ny, arr->nx, filename, "csr", flog);
                 } else if (cmd[ic].command_params_int[is]==IETCMD_v_huv){
                     snprintf(filename, sizeof(filename), "%s.huv", szfn_in);
                     load_ret = load_array_from_file(&arr->huv[0][0][0][0], sys->nv, arr->nz, arr->ny, arr->nx, filename, "huv", flog);
@@ -133,8 +209,10 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                     case IETCMD_v_hlr: save_item = "hlr";     break;
                     case IETCMD_v_dd:  save_item = "dd";      break;
                     case IETCMD_v_ddp: save_item = "ddp";     break;
+                    case IETCMD_v_theta: save_item = "theta"; break;
                     case -IETCMD_v_dd: save_item = "nphi";    break;
                     case IETCMD_v_guv: save_item = "guv";     break;
+                    case IETCMD_v_ld : save_item = "ld";      break;
                 }
                 if (save_item[0]) snprintf(&save_iterms_buffer[strlen(save_iterms_buffer)], sizeof(save_iterms_buffer)-strlen(save_iterms_buffer), "%s%s", (!save_iterms_buffer[0])?"":",", save_item);
             };
@@ -143,7 +221,7 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                 if (show_run_info) fprintf(flog, "%s : cmd[%d] : waning : output file (-o) not specified and nothing is saved.\n", software_name, ic+1);
             } else for (int is=0; is<cmd[ic].step && is<MAX_CMD_PARAMS; is++){
                 char filename[MAX_PATH+32];
-                char save_info_text[4096]; print_save_extra_info(sys, save_info_text, sizeof(save_info_text));
+                char save_info_text[40960]; print_save_extra_info(sys, save_info_text, sizeof(save_info_text));
                 size_t N3 = arr->nx*arr->ny*arr->nz; size_t N4 = N3*arr->nv; size_t N4m = arr->nvm;
                 size_t write_size = 0; size_t write_original_size = 0; int * filter_array = i_cmd_save_filter>0? cmd[i_cmd_save_filter].command_params_int : nullptr; int filter_size = i_cmd_save_filter>0? cmd[i_cmd_save_filter].step : 0;
                 if (cmd[ic].command_params_int[is]==IETCMD_v_cmd){
@@ -168,7 +246,7 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                     original_size += 1*N3*sizeof(__REAL__) + sizeof(CompressPageHeader);
                     //snprintf(filename, sizeof(filename), "%s.coulomb", szfn_out);
                     //compress_data(filename, "Coulomb potential", flog, 1, arr->nx, arr->ny, arr->nz, &arr->res[0][0][0][0], sys->err_output_uv);
-                } else if (cmd[ic].command_params_int[is]==IETCMD_v_ucoul2){
+                } else if (cmd[ic].command_params_int[is]==IETCMD_v_ucoul2 && arr->Ecoul0){
                     total_size += append_save_data(pfout, szfn_out, flog, "ef", save_info_text, arr->nx, arr->ny, arr->nz, 3, &arr->Ecoul0[0][0][0][0], time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size);
                     original_size += 3*N3*sizeof(__REAL__) + sizeof(CompressPageHeader);
                     //snprintf(filename, sizeof(filename), "%s.ef", szfn_out);
@@ -182,7 +260,10 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                     //total_size += append_save_data(pfout, szfn_out, flog, "ulr", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, &arr->ulr[0][0][0][0], time_stamp, sys);
                     //original_size += arr->nv*N3*sizeof(__REAL__) + sizeof(CompressPageHeader);
                 } else if (cmd[ic].command_params_int[is]==IETCMD_v_cuv){
-                    total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "cuv", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->cuv, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size); original_size += write_original_size;
+                    for (size_t i4=0; i4<N4; i4++) arr->res[0][0][0][i4] = arr->cuv[0][0][0][i4] + arr->clr[0][0][0][i4];
+                    total_size += select_append_save_data(filter_array, filter_size, arr->rismhi_cache[2], &write_size, &write_original_size, pfout, szfn_out, flog, "cuv", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->res, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size); original_size += write_original_size;
+                } else if (cmd[ic].command_params_int[is]==IETCMD_v_csr){
+                    total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "csr", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->cuv, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size); original_size += write_original_size;
                     //total_size += append_save_data(pfout, szfn_out, flog, "cuv", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, &arr->cuv[0][0][0][0], time_stamp, sys);
                     //original_size += arr->nv*N3*sizeof(__REAL__) + sizeof(CompressPageHeader);
                     //snprintf(filename, sizeof(filename), "%s.cuv", szfn_out);
@@ -217,6 +298,10 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                         //snprintf(filename, sizeof(filename), "%s.dd", szfn_out);
                         //compress_data(filename, "dd", flog, arr->nvm, arr->nx, arr->ny, arr->nz, &arr->dd[0][0][0][0], sys->err_output_uv);
                     } else if (show_run_info) fprintf(flog, "%s : cmd[%d] : waning : HI not performed and ddp will not be saved.\n", software_name, ic+1);
+                } else if (cmd[ic].command_params_int[is]==IETCMD_v_theta){
+                    if (arr->dd){
+                        total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "ddp", save_info_text, arr->nx, arr->ny, arr->nz, arr->nvm, arr->theta, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size); original_size += write_original_size;
+                    } else if (show_run_info) fprintf(flog, "%s : cmd[%d] : waning : HI not performed and theta will not be saved.\n", software_name, ic+1);
                 } else if (cmd[ic].command_params_int[is]==-IETCMD_v_dd){
                     if (arr->nphi){
                         total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "nphi", save_info_text, arr->nx, arr->ny, arr->nz, arr->nvm, arr->nphi, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size); original_size += write_original_size;
@@ -235,7 +320,7 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                     //total_size += append_save_data(pfout, szfn_out, flog, "guv", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, &arr->res[0][0][0][0], time_stamp, sys);
                     //original_size += arr->nv*N3*sizeof(__REAL__) + sizeof(CompressPageHeader);
                     //compress_data(filename, "density profile", flog, arr->nv, arr->nx, arr->ny, arr->nz, &arr->res[0][0][0][0], sys->err_output_uv);
-                } else if (cmd[ic].command_params_int[is]==IETCMD_v_rmin){
+                } else if (cmd[ic].command_params_int[is]==IETCMD_v_rmin && arr->r2uvmin){
                     double rc = sys->rvdw; if (rc>sys->rcoul) rc = sys->rcoul; double rc2 = rc*rc;
                     for (size_t i3=0; i3<N3; i3++){
                         if (arr->r2uvmin[0][0][i3]<rc2 && arr->r2uvmin[0][0][i3]>=0){
@@ -247,14 +332,26 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                     total_size += select_append_save_data(filter_array, filter_size, arr->rismhi_cache[2], &write_size, &write_original_size, pfout, szfn_out, flog, "rmin", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->res, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size); original_size += write_original_size;
                     //total_size += append_save_data(pfout, szfn_out, flog, "rmin", save_info_text, arr->nx, arr->ny, arr->nz, 1, &arr->res[0][0][0][0], time_stamp, sys);
                     //original_size += 1*N3*sizeof(__REAL__) + sizeof(CompressPageHeader);
-                } else if (cmd[ic].command_params_int[is]==IETCMD_v_rdf){
-                    double rcutoff = sys->rvdw>sys->rcoul?sys->rvdw:sys->rcoul; snprintf(filename, sizeof(filename), "%s.rdf", szfn_out);
-                    if (!arr->is_rdf_calculated){ calculate_rdf(sys, arr, rdf, rcutoff, sys->out_rdf_bins); arr->is_rdf_calculated = true; }
-                    if (cmd[ic].time_to_run>=0){
-                        print_rdf(filename, sys, arr, rdf, rcutoff, sys->out_rdf_bins);
-                    } else {
-                        print_rdf(filename, sys, arr, rdfs, rcutoff, sys->out_rdf_bins);
+                } else if (cmd[ic].command_params_int[is]==IETCMD_v_rdf){ char filename_without_ext[MAX_PATH]; file_without_extension(szfn_rdf, filename_without_ext);
+                    double rcutoff = sys->rvdw>sys->rcoul?sys->rvdw:sys->rcoul;
+                    snprintf(filename, sizeof(filename), "%s.rdf", filename_without_ext);
+                    bool allow_to_save = true;
+                    if (sys->output_override==0 && access(filename, F_OK) != -1){ // file already exist and not appendable
+                        if (!get_nonoverwrite_filename(filename, flog)) allow_to_save = false;
+                    } else if (sys->output_override==-1 && access(filename, F_OK) != -1){
+                        fprintf(flog, "%s : overide output file %s\n", software_name, filename);
                     }
+                    if (allow_to_save){
+                        if (!arr->is_rdf_calculated){ calculate_rdf(sys, arr, rdf, rcutoff, sys->out_rdf_bins); arr->is_rdf_calculated = true; }
+                        if (cmd[ic].time_to_run>=0){
+                            print_rdf(filename, sys, arr, rdf, rcutoff, sys->out_rdf_bins);
+                        } else {
+                            print_rdf(filename, sys, arr, rdfs, rcutoff, sys->out_rdf_bins);
+                        }
+                    }
+                } else if (cmd[ic].command_params_int[is]==IETCMD_v_ld){
+                    arr->calculate_local_density_from_guv(sys, arr->res, arr->rismhi_cache[2]);
+                    total_size += select_append_save_data(filter_array, filter_size, arr->res, &write_size, &write_original_size, pfout, szfn_out, flog, "rmin", save_info_text, arr->nx, arr->ny, arr->nz, arr->nv, arr->res, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size); original_size += write_original_size;
                 }
             }
           lap_timer_io();
@@ -267,115 +364,28 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                 fprintf(flog, "\n");
             }
       // display results
-        } else if (cmd[ic].command==IETCMD_DISPLAY){
-            if (!arr->is_energy_calculated){ recalculate_energy(sys, arr); arr->is_energy_calculated = true; }
-            for (int is=0; is<cmd[ic].step && is<MAX_CMD_PARAMS; is++){
-                if (cmd[ic].command_params_int[is]==IETCMD_v_ulj){
-                    if (!arr->is_energy_calculated){ recalculate_energy(sys, arr); arr->is_energy_calculated = true; }
-                    fprintf(flog, "  LJ_energy            %g\n", arr->total_energy.lj);
-                } else if (cmd[ic].command_params_int[is]==IETCMD_v_ucoul){
-                    if (!arr->is_energy_calculated){ recalculate_energy(sys, arr); arr->is_energy_calculated = true; }
-                    fprintf(flog, "  Coulomb_energy       %g\n", arr->total_energy.coulsr+arr->total_energy.coullr);
-                } else if (cmd[ic].command_params_int[is]==IETCMD_v_Euv){
-                    if (!arr->is_energy_calculated){ recalculate_energy(sys, arr); arr->is_energy_calculated = true; }
-                    fprintf(flog, "  SolvationEnergy      %g\n", arr->total_energy.lj+arr->total_energy.coulsr+arr->total_energy.coullr);
-                } else if (cmd[ic].command_params_int[is]==IETCMD_v_Ef){
-                    if (!arr->is_energy_calculated){ recalculate_energy(sys, arr); arr->is_energy_calculated = true; }
-
-                    size_t N3 = arr->nx*arr->ny*arr->nz; double rc = sys->rvdw; if (rc>sys->rcoul) rc = sys->rcoul; double grid = 2*1.732050808 / Vector(arr->nx, arr->ny, arr->nz).mod();
-                    __REAL__ **** cache1 = arr->rismhi_cache[2]; __REAL__ **** cache2 = arr->rismhi_cache[3];
-                    for (int iv=0; iv<sys->nvm; iv++) for (int iz=0; iz<arr->nz; iz++) for (int iy=0; iy<arr->ny; iy++) for (int ix=0; ix<arr->nx; ix++) cache2[iv][iz][iy][ix] = (atomised_molecule_uv_potential(sys, arr, iv, ix, iy ,iz)>sys->ucutoff_hs)? 0 : 1; // cache2 = non-vacuum regions
-                    for (int ivm=0; ivm<sys->nvm; ivm++) for (size_t i3=0; i3<N3; i3++) cache2[ivm][0][0][i3] = arr->guvm[ivm][0][0][i3] * (1+grid) - grid; // grid error treatment
-                    perform_3rx1k_convolution(&arr->fftw_mp, cache2, arr->nx, arr->ny, arr->nz, arr->box, sys->nvm, sys->nvm, arr->ld_kernel, arr->dk_nhkvv, sys->xvv_k_shift, arr->n_nhkvv, cache1, arr->fftin, arr->fftout, arr->planf, arr->planb, true); // cache1 = extended vacuum regions
-                    for (int iv=0; iv<sys->nvm; iv++) for (size_t i3=0; i3<N3; i3++) cache1[iv][0][0][i3] = cache1[iv][0][0][i3]>=0?cache1[iv][0][0][i3]:0; // grid error treatment
-                    double switch_index = cmd[ic].command_params_double[is];
-                    if (switch_index<MACHINE_REASONABLE_ERROR){
-                        switch_index = 1;
-                        for (int ivm=0; ivm<sys->nvm; ivm++) for (size_t i3=0; i3<N3; i3++) cache1[ivm][0][0][i3] = 1-cache1[ivm][0][0][i3]; // cache1 = smoothed portion of vacuum
-                    } else {
-                        for (int ivm=0; ivm<sys->nvm; ivm++) for (size_t i3=0; i3<N3; i3++) cache1[ivm][0][0][i3] = pow(fabs(1-cache1[ivm][0][0][i3]), switch_index); // cache1 = smoothed portion of vacuum
-                    }
-                    double Uef0 = 0; double Uef1 = 0; double Uef2 = 0; double dV =  arr->box.x * arr->box.y * arr->box.z / N3; double rb2 = 4*sys->rbohr*sys->rbohr;
-                    for (size_t i3=0; i3<N3; i3++){
-                        double dielect_i3s = 0; double dielect_i3p = 0;
-                        double molarity_vacuum = 0; double molarity_total = 0;
-                        for (int ivm=0; ivm<sys->nvm; ivm++){
-                            double molarity_liquid = (1-cache1[ivm][0][0][i3]) * (arr->dd?arr->dd[ivm][0][0][i3]:sys->nbulk[ivm]);
-                            molarity_vacuum += molarity_liquid;
-                            molarity_total += (arr->dd?arr->dd[ivm][0][0][i3]:sys->nbulk[ivm]);
-                            dielect_i3s += molarity_liquid / sys->dielect_mol[ivm];
-                            dielect_i3p += molarity_liquid * sys->dielect_mol[ivm];
-                        }
-                        molarity_vacuum /= molarity_total;
-                        molarity_vacuum = 1 - molarity_vacuum;
-                        dielect_i3s += molarity_vacuum; dielect_i3s = 1 / dielect_i3s;
-                        dielect_i3p /= molarity_total; dielect_i3p += molarity_vacuum;
-
-                        Vector Eef0 = Vector(arr->Ecoul0[0][0][0][i3], arr->Ecoul0[1][0][0][i3], arr->Ecoul0[2][0][0][i3]);
-                        double Eef02 = Eef0.pow2();
-                        double Uef0_here = dV * (0.5/(4*PI*COULCOOEF)) * Eef02 * sys->scale_coul;
-                        if (arr->r2uvmin[0][0][i3]>=rb2) Uef0 += Uef0_here;
-                        Uef1 += Uef0_here * (1 - 1/dielect_i3s);
-                        //Uef2 += Uef0_here * (1 - 1/(molarity_vacuum>MACHINE_REASONABLE_ERROR? sys->mean_dielect : 1));
-                        Uef2 += Uef0_here * (1 - 1/dielect_i3p);
-                    }
-                    fprintf(flog, "  Electric_field  %12.6g %12.6g %12.6g    #pow: %g\n", Uef0, Uef1, Uef2, switch_index);
-                } else if (cmd[ic].command_params_int[is]==IETCMD_v_EuvDetail){
-                    if (!arr->is_energy_calculated){ recalculate_energy(sys, arr); arr->is_energy_calculated = true; }
-                    fprintf(flog, "  SolvationEnergy      %g + %g = %g , %g -> %g\n", arr->total_energy.lj, arr->total_energy.coulsr+arr->total_energy.coullr, arr->total_energy.lj+arr->total_energy.coulsr+arr->total_energy.coullr, arr->total_energy.Uef0, arr->total_energy.lj-2*arr->total_energy.Uef0*(1-1/sys->mean_dielect));
-                } else if (cmd[ic].command_params_int[is]==IETCMD_v_cuv){
-                    if (!arr->is_energy_calculated){ recalculate_energy(sys, arr); arr->is_energy_calculated = true; }
-                    fprintf(flog, "  DirectCorrelation    %g\n", arr->total_energy.cuv);
-                } else if (cmd[ic].command_params_int[is]==IETCMD_v_DeltaN){
-                    if (!arr->is_energy_calculated){ recalculate_energy(sys, arr); arr->is_energy_calculated = true; }
-                    fprintf(flog, "  DeltaN               %g\n", arr->total_energy.dN);
-                } else if (cmd[ic].command_params_int[is]==IETCMD_v_DeltaN){
-                    if (!arr->is_energy_calculated){ recalculate_energy(sys, arr); arr->is_energy_calculated = true; }
-                    fprintf(flog, "  DeltaN_vac           %g\n", arr->total_energy.dNg);
-                } else if (cmd[ic].command_params_int[is]==IETCMD_v_TS){
-                    if (!arr->is_energy_calculated){ recalculate_energy(sys, arr); arr->is_energy_calculated = true; }
-                    fprintf(flog, "  SovlentEntropy       %g\n", arr->total_energy.entropy);
-                } else if (cmd[ic].command_params_int[is]==IETCMD_v_Chandler_G){
-                    fprintf(flog, "  Chandler_SFE         %g %g %g %g\n", arr->total_energy.Chandler_Guv[0], arr->total_energy.Chandler_Guv[1], arr->total_energy.Chandler_Guv[2], arr->total_energy.Chandler_Guv[3]);
-                } else if (cmd[ic].command_params_int[is]==IETCMD_v_HFE){
-                  #ifdef _EXPERIMENTAL_
-                    fprintf(flog, "  SolvationFreeEnergy  %g\n", experimental_calculate_solvation_free_energy(sys, arr));
-                  #else
-                    fprintf(flog, "  SolvationFreeEnergy  %g %g\n", arr->total_energy.Chandler_Guv[0], arr->total_energy.Chandler_Guv[1]);
-                  #endif
-                } else if (cmd[ic].command_params_int[is]==IETCMD_v_rdf){
-                    double rcutoff = sys->rvdw>sys->rcoul?sys->rvdw:sys->rcoul;
-                    if (!arr->is_rdf_calculated){ calculate_rdf(sys, arr, rdf, rcutoff, sys->out_rdf_bins); arr->is_rdf_calculated = true; }
-                    if (cmd[ic].time_to_run>=0){
-                        print_rdf(flog, sys, arr, rdf, rcutoff, sys->out_rdf_bins);
-                    } else {
-                        print_rdf(flog, sys, arr, rdfs, rcutoff, sys->out_rdf_bins);
-                    }
-                }
+        } else if (cmd[ic].command==IETCMD_DISPLAY || cmd[ic].command==IETCMD_REPORT){
+          // calculate energy
+            //if (!arr->is_energy_calculated){ recalculate_energy(sys, arr); arr->is_energy_calculated = true; }
+            recalculate_energy(sys, arr); arr->is_energy_calculated = true;
+          // display energy
+            if (cmd[ic].command==IETCMD_DISPLAY){
+                display_IET_report(sys, arr, sys->cmd, ic);
+            } else {
+                print_IET_report(sys, arr, sys->cmd, ic);
             }
-        } else if (cmd[ic].command==IETCMD_REPORT){
-            if (!arr->is_energy_calculated){ recalculate_energy(sys, arr); arr->is_energy_calculated = true; }
+          // display other terms, e.g. rdf
+            double rcutoff = sys->rvdw>sys->rcoul?sys->rvdw:sys->rcoul;
+            bool need_print_rdf = false;
             for (int is=0; is<cmd[ic].step && is<MAX_CMD_PARAMS; is++){
-                if (cmd[ic].command_params_int[is]==IETCMD_v_Euv){
-                    if (!arr->is_energy_calculated){ recalculate_energy(sys, arr); arr->is_energy_calculated = true; }
-                    arr->display_solvation_energy(sys, flog, nullptr);
-                } else if (cmd[ic].command_params_int[is]==IETCMD_v_Ef){
-                    if (!arr->is_energy_calculated){ recalculate_energy(sys, arr); arr->is_energy_calculated = true; }
-                    arr->display_solvation_energy_ef(sys, flog, nullptr);
-                } else if (cmd[ic].command_params_int[is]==IETCMD_v_EuvDetail){
-                    if (!arr->is_energy_calculated){ recalculate_energy(sys, arr); arr->is_energy_calculated = true; }
-                    arr->display_solvation_energy_full(sys, flog, nullptr);
-                } else if (cmd[ic].command_params_int[is]==IETCMD_v_cuv){
-                    if (!arr->is_energy_calculated){ recalculate_energy(sys, arr); arr->is_energy_calculated = true; }
-                    arr->display_solvation_correlations(sys, flog, nullptr);
-                } else if (cmd[ic].command_params_int[is]==IETCMD_v_rdf){
-                    double rcutoff = sys->rvdw>sys->rcoul?sys->rvdw:sys->rcoul;
-                    if (!arr->is_rdf_calculated){ calculate_rdf(sys, arr, rdf, rcutoff, sys->out_rdf_bins); arr->is_rdf_calculated = true; }
-                    if (cmd[ic].time_to_run>=0){
-                        print_rdf(flog, sys, arr, rdf, rcutoff, sys->out_rdf_bins);
-                    } else {
-                        print_rdf(flog, sys, arr, rdfs, rcutoff, sys->out_rdf_bins);
-                    }
+                if (cmd[ic].command_params_int[is]==IETCMD_v_rdf) need_print_rdf = true;
+            }
+            if (need_print_rdf){
+                if (!arr->is_rdf_calculated){ calculate_rdf(sys, arr, rdf, rcutoff, sys->out_rdf_bins); arr->is_rdf_calculated = true; }
+                if (cmd[ic].time_to_run>=0){
+                    print_rdf(flog, sys, arr, rdf, rcutoff, sys->out_rdf_bins);
+                } else {
+                    print_rdf(flog, sys, arr, rdfs, rcutoff, sys->out_rdf_bins);
                 }
             }
       // scaling values for arrays
@@ -417,7 +427,7 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                 if (i>=0 && i<cmd[ic].step && i<MAX_CMD_PARAMS) sys->closure_factors[i] = cmd[ic].command_params_double[i];
                 else if (cmd[ic].step<=1) sys->closure_factors[i] = cmd[ic].command_params_double[0];
             }
-        } else if (cmd[ic].command==IETCMD_dielect   ){
+        } else if (cmd[ic].command==IETCMD_DIELECT   ){
             for (int i=0; i<sys->nav; i++){
                 int iaa = sys->av[i].iaa;
                 if (iaa>=0 && iaa<cmd[ic].step && iaa<MAX_CMD_PARAMS) sys->dielect[i] = cmd[ic].command_params_double[iaa];
@@ -425,7 +435,7 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
             for (int i=0; i<cmd[ic].step && i<MAX_CMD_PARAMS && i<MAX_SOL; i++) sys->dielect_mol[i] = cmd[ic].command_params_double[i];
             double dielecti = 0; double density_dielect = 0; for (int ivm=0; ivm<sys->nvm; ivm++){ dielecti += sys->density_mv[ivm] / sys->dielect_mol[ivm]; density_dielect += sys->density_mv[ivm]; } sys->mean_dielect = density_dielect / dielecti;
             //if (sys->esal==CoulAL_Coulomb) sys->mean_dielect = 1;
-        } else if (cmd[ic].command==IETCMD_density   ){
+        } else if (cmd[ic].command==IETCMD_DENSITY   ){
             for (int i=0; i<sys->nav; i++){
                 int iaa = sys->av[i].iaa;
                 if (iaa>=0 && iaa<cmd[ic].step && iaa<MAX_CMD_PARAMS) sys->density_av[i] = cmd[ic].command_params_double[iaa];
@@ -435,15 +445,53 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
         } else if (cmd[ic].command==-IETCMD_BUILD_FF){
             arr->frame_stamp = nframe;
             arr->uuv_is_ready = true;
+            build_uuv_base_on_force_field(sys, arr);
         } else if (cmd[ic].command==IETCMD_BUILD_FF){
             arr->uuv_is_ready = false;
             build_force_field_auto(sys, arr, flog, nframe);
             build_uuv_base_on_force_field(sys, arr);
+        } else if (cmd[ic].command==IETCMD_BUILD_UUV){
+            int esal_save = sys->esal;
+            double mean_dielect_save = sys->mean_dielect;
+            double yukawa_dielect_save = sys->dielect_yukawa;
+            double yukawa_rc_save = sys->rc_yukawafft;
+            sys->esal = cmd[ic].command_params_int[0];
+            sys->mean_dielect = sys->dielect_yukawa = cmd[ic].command_params_double[0];
+            sys->rc_yukawafft = cmd[ic].command_params_double[1]<=0? 1/MACHINE_REASONABLE_ERROR : cmd[ic].command_params_double[1];
+            build_uuv_base_on_force_field(sys, arr);
+            sys->esal = esal_save;
+            sys->mean_dielect = mean_dielect_save;
+            sys->dielect_yukawa = yukawa_dielect_save;
+            sys->rc_yukawafft = yukawa_rc_save;
+        } else if (cmd[ic].command==IETCMD_HOLD){
+            if (cmd[ic].step <=0){
+                sys->_n_hold_list = 0;
+            } else {
+                sys->_n_hold_list = cmd[ic].step;
+                for (int i=0; i<sys->nv && i<cmd[ic].step; i++) sys->_hold_list[i] = cmd[ic].command_params_int[i];
+            }
       // running HI
         } else if (cmd[ic].command>=2000 && cmd[ic].command<2500){  // HI
-            int hial = cmd[ic].command - 2000; // HSHI
+            int hial = cmd[ic].command - 2000;
+
+            build_force_field_auto(sys, arr, flog, nframe);
+            build_uuv_base_on_force_field(sys, arr);
+
+            sys->hial = hial;
+            sys->stepmax_hi = cmd[ic].step;
+            if (!arr->dd) arr->dd = arr->__dd;
 
             if (!arr->zeta && hial>=HIAL_HI){
+                fprintf(sys->log(), "%s%s : error : cannot perform %s: -zeta or [zeta] not defined%s\n", sys->is_log_tty?color_string_of_error:"", software_name, HIAL_name[hial], sys->is_log_tty?color_string_end:"");
+                success = false;
+            } else {
+                if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: perform_hi()\n");
+                bool hi_converged = perform_hi(sys, arr, cmd[ic].command_params_int, cmd[ic].command_params_double, MAX_CMD_PARAMS);
+                //if (sys->detail_level>=1&&!hi_converged) fprintf(flog, "  %s not converged\n", HIAL_name[sys->hial]);
+                if (arr->dd&&(sys->debug_level>=3||sys->debug_show_crc)) fprintf(sys->log(), "DEBUG:: (debug only) check_real_crc(dd)         = %08X\n", check_real_crc(&arr->dd[0][0][0][0], arr->nx*arr->ny*arr->nz));
+            }
+
+            /*if (!arr->zeta && hial>=HIAL_HI){
                 fprintf(sys->log(), "%s%s : error : cannot perform %s: -zeta or [zeta] not defined%s\n", sys->is_log_tty?color_string_of_error:"", software_name, HIAL_name[hial], sys->is_log_tty?color_string_end:"");
                 success = false;
             } else {
@@ -457,7 +505,7 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                 bool hi_converged = perform_hi(sys, arr, cmd[ic].command_params_int, cmd[ic].command_params_double, MAX_CMD_PARAMS);
                 //if (sys->detail_level>=1&&!hi_converged) fprintf(flog, "  %s not converged\n", HIAL_name[sys->hial]);
                 if (arr->dd&&(sys->debug_level>=3||sys->debug_show_crc)) fprintf(sys->log(), "DEBUG:: (debug only) check_real_crc(dd)         = %08X\n", check_real_crc(&arr->dd[0][0][0][0], arr->nx*arr->ny*arr->nz));
-            }
+            }*/
       // running SSOZ/RISM
         } else if (cmd[ic].command==1500){ //RISM_NONE
             build_force_field_auto(sys, arr, flog, nframe);
@@ -469,13 +517,6 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
             }
         } else if (cmd[ic].command>1500 && cmd[ic].command<2000){  // RISM
             int ietal = cmd[ic].command - 1500; // SSOZ, RISM, etc
-
-            size_t N3 = arr->nx*arr->ny*arr->nz; size_t N4 = N3 * sys->nv;
-            if ((cmd[ic].command==1500+IETAL_VRISM||cmd[ic].command==1500+IETAL_IRISM) && cmd[ic].command_params_int[0]>=0){
-                cp_tensor4d(arr->huv, arr->rismhi_cache[4], N4);
-                cp_tensor4d(arr->cuv, arr->rismhi_cache[5], N4);
-                arr->is_energy_calculated = false;
-            }
 
             //clear_tensor4d(arr->huv, N4); clear_tensor4d(arr->cuv, N4);
                 // this is crucially important for some closures.
@@ -501,77 +542,13 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                 if (sys->debug_level>=3||sys->debug_show_crc) fprintf(sys->log(), "DEBUG:: (debug only) check_real_crc(huv)        = %08X\n", check_real_crc(&arr->huv[0][0][0][0], sys->nv*arr->nx*arr->ny*arr->nz));
             }
 
-            if (cmd[ic].command==1500+IETAL_VRISM && cmd[ic].command_params_int[0]>=0){
-                __REAL__ **** cache1 = arr->rismhi_cache[2]; __REAL__ **** cache2 = arr->rismhi_cache[3];
-                __REAL__ **** old_huv = arr->rismhi_cache[4]; __REAL__ **** old_cuv = arr->rismhi_cache[5];
-                double erf_gamma = 10;
-
-                __REAL__ **** clr_for_merge = arr->clr;
-                if (cmd[ic].command_params_int[0]==0){         // merge=default
-                    fprintf(sys->log(), "  Merge vrism/rism\n");
-                } else if (cmd[ic].command_params_int[0]==1){  // merge=clr
-                    fprintf(sys->log(), "  Merge vrism/rism with clr\n");
-                } else if (cmd[ic].command_params_int[0]==2){  // merge=hlr
-                    fprintf(sys->log(), "  Merge vrism/rism with hlr\n");
-                    clr_for_merge = arr->hlr;
-                } else if (cmd[ic].command_params_int[0]==3 || cmd[ic].command_params_int[0]==4){  // smoothed
-                    fprintf(sys->log(), "  Merge vrism/rism with smoothed clr\n");
-
-                    for (size_t i3=0; i3<N3; i3++) cache1[0][0][0][i3] = 1;
-                    perform_3rx1k_convolution(&arr->fftw_mp, cache1, arr->nx, arr->ny, arr->nz, arr->box, 1, 1, arr->local_coulomb_kernel, arr->dk_nhkvv, sys->xvv_k_shift, arr->n_nhkvv, cache2, arr->fftin, arr->fftout, arr->planf, arr->planb, true);
-                    double convolution_mean = 0; for (size_t i3=0; i3<N3; i3++) convolution_mean += cache2[0][0][0][i3]; convolution_mean /= N3;
-                    //printf("\33[31m1*Heaviside(%g-r) = %g\n\33[0m", sys->rlocal_coul?sys->rcoul:sys->rlocal_coul, convolution_mean);
-
-                    for (size_t i3=0; i3<N3; i3++) cache1[0][0][0][i3] = arr->ucoulsr[0][0][i3] + arr->ucoullr[0][0][i3];
-                    perform_3rx1k_convolution(&arr->fftw_mp, cache1, arr->nx, arr->ny, arr->nz, arr->box, 1, 1, arr->local_coulomb_kernel, arr->dk_nhkvv, sys->xvv_k_shift, arr->n_nhkvv, cache2, arr->fftin, arr->fftout, arr->planf, arr->planb, true);
-                    for (size_t i3=0; i3<N3; i3++) cache2[0][0][0][i3] = cache1[0][0][0][i3] - cache2[0][0][0][i3]/convolution_mean;
-                    for (int iv=0; iv<sys->nv; iv++){
-                        double charge = sys->av[iv].charge;
-                        if (cmd[ic].command_params_int[0]==4) charge *= -1;
-                        for (size_t i3=0; i3<N3; i3++) cache1[iv][0][0][i3] = charge * cache2[0][0][0][i3];
-                    }
-
-                    clr_for_merge = cache1;
-                } else if (cmd[ic].command_params_int[0]==5 || cmd[ic].command_params_int[0]==6){  // yukawa
-                    fprintf(sys->log(), "  Merge vrism/rism with Yukawa (kappa=%g)\n", 1/sys->rc_yukawafft);
-                    build_force_field_uuv_YukawaFFT(sys, arr);
-                    if (cmd[ic].command_params_int[0]==6){
-                        for (size_t i4=0; i4<N4; i4++) cache1[0][0][0][i4] = -arr->ulr[0][0][0][i4];
-                        clr_for_merge = cache1;
-                    } else {
-                        clr_for_merge = arr->ulr;
-                    }
-                } else clr_for_merge = nullptr;
-
-                if (clr_for_merge) for (int iv=0; iv<sys->nv; iv++){
-
-                    /*
-                    double mean_guv[2] = { 0, 0 }; double n_mean_guv = 0; double rc = sys->rvdw; if (rc>sys->rcoul) rc = sys->rcoul; double rc2 = rc*rc;
-                    for (size_t i3=0; i3<N3; i3++){
-                        if (!(arr->r2uvmin[0][0][i3]<rc2 && arr->r2uvmin[0][0][i3]>=0)){
-                            mean_guv[0] += old_huv[iv][0][0][i3]+1;
-                            mean_guv[1] += arr->huv[iv][0][0][i3]+1;
-                            n_mean_guv ++;
-                        }
-                    }
-                    if (n_mean_guv>0){ mean_guv[0] /= n_mean_guv; mean_guv[1] /= n_mean_guv; }
-                    */
-
-                    for (size_t i3=0; i3<N3; i3++){
-                        double switching = erf(erf_gamma*clr_for_merge[iv][0][0][i3])*0.5+0.5;
-                        arr->huv[iv][0][0][i3] = old_huv[iv][0][0][i3]*(1-switching)+arr->huv[iv][0][0][i3]*switching;
-                        arr->cuv[iv][0][0][i3] = old_cuv[iv][0][0][i3]*(1-switching)+arr->cuv[iv][0][0][i3]*switching;
-                    }
-                }
-            }
-
       // block commands
         } else if (cmd[ic].command==IETCMD_TI){
             if (cmd[ic].step<2){
                 fprintf(flog, " %s: warning : will not perform TI because too few steps (%d)\n", software_name, cmd[ic].step);
             } else {
                 size_t N3 = arr->nx*arr->ny*arr->nz; size_t N4 = N3*arr->nv; size_t N4m = arr->nvm;
-                EnergyReport TI_energy; memset(&TI_energy, 0, sizeof(TI_energy));
+                IET_Report TI_energy; memset(&TI_energy, 0, sizeof(IET_Report));
               // 1. generate forcefield and save to safe buffer
                 build_force_field_auto(sys, arr, flog, nframe);
               // 2-6. TI windows
@@ -588,7 +565,7 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                         for (size_t i4=0; i4<N4; i4++){ arr->ulj[0][0][0][i4] *= scale; }
                         for (size_t i3=0; i3<N3; i3++){
                             arr->ucoulsr[0][0][i3] *= scale; arr->ucoullr[0][0][i3] *= scale;
-                            arr->Ecoul0[0][0][0][i3] *= scale; arr->Ecoul0[1][0][0][i3] *= scale; arr->Ecoul0[2][0][0][i3] *= scale;
+                            if (arr->Ecoul0){ arr->Ecoul0[0][0][0][i3] *= scale; arr->Ecoul0[1][0][0][i3] *= scale; arr->Ecoul0[2][0][0][i3] *= scale; }
                         }
                     }
                   // 3. process remaining commands until "done"
@@ -601,13 +578,15 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                         fprintf(flog, " TI progress %s%s", buffer, iti+1>=cmd[ic].step?"\n":"\r");
                     }
                   // 4. calculate energy
-                    arr->solvation_energy(sys, sys->ccutoff); double total_mass = arr->total_energy.mass;
-                    if (iti+1==cmd[ic].step) arr->display_solvation_energy_full(sys, flog, nullptr);
+                    //arr->solvation_energy(sys, sys->ccutoff); double total_mass = arr->total_energy.mass;
+                    if (iti+1==cmd[ic].step) print_default_IET_report(sys, arr); //arr->display_solvation_energy_full(sys, flog, nullptr);
+                    double total_mass = arr->report_total->mass;
                   // 5. calculate energy and add to TI statistics, display at the last frame
-                    arr->total_energy *= 1.0/cmd[ic].step; TI_energy += arr->total_energy; TI_energy.mass = total_mass;
+                    (*arr->report_total) *= 1.0/cmd[ic].step; TI_energy += *arr->report_total; TI_energy.mass = total_mass;
                     if (iti+1==cmd[ic].step){
-                        memcpy(&arr->total_energy, &TI_energy, sizeof(TI_energy));
-                        arr->display_solvation_energy_full(sys, flog, nullptr, "", "totalTI", false, false, true);
+                        memcpy(&arr->report_total, &TI_energy, sizeof(TI_energy));
+                        //arr->display_solvation_energy_full(sys, flog, nullptr, "", "totalTI", false, false, true);
+                        print_default_IET_report(sys, arr, "totalTI");
                         ic = ic_next;
                     }
                   // 6. restore potential
@@ -615,7 +594,7 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                         for (size_t i4=0; i4<N4; i4++){ arr->ulj[0][0][0][i4] /= scale; }
                         for (size_t i3=0; i3<N3; i3++){
                             arr->ucoulsr[0][0][i3] /= scale; arr->ucoullr[0][0][i3] /= scale;
-                            arr->Ecoul0[0][0][0][i3] /= scale; arr->Ecoul0[1][0][0][i3] /= scale; arr->Ecoul0[2][0][0][i3] /= scale;
+                            if (arr->Ecoul0){ arr->Ecoul0[0][0][0][i3] /= scale; arr->Ecoul0[1][0][0][i3] /= scale; arr->Ecoul0[2][0][0][i3] /= scale; }
                         }
                     }
                 }

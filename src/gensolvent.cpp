@@ -1,13 +1,15 @@
 const char * software_name = "gensolvent";
-const char * software_version = "0.249.1496";
+const char * software_version = "0.295.1743";
 const char * copyright_string = "(c) Cao Siqin";
 
 #define     __REAL__    double
-#define     MAX_SOL     100     // Max atom site number
 
 #include    "header.h"
 #if defined(_GROMACS4_) || defined(_GROMACS5_) || defined(_GROMACS2016_) || defined(_GROMACS2018_)
   #define _GROMACS_
+#endif
+#ifndef     MAX_SOL
+    #define     MAX_SOL     100     // Max atom site number
 #endif
 #include    <errno.h>
 #include    <stdio.h>
@@ -569,7 +571,7 @@ int main(int argc, char *argv[]){
         if (!mol_pair_dist){ fprintf(stderr, "%s : malloc failure\n", software_name); success = false; }
         else {
             clear_tensor3d<double>(mol_pair_dist, nav, nav, 2);
-            clear_tensor3d<double>(mol_pair_dist_count, nav, nav, 2);
+            clear_tensor3d<double>(mol_pair_dist_count, nav, nav, 1);
         }
     }
 

@@ -1,5 +1,5 @@
 const char * software_name = "ts4sdump";
-const char * software_version = "0.246.1489";
+const char * software_version = "0.293.1741";
 const char * copyright_string = "(c) Cao Siqin";
 
 #define     __REAL__    double
@@ -7,6 +7,7 @@ const char * copyright_string = "(c) Cao Siqin";
 #define _TTYPROMPTCOLOR_
 
 #include    "header.h"
+#include    "main-header.h"
 #include    <errno.h>
 #include    <stdio.h>
 #include    <stdlib.h>
@@ -19,6 +20,7 @@ const char * copyright_string = "(c) Cao Siqin";
 #include    <unistd.h>
 #include    <time.h>
 #include    <libgen.h>
+#include    <dirent.h>
 #include    <sys/time.h>
 #include    <sys/types.h>
 #include    <sys/wait.h>
@@ -32,8 +34,6 @@ const char * copyright_string = "(c) Cao Siqin";
 #define PI  3.1415926535897932384626433832795
 #define EE  2.7182818284590452353602874713527
 #define COULCOOEF 138.9354846
-#define MAX_PATH        1024
-#define MAX_WORD        200
 
 #include    "String2.cpp"
 #include    "crc32_zlib.h"
@@ -43,7 +43,9 @@ const char * copyright_string = "(c) Cao Siqin";
 const char * szHelp ="\
   options:\n\
     [-f]                file to handle\n\
-    -list[-frames]      list all the frames\n\
+    -n                  list number of frames\n\
+    -l, -list[-frames]  list all the frames\n\
+    -dim[ension]        list dimenstions (x y z v) of frames\n\
     -check              check data frame and validate CRC\n\
     -d[ata], -e[xtract] extract data of specific frame\n\
     -%...               data format\n\
@@ -52,10 +54,13 @@ const char * szHelp ="\
       by frame content: title@time\n\
 ";
 
-#define WORK_LIST_HEADERS   1
-#define WORK_CHECK_DATA     2
-#define WORK_EXTRACT_DATA   3
-#define WORK_EXTRACT_EDATA  4
+#define WORK_LIST_N_FRAMES      1
+#define WORK_LIST_HEADERS_L     2
+#define WORK_LIST_HEADERS       3
+#define WORK_LIST_DIM           4
+#define WORK_CHECK_DATA         5
+#define WORK_EXTRACT_DATA       6
+#define WORK_EXTRACT_EDATA      7
 
 int main(int argc, char * argv[]){
     bool success = true;
@@ -69,8 +74,16 @@ int main(int argc, char * argv[]){
             StringNS::string key = argv[i];
             if (key=="-h" || key=="--h" || key=="-help" || key=="--help"){
                 printf("%s %s %s\n%s", software_name, software_version, copyright_string, szHelp); success = false;
+            } else if (key=="-l" || key=="--l"){
+                work = WORK_LIST_HEADERS_L;
+                if (i+1<argc && argv[i+1][0]!='-'){ i++; identifier_string = argv[i]; }
             } else if (key=="-list" || key=="--list" || key=="-list-frames" || key=="--list-frames" || key=="-list_frames" || key=="--list_frames"){
                 work = WORK_LIST_HEADERS;
+                if (i+1<argc && argv[i+1][0]!='-'){ i++; identifier_string = argv[i]; }
+            } else if (key=="-n" || key=="--n" || key=="-number-of-frames" || key=="--number-of-frames" || key=="-number_of_frames" || key=="--number_of_frames"){
+                work = WORK_LIST_N_FRAMES;
+            } else if (key=="-dim" || key=="--dim" || key=="-dimension" || key=="--dimension"){
+                work = WORK_LIST_DIM;
                 if (i+1<argc && argv[i+1][0]!='-'){ i++; identifier_string = argv[i]; }
             } else if (key=="-check" || key=="--check"){
                 work = WORK_CHECK_DATA;
@@ -141,8 +154,9 @@ int main(int argc, char * argv[]){
             }
         }
         if (work!=0){
-            fseek(file, 0, SEEK_SET); while (success){ nframe ++; char text_buffer[4096]; memset(text_buffer, 0, sizeof(text_buffer));
+            fseek(file, 0, SEEK_SET); while (success){ char text_buffer[4096]; memset(text_buffer, 0, sizeof(text_buffer));
                 if (!fread(&header, sizeof(header), 1, file)) break;
+                nframe ++;
                 size_t text_size = header.data_offset - sizeof(header);
                 if (text_size>0){
                     size_t read_size = text_size>sizeof(text_buffer)-1?sizeof(text_buffer)-1:text_size;
@@ -168,21 +182,27 @@ int main(int argc, char * argv[]){
                 if (pass_filter){
                     bool ts4sdump_can_decode = true; bool is_stdout_tty = isatty(fileno(stdout));
                     int bit_precision = header.data_original_length/(header.dimensions[0]*header.dimensions[1]*header.dimensions[2]*header.dimensions[3]);
-                    if (work==WORK_LIST_HEADERS){
+                    if (work==WORK_LIST_HEADERS || work==WORK_LIST_HEADERS_L){
                       // display all headers
                         char print_buffer[4][128]; char title[5]; title[4] = 0; memcpy(title, header.title, 4);
                         if (header.dimensions[0]<=1 && header.dimensions[1]<=1 && header.dimensions[2]<=1 && header.dimensions[3]<=1){
                             printf("%d %4s@%g", nframe, title, header.time_stamp);
                         } else {
-                            printf("%d %4s@%g, %s:%dx%dx%dx%d, CRC32: 0x%08X", nframe, title, header.time_stamp, bit_precision==sizeof(float)?"real4":bit_precision==sizeof(double)?"real8":"unknown precision", header.dimensions[0], header.dimensions[1], header.dimensions[2], header.dimensions[3], header.crc32);
-
-                            if ((header.compressor_version[0]&0xFF)=='u'){
-                                printf(", %s", print_memory_value(print_buffer[0], sizeof(print_buffer[0]), header.data_length));
+                            if (work==WORK_LIST_HEADERS_L){
+                                    printf("%d %4s@%g, %s:%dx%dx%dx%d", nframe, title, header.time_stamp, bit_precision==sizeof(float)?"real4":bit_precision==sizeof(double)?"real8":"unknown precision", header.dimensions[0], header.dimensions[1], header.dimensions[2], header.dimensions[3]);
                             } else {
-                                bool ts4sdump_can_decode = true;
-                                if (compressor_version_compare(header.compressor_version, compressor_ver)!=0) ts4sdump_can_decode = false;
-                                if (((header.compressor_version[0]&0xFF)!='u') && (compressor_ver[1]<header.compressor_version[1] || compressor_ver[2]<header.compressor_version[2] || compressor_ver[3]<header.compressor_version[3])) ts4sdump_can_decode = false;
-                                printf(", %s (%s<- %s in %g KB, %s%s)", print_memory_value(print_buffer[0], sizeof(print_buffer[0]), header.data_length), ts4sdump_can_decode?"":is_stdout_tty?"\33[31m":"", print_memory_value(print_buffer[1], sizeof(print_buffer[1]), header.data_original_length), header.compressor_page_size/1024.0, print_percentage_value(print_buffer[3], sizeof(print_buffer[3]), header.data_length/(double)header.data_original_length), ts4sdump_can_decode?"":is_stdout_tty?"\33[0m":"");
+                                printf("%d %4s@%g, %s:%dx%dx%dx%d, CRC32: 0x%08X", nframe, title, header.time_stamp, bit_precision==sizeof(float)?"real4":bit_precision==sizeof(double)?"real8":"unknown precision", header.dimensions[0], header.dimensions[1], header.dimensions[2], header.dimensions[3], header.crc32);
+                            }
+
+                            if (work==WORK_LIST_HEADERS){
+                                if ((header.compressor_version[0]&0xFF)=='u'){
+                                    printf(", %s", print_memory_value(print_buffer[0], sizeof(print_buffer[0]), header.data_length));
+                                } else {
+                                    bool ts4sdump_can_decode = true;
+                                    if (compressor_version_compare(header.compressor_version, compressor_ver)!=0) ts4sdump_can_decode = false;
+                                    if (((header.compressor_version[0]&0xFF)!='u') && (compressor_ver[1]<header.compressor_version[1] || compressor_ver[2]<header.compressor_version[2] || compressor_ver[3]<header.compressor_version[3])) ts4sdump_can_decode = false;
+                                    printf(", %s (%s<- %s in %g KB, %s%s)", print_memory_value(print_buffer[0], sizeof(print_buffer[0]), header.data_length), ts4sdump_can_decode?"":is_stdout_tty?"\33[31m":"", print_memory_value(print_buffer[1], sizeof(print_buffer[1]), header.data_original_length), header.compressor_page_size/1024.0, print_percentage_value(print_buffer[3], sizeof(print_buffer[3]), header.data_length/(double)header.data_original_length), ts4sdump_can_decode?"":is_stdout_tty?"\33[0m":"");
+                                }
                             }
                         }
                         if (text_size>0){
@@ -197,6 +217,9 @@ int main(int argc, char * argv[]){
                                 printf(" # %s\n", text_buffer);
                             #endif
                         } else printf("\n");
+                    } else if (work==WORK_LIST_DIM){
+                        char title[5]; title[4] = 0; memcpy(title, header.title, 4);
+                        printf("%d %4s@%g %4d %4d %4d %4d\n", nframe, title, header.time_stamp, header.dimensions[0], header.dimensions[1], header.dimensions[2], header.dimensions[3]);
                     } else if (work==WORK_CHECK_DATA||(!data_alread_extracted && (work==WORK_EXTRACT_DATA || work==WORK_EXTRACT_EDATA))){
                       // relocate memory
                         if (data_max_size < header.data_original_length){
@@ -260,6 +283,9 @@ int main(int argc, char * argv[]){
                 }
               // next frame
                 if (!data_read) fseek(file, header.data_offset + header.data_length - sizeof(header), SEEK_CUR);
+            }
+            if (work==WORK_LIST_N_FRAMES){
+                printf("%d\n", nframe);
             }
         }
     }

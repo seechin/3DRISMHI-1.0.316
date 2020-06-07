@@ -29,6 +29,8 @@ namespace StringNS {
         void FromChars(char * lpsz, int len){ text = lpsz; length = len; }
         inline char operator [] (int i){ return text[i]; }
         string Substring(int s, int l){ return string(&text[s], l); }
+        string sub(int s, int l){ return string(s>=length?&text[length]:&text[s], l>length-s?length-s:l); }
+        string sub(int s){ return string(s>=length?&text[length]:&text[s], s>length?0:length-s); }
         static string * Alloc(int len){
           #ifdef _WINDOWS_
             ::LPVOID lpvoid = ::GlobalAlloc(GPTR, len + sizeof(string) + 4);

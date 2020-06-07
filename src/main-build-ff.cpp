@@ -22,13 +22,15 @@
 //    #include "rismhi3d-build-ff-sr-kd.cpp"
 //#endif
 
-void build_force_field_sr_1(int i_begin, int i_end, int * i_now, IET_Param * sys, IET_arrays * arr, __REAL__ **** ulj, __REAL__ *** ucoulsr, __REAL__ *** r2uvmin, __REAL__ **** Ecoul0, __REAL__ *** pseudoliquid_potential, double gamma = 0){
+void build_force_field_sr_1(int i_begin, int i_end, int * i_now, IET_Param * sys, IET_arrays * arr, __REAL__ **** ulj, __REAL__ **** uljr, int uljr_algorithm, __REAL__ *** ucoulsr, __REAL__ *** r2uvmin, __REAL__ **** Ecoul0, double gamma = 0){
     if (gamma<=0) gamma = sys->gamma_erf;
     PDBAtom * ia = sys->traj.atom; int nx = sys->nr[0]; int ny = sys->nr[1]; int nz = sys->nr[2]; int nv = sys->nv;
     Vector box = sys->traj.box; size_t N3 = nx*ny*nz;
     double drx = box.x / sys->nr[0]; double dry = box.y / sys->nr[1]; double drz = box.z / sys->nr[2];
     double coul_cooef = COULCOOEF;
-    double dr_perturb = Vector(drx, dry, drz).mod() /1000;
+    double dr_perturb = Vector(drx/nx, dry/ny, drz/nz).mod() /1000;
+
+    double sigmas[MAX_SOL], epsilons[MAX_SOL];
 
   // 2. short range potential calculation
     double r2vdw = sys->rvdw * sys->rvdw; double r2coul = sys->rcoul * sys->rcoul;
@@ -36,15 +38,78 @@ void build_force_field_sr_1(int i_begin, int i_end, int * i_now, IET_Param * sys
     int gcy_max = (int)((sys->rvdw>sys->rcoul? sys->rvdw : sys->rcoul) / dry); if (gcy_max>ny/2) gcy_max = ny/2;
     int gcz_max = (int)((sys->rvdw>sys->rcoul? sys->rvdw : sys->rcoul) / drz); if (gcz_max>nz/2) gcz_max = nz/2;
 
+    double time_last = get_current_time_double()/1000;
+
     double dbohr = sys->rbohr*2; double dbohr2 = dbohr*dbohr; double epsilon_bohr = sys->epsilon_bohr;
     //for (int ja=0; ja<sys->traj.count; ja++){
     double last_displayed_time = 0; bool is_out_tty = isatty(fileno(sys->log()));
     for (int ja=i_begin; ja<i_end && ja<sys->traj.count; ja++){
+        if (i_begin==0 && sys->debug_level>=3){
+            double time_now = get_current_time_double()/1000;
+            if (time_now - time_last >= 10 || ja+1 >= i_end){
+                time_last = time_now;
+                fprintf(sys->log(), "DEBUG:: build_force_field_sr_1(%d, [%d, %d], lj, coulsr%s) : %5.3f%%\n", ja+1, i_begin+1, i_end+1, r2uvmin?", r2uvmin":"", (ja+1)*100.0/i_end);
+                fflush(sys->log());
+            }
+        }
+      // 2.0 compute all sigma/epsilon between solute[ja] and solvents
+        /*for (int iv=0; iv<nv; iv++){
+            double sigma = sys->mixingrule_sigma_geometric? (sys->as[ja].sqrt_sigma*sys->av[iv].sqrt_sigma) : (sys->as[ja].sigma + sys->av[iv].sigma)/2;
+            double epsilon = 4 * sys->as[ja].sqrt_epsilon * sys->av[iv].sqrt_epsilon;
+            if (sys->av[iv].sqrt_epsilon<0 && sys->as[ja].sqrt_epsilon<0){
+                epsilon = -1;
+            } else if (sys->av[iv].sqrt_epsilon<0){
+                sigma = sys->av[iv].sigma;
+                epsilon = -1;
+            } else if (sys->as[ja].sqrt_epsilon<0){
+                sigma = sys->as[ja].sigma;
+                epsilon = -1;
+            } else {
+              #ifdef _EXPERIMENTAL_
+                if (sys->b_solvent_dipole_correction) perform_solvent_dipole_correction(sys, ja, iv, sigma, epsilon);
+              #endif
+            }
+            sigmas[iv] = sigma; epsilons[iv] = epsilon;
+        }
+        //*/
+
+        for (int iv=0; iv<nv; iv++){
+            double solute_sigma = sys->as[ja].sigma;
+                //if (sys->allow_sigma_correct_rism && sys->as[ja].i_sigma_list>=0&&iv<sys->as[ja].n_sigma_list){
+                if (sys->as[ja].i_sigma_list>=0&&iv<sys->as[ja].n_sigma_list){
+                    solute_sigma = sys->sigma_list[sys->as[ja].i_sigma_list+iv];
+                }
+            double solute_epsilon = sys->as[ja].epsilon;
+            //double solute_sqrt_epsilon = sys->as[ja].sqrt_epsilon;
+                if (sys->as[ja].i_epsilon_list>=0&&iv<sys->as[ja].n_epsilon_list){
+                    solute_epsilon = sys->epsilon_list[sys->as[ja].i_epsilon_list+iv];
+                }
+            double solute_sqrt_epsilon = sqrt(fabs(solute_epsilon));
+
+            double sigma = sys->mixingrule_sigma_geometric? (sqrt(solute_sigma)*sys->av[iv].sqrt_sigma) : (solute_sigma + sys->av[iv].sigma)/2;
+            double epsilon = 4 * solute_sqrt_epsilon * sys->av[iv].sqrt_epsilon;
+            if (sys->av[iv].sqrt_epsilon<0 && solute_sqrt_epsilon<0){
+                epsilon = -1;
+            } else if (sys->av[iv].sqrt_epsilon<0){
+                sigma = sys->av[iv].sigma;
+                epsilon = -1;
+            } else if (solute_sqrt_epsilon<0){
+                sigma = sys->as[ja].sigma;
+                epsilon = -1;
+            }
+            sigmas[iv] = sigma; epsilons[iv] = epsilon;
+            //if (solute_sigma!=sys->as[ja].sigma) printf("%d.%s.%s-%s.%s: sigma_uv %g -> %g\n", ja, sys->as[ja].mole, sys->as[ja].name, sys->av[iv].mole, sys->av[iv].name, sys->as[ja].sigma, solute_sigma);
+        }
+        //*/
+
+
+//printf("%4s %s sigma: %12f %12f\n", sys->as[ja].mole, sys->as[ja].name, sys->as[ja].sigma, sigmas[0]);
         //if (sys->debug_level>=5) fprintf(sys->log(), "DEBUG :: ffsr of %s.%s (mass=%g, charge=%g, sigma=%g, epsilon=%g)\n", sys->as[ja].mole, sys->as[ja].name, sys->as[ja].mass, sys->as[ja].charge, sys->as[ja].sigma, sys->as[ja].epsilon);
       // 2.1 prepare parameters for short range interaction
         int gx = (int)(ia[ja].r.x / drx); int gy = (int)(ia[ja].r.y / dry); int gz = (int)(ia[ja].r.z / drz);
-        double sigma2 = sys->as[ja].sigma*sys->as[ja].sigma;
+        double sigmaj2 = sys->as[ja].sigma*sys->as[ja].sigma;
         double rbcharge = sys->rbcharge<=0? (sys->as[ja].sigma/2<dbohr?dbohr:sys->as[ja].sigma/2/(sys->rbcharge>-MACHINE_REASONABLE_ERROR?1:-sys->rbcharge)) : sys->rbcharge;
+        //double rbcharge = sys->rbcharge<=0? (sys->as[ja].sigma<dbohr?dbohr:sys->as[ja].sigma/(sys->rbcharge>-MACHINE_REASONABLE_ERROR?1:-sys->rbcharge)) : sys->rbcharge;
         double charge = sys->as[ja].charge;
         double charge_mb = sys->as[ja].charge; if (sys->as[ja].nbond>0){ charge_mb = sys->as[ja].charge * 0.5;
             for (int i=0; i<sys->as[ja].nbond; i++){ int ii = ja+sys->as[ja].ibond[i]; if (ii>=0&&ii<sys->nas) charge_mb += sys->as[ii].charge*(1-0.5) / (sys->as[ii].nbond<1?1:sys->as[ii].nbond); }
@@ -63,7 +128,7 @@ void build_force_field_sr_1(int i_begin, int i_end, int * i_now, IET_Param * sys
           // distance and minimal distance calculation
             double r2 = deltax*deltax + deltay*deltay + deltaz*deltaz; //double r = -1;
             if (r2 <= sys->errtolrism) r2 = sys->errtolrism;
-            if (r2uvmin[iz][iy][ix]<0||r2<r2uvmin[iz][iy][ix]) r2uvmin[iz][iy][ix] = r2;
+            if (r2uvmin) if (r2uvmin[iz][iy][ix]<0||r2<r2uvmin[iz][iy][ix]) r2uvmin[iz][iy][ix] = r2;
             //if (r2 <= r2vdw && sys->as[ja].is_key && (r2uvmin[iz][iy][ix]<0||r2<r2uvmin[iz][iy][ix])) r2uvmin[iz][iy][ix] = r2;
 
           // Lennard-Jones short range (LJSR)
@@ -72,6 +137,24 @@ void build_force_field_sr_1(int i_begin, int i_end, int * i_now, IET_Param * sys
             } else if (r2<r2vdw){
               // LJSR
                 for (int iv=0; iv<nv; iv++){
+                    double sigma = sigmas[iv]; double epsilon = epsilons[iv]; double ulj_current_point = 0; double uljr_current_point = 0;
+                    if (epsilon<0){
+                        if (r2<sigma*sigma) ulj_current_point = uljr_current_point = epsilon_bohr;
+                    } else {
+                        double s2 = sigma*sigma/r2; double s6 = s2*s2*s2; double s12 = s6*s6;
+                        //ulj[iv][iz][iy][ix] += epsilon * (s12 - s6);
+                        ulj_current_point = epsilon * (s12 - s6);
+                        if (uljr){
+                            if (uljr_algorithm==2){ // additional term for RBC related theories
+                                uljr_current_point = epsilon * s12;
+                            }
+                        }
+                    }
+                    ulj[iv][iz][iy][ix] += ulj_current_point;
+                    if (uljr) uljr[iv][iz][iy][ix] += uljr_current_point;
+
+
+                    /*
                     double sigma = sys->mixingrule_sigma_geometric? (sys->as[ja].sqrt_sigma*sys->av[iv].sqrt_sigma) : (sys->as[ja].sigma + sys->av[iv].sigma)/2;
                     double epsilon_2_j = sys->as[ja].sqrt_epsilon; double epsilon_2_i = sys->av[iv].sqrt_epsilon;
                     double ulj_current_point = 0;
@@ -93,6 +176,7 @@ void build_force_field_sr_1(int i_begin, int i_end, int * i_now, IET_Param * sys
                         ulj_current_point = epsilon * (s12 - s6);
                     }
                     ulj[iv][iz][iy][ix] += ulj_current_point;
+                    */
                 }
             }
 
@@ -112,9 +196,11 @@ void build_force_field_sr_1(int i_begin, int i_end, int * i_now, IET_Param * sys
                         double r_2 = r + dr_perturb; double r2_2 = r_2 * r_2;
                         double erf_factor_2 = 1 - erf(gamma * r_2);
                         double fval = coulpre * (erf_factor_2 / r_2 - erf_factor / r) / dr_perturb;
-                        Ecoul0[0][iz][iy][ix] += fval * (deltax / r);
-                        Ecoul0[1][iz][iy][ix] += fval * (deltay / r);
-                        Ecoul0[2][iz][iy][ix] += fval * (deltaz / r);
+                        if (Ecoul0){
+                            if (Ecoul0[0]) Ecoul0[0][iz][iy][ix] += fval * (deltax / r);
+                            if (Ecoul0[1]) Ecoul0[1][iz][iy][ix] += fval * (deltay / r);
+                            if (Ecoul0[2]) Ecoul0[2][iz][iy][ix] += fval * (deltaz / r);
+                        }
                     } else {
                         //ucoulsr[iz][iy][ix] += coulpre * erf_factor / rbcharge;
                         ///*
@@ -123,9 +209,11 @@ void build_force_field_sr_1(int i_begin, int i_end, int * i_now, IET_Param * sys
                         double r_2 = r + dr_perturb; double r2_2 = r_2 * r_2; double x_2 = r_2 / rbcharge;
                         double erf_factor_2 = 1 - erf(gamma * r_2);
                         double fval = coulpre * (erf_factor_2 * (2 - x_2*x_2) - erf_factor * (2 - x*x)) / rbcharge;
-                        Ecoul0[0][iz][iy][ix] += fval * (deltax / r);
-                        Ecoul0[1][iz][iy][ix] += fval * (deltay / r);
-                        Ecoul0[2][iz][iy][ix] += fval * (deltaz / r);
+                        if (Ecoul0){
+                            if (Ecoul0[0]) Ecoul0[0][iz][iy][ix] += fval * (deltax / r);
+                            if (Ecoul0[1]) Ecoul0[1][iz][iy][ix] += fval * (deltay / r);
+                            if (Ecoul0[2]) Ecoul0[2][iz][iy][ix] += fval * (deltaz / r);
+                        }
                         //*/
                     }
                 } else {
@@ -133,9 +221,11 @@ void build_force_field_sr_1(int i_begin, int i_end, int * i_now, IET_Param * sys
                         ucoulsr[iz][iy][ix] += coulpre / r;
                         double r_2 = r + dr_perturb; double r2_2 = r_2 * r_2;
                         double fval = coulpre * (1 / r_2 - 1 / r) / dr_perturb;
-                        Ecoul0[0][iz][iy][ix] += fval * (deltax / r);
-                        Ecoul0[1][iz][iy][ix] += fval * (deltay / r);
-                        Ecoul0[2][iz][iy][ix] += fval * (deltaz / r);
+                        if (Ecoul0){
+                            if (Ecoul0[0]) Ecoul0[0][iz][iy][ix] += fval * (deltax / r);
+                            if (Ecoul0[1]) Ecoul0[1][iz][iy][ix] += fval * (deltay / r);
+                            if (Ecoul0[2]) Ecoul0[2][iz][iy][ix] += fval * (deltaz / r);
+                        }
                     } else {
                         //ucoulsr[iz][iy][ix] += coulpre / rbcharge;
                         ///*
@@ -143,24 +233,14 @@ void build_force_field_sr_1(int i_begin, int i_end, int * i_now, IET_Param * sys
                         ucoulsr[iz][iy][ix] += coulpre * (2 - x*x) / rbcharge;
                         double r_2 = r + dr_perturb; double r2_2 = r_2 * r_2; double x_2 = r_2 / rbcharge;
                         double fval = coulpre * (1 * (2 - x_2*x_2) - 1 * (2 - x*x)) / rbcharge;
-                        Ecoul0[0][iz][iy][ix] += fval * (deltax / r);
-                        Ecoul0[1][iz][iy][ix] += fval * (deltay / r);
-                        Ecoul0[2][iz][iy][ix] += fval * (deltaz / r);
+                        if (Ecoul0){
+                            if (Ecoul0[0]) Ecoul0[0][iz][iy][ix] += fval * (deltax / r);
+                            if (Ecoul0[1]) Ecoul0[1][iz][iy][ix] += fval * (deltay / r);
+                            if (Ecoul0[2]) Ecoul0[2][iz][iy][ix] += fval * (deltaz / r);
+                        }
                         //*/
                     }
                 }
-            }
-
-          // pseudoliquid model for HI
-          if (r2<sigma2/sys->pseudoliquid_potential_r_factor && pseudoliquid_potential){
-              pseudoliquid_potential[iz][iy][ix] += charge;
-            //if (r2<sigma2/sys->pseudoliquid_potential_r_factor && pseudoliquid_potential){
-            //    double s2 = sigma2; if (s2<0.3*0.3) s2 = 0.3*0.3;
-            //    pseudoliquid_potential[iz][iy][ix] += COULCOOEF * charge / (s2*1.25992105);
-            //if (r2<sigma2/1.25992105/1.25992105 && pseudoliquid_potential){
-            //    pseudoliquid_potential[iz][iy][ix] += COULCOOEF * charge / (sigma2/1.25992105/1.25992105);
-            //if (r2<pseudoliquid_potential_r2 && pseudoliquid_potential){
-            //    pseudoliquid_potential[iz][iy][ix] += charge;
             }
 
           // others
@@ -189,12 +269,14 @@ void build_force_field_sr_1(int i_begin, int i_end, int * i_now, IET_Param * sys
 void merge_force_field_mp_data(IET_arrays * arr, size_t i3b, size_t i3e, size_t i4b, size_t i4e){
     for (int it=0; it<arr->ffsr_mp.np; it++){
         for (size_t i4=i4b; i4<i4e; i4++) arr->ulj[0][0][0][i4] += arr->ffsr_mp.lj[it][0][0][0][i4];
+        if (arr->uljr) for (size_t i4=i4b; i4<i4e; i4++) arr->uljr[0][0][0][i4] += arr->ffsr_mp.ljr[it][0][0][0][i4];
         for (size_t i3=i3b; i3<i3e; i3++) arr->ucoulsr[0][0][i3] += arr->ffsr_mp.coulsr[it][0][0][i3];
         //for (size_t i3=i3b; i3<i3e; i3++) arr->ulpbe[0][0][i3] += arr->ffsr_mp.ulpbe[it][0][0][i3];
-        for (size_t i3=i3b; i3<i3e; i3++) arr->Ecoul0[0][0][0][i3] += arr->ffsr_mp.coulp2[it][0][0][0][i3];
-        for (size_t i3=i3b; i3<i3e; i3++) arr->Ecoul0[1][0][0][i3] += arr->ffsr_mp.coulp2[it][1][0][0][i3];
-        for (size_t i3=i3b; i3<i3e; i3++) arr->Ecoul0[2][0][0][i3] += arr->ffsr_mp.coulp2[it][2][0][0][i3];
-        for (size_t i3=i3b; i3<i3e; i3++) arr->pseudoliquid_potential[0][0][i3] += arr->ffsr_mp.pseudoliquid_potential[it][0][0][i3];
+        if (arr->Ecoul0){
+            if (arr->Ecoul0[0]) for (size_t i3=i3b; i3<i3e; i3++) arr->Ecoul0[0][0][0][i3] += arr->ffsr_mp.coulp2[it][0][0][0][i3];
+            if (arr->Ecoul0[1]) for (size_t i3=i3b; i3<i3e; i3++) arr->Ecoul0[1][0][0][i3] += arr->ffsr_mp.coulp2[it][1][0][0][i3];
+            if (arr->Ecoul0[2]) for (size_t i3=i3b; i3<i3e; i3++) arr->Ecoul0[2][0][0][i3] += arr->ffsr_mp.coulp2[it][2][0][0][i3];
+        }
         if (arr->r2uvmin) for (size_t i3=i3b; i3<i3e; i3++){
             if (arr->ffsr_mp.r2uvmin[it][0][0][i3]>0) if (arr->r2uvmin[0][0][i3]<0 || arr->r2uvmin[0][0][i3]>arr->ffsr_mp.r2uvmin[it][0][0][i3]){
                 arr->r2uvmin[0][0][i3] = arr->ffsr_mp.r2uvmin[it][0][0][i3];
@@ -221,19 +303,24 @@ void merge_force_field_mp_data(IET_Param * sys, IET_arrays * arr){
   #endif
 }
 #endif
+
+int get_uljr_algorithm(IET_Param * sys){
+    if (sys->cmd_rbc_ljr_allowed) return 2;
+    return 0;
+}
+
 void build_force_field_sr(IET_Param * sys, IET_arrays * arr){
     size_t N3 = arr->nx * arr->ny * arr->nz; size_t N4 = sys->nv * N3;
   // 1. clear memory
     clear_tensor4d(arr->ulj, arr->nv*arr->nz*arr->ny*arr->nx);
     clear_tensor3d(arr->ucoulsr, arr->nz,arr->ny,arr->nx);
     //clear_tensor3d(arr->ulpbe, arr->nz,arr->ny,arr->nx);
-    clear_tensor4d(arr->Ecoul0, 3*arr->nz*arr->ny*arr->nx);
-    clear_tensor3d(arr->pseudoliquid_potential, arr->nz*arr->ny*arr->nx);
-    for (size_t i3=0; i3<N3; i3++) arr->r2uvmin[0][0][i3] = -1;
+    if (arr->Ecoul0) clear_tensor4d(arr->Ecoul0, 3*arr->nz*arr->ny*arr->nx);
+    if (arr->r2uvmin) for (size_t i3=0; i3<N3; i3++) arr->r2uvmin[0][0][i3] = -1;
   // 2. Calculate the short range forcefield
   #ifdef _LOCALPARALLEL_
     if (arr->ffsr_mp.np<=1){
-        build_force_field_sr_1(0, sys->traj.count, nullptr, sys, arr, arr->ulj, arr->ucoulsr, arr->r2uvmin, arr->Ecoul0, arr->pseudoliquid_potential);
+        build_force_field_sr_1(0, sys->traj.count, nullptr, sys, arr, arr->ulj, arr->uljr, get_uljr_algorithm(sys), arr->ucoulsr, arr->r2uvmin, arr->Ecoul0);
     } else {
         arr->ffsr_mp.reset_for_calculation(true, true);
         /*if (!sys->advanced_paralling_ff_batch){
@@ -264,7 +351,7 @@ void build_force_field_sr(IET_Param * sys, IET_arrays * arr){
             arr->ffsr_mp.irange[i_task_idle][0] = ibegin; arr->ffsr_mp.irange[i_task_idle][1] = iend;
         }
         for (int it=1; it<arr->ffsr_mp.np; it++) arr->ffsr_mp.mp_tasks[it] = MPTASK_FFSR;
-        build_force_field_sr_1(arr->ffsr_mp.irange[0][0], arr->ffsr_mp.irange[0][1], &arr->ffsr_mp.irange[0][2], sys, arr, arr->ffsr_mp.lj[0], arr->ffsr_mp.coulsr[0], arr->ffsr_mp.r2uvmin[0], arr->ffsr_mp.coulp2[0], arr->ffsr_mp.pseudoliquid_potential[0]);
+        build_force_field_sr_1(arr->ffsr_mp.irange[0][0], arr->ffsr_mp.irange[0][1], &arr->ffsr_mp.irange[0][2], sys, arr, arr->ffsr_mp.lj[0], arr->ffsr_mp.ljr[0], get_uljr_algorithm(sys), arr->ffsr_mp.coulsr[0], arr->ffsr_mp.r2uvmin[0], arr->ffsr_mp.coulp2[0]);
         //}
 
 
@@ -279,7 +366,7 @@ void build_force_field_sr(IET_Param * sys, IET_arrays * arr){
         merge_force_field_mp_data(sys, arr);
     }
   #else
-    build_force_field_sr_1(0, sys->traj.count, nullptr, sys, arr, arr->ulj, arr->ucoulsr, arr->r2uvmin, arr->Ecoul0, arr->pseudoliquid_potential);
+    build_force_field_sr_1(0, sys->traj.count, nullptr, sys, arr, arr->ulj, arr->uljr, get_uljr_algorithm(sys), arr->ucoulsr, arr->r2uvmin, arr->Ecoul0);
   #endif
     if (sys->detail_level>=3) fprintf(sys->log(), "  FFSR: all %d atoms processed\n", sys->nas);
     if (sys->debug_level>=3 || sys->debug_show_crc){
@@ -375,20 +462,22 @@ void build_charge_mesh(IET_Param * sys, IET_arrays * arr, __REAL__ *** o, Vector
         int gx = (int)(vr.x / drx); int gy = (int)(vr.y / dry); int gz = (int)(vr.z / drz);
         if (sys->pbc_x) gx = ff_pbc_i(gx, nx); if (sys->pbc_y) gy = ff_pbc_i(gy, ny); if (sys->pbc_z) gz = ff_pbc_i(gz, nz);
         if (gx>=0 && gx<nx && gy>=0 && gy<ny && gz>=0 && gz<nz){
-            int ig1[3], ig2[3]; double w1[3], w2[3]; bool in_box = true;
-            ig1[0] = (int)floor(vr.x / drx); ig2[0] = ig1[0] + 1; w2[0] = vr.x / drx - ig1[0]; w1[0] = 1 - w2[0]; if (ig1[0]<0 || ig1[0]>=nx || ig2[0]<0 || ig2[0]>=nx) in_box = false;
-            ig1[1] = (int)floor(vr.y / dry); ig2[1] = ig1[1] + 1; w2[1] = vr.y / dry - ig1[1]; w1[1] = 1 - w2[1]; if (ig1[1]<0 || ig1[1]>=ny || ig2[1]<0 || ig2[1]>=ny) in_box = false;
-            ig1[2] = (int)floor(vr.z / drz); ig2[2] = ig1[2] + 1; w2[2] = vr.z / drz - ig1[2]; w1[2] = 1 - w2[2]; if (ig1[2]<0 || ig1[2]>=nz || ig2[2]<0 || ig2[2]>=nz) in_box = false;
-            if (in_box){
-                o[ig1[2]][ig1[1]][ig1[0]] += sys->as[ja].charge * w1[2]*w1[1]*w1[0];
-                o[ig1[2]][ig1[1]][ig2[0]] += sys->as[ja].charge * w1[2]*w1[1]*w2[0];
-                o[ig1[2]][ig2[1]][ig1[0]] += sys->as[ja].charge * w1[2]*w2[1]*w1[0];
-                o[ig1[2]][ig2[1]][ig2[0]] += sys->as[ja].charge * w1[2]*w2[1]*w2[0];
-                o[ig2[2]][ig1[1]][ig1[0]] += sys->as[ja].charge * w2[2]*w1[1]*w1[0];
-                o[ig2[2]][ig1[1]][ig2[0]] += sys->as[ja].charge * w2[2]*w1[1]*w2[0];
-                o[ig2[2]][ig2[1]][ig1[0]] += sys->as[ja].charge * w2[2]*w2[1]*w1[0];
-                o[ig2[2]][ig2[1]][ig2[0]] += sys->as[ja].charge * w2[2]*w2[1]*w2[0];
-            } else o[gz][gy][gx] += sys->as[ja].charge;
+            int ig1[3], ig2[3]; double w1[3], w2[3];
+            ig1[0] = (int)floor(vr.x / drx); ig2[0] = ig1[0] + 1; w2[0] = vr.x / drx - ig1[0]; w1[0] = 1 - w2[0];
+                ig1[0] = ff_pbc_i(ig1[0], nx); ig2[0] = ff_pbc_i(ig2[0], nx);
+            ig1[1] = (int)floor(vr.y / dry); ig2[1] = ig1[1] + 1; w2[1] = vr.y / dry - ig1[1]; w1[1] = 1 - w2[1];
+                ig1[1] = ff_pbc_i(ig1[1], ny); ig2[1] = ff_pbc_i(ig2[1], ny);
+            ig1[2] = (int)floor(vr.z / drz); ig2[2] = ig1[2] + 1; w2[2] = vr.z / drz - ig1[2]; w1[2] = 1 - w2[2];
+                ig1[2] = ff_pbc_i(ig1[2], nz); ig2[2] = ff_pbc_i(ig2[2], nz);
+
+            o[ig1[2]][ig1[1]][ig1[0]] += sys->as[ja].charge * w1[2]*w1[1]*w1[0];
+            o[ig1[2]][ig1[1]][ig2[0]] += sys->as[ja].charge * w1[2]*w1[1]*w2[0];
+            o[ig1[2]][ig2[1]][ig1[0]] += sys->as[ja].charge * w1[2]*w2[1]*w1[0];
+            o[ig1[2]][ig2[1]][ig2[0]] += sys->as[ja].charge * w1[2]*w2[1]*w2[0];
+            o[ig2[2]][ig1[1]][ig1[0]] += sys->as[ja].charge * w2[2]*w1[1]*w1[0];
+            o[ig2[2]][ig1[1]][ig2[0]] += sys->as[ja].charge * w2[2]*w1[1]*w2[0];
+            o[ig2[2]][ig2[1]][ig1[0]] += sys->as[ja].charge * w2[2]*w2[1]*w1[0];
+            o[ig2[2]][ig2[1]][ig2[0]] += sys->as[ja].charge * w2[2]*w2[1]*w2[0];
 //printf(":::: add %12f charge to %d %d %d: %.2f %.2f %.2f\n", sys->as[ja].charge, gx, gy, gz, vr.x/box.x*nx, vr.y/box.y*ny, vr.z/box.z*nz);
         }
     }
@@ -407,29 +496,23 @@ void build_force_field_lr(IET_Param * sys, IET_arrays * arr, bool clear_data_fir
     for (int iz=0; iz<nz; iz++) for (int iy=0; iy<ny; iy++) for (int ix=0; ix<nx; ix++) arr->ucoullr[iz][iy][ix] += arr->fftin[iz][iy][ix];
 
   // 4. do partial derivatives and get long range Ecoul0
-    Vector shift; Vector shift_box = Vector(arr->box.x/arr->nx, arr->box.y/arr->ny, arr->box.z/arr->nz);
-    shift = Vector(-shift_box.x /1000, 0, 0);
-      build_charge_mesh(sys, arr, arr->fftin, &shift); perform_PME(sys, arr, gamma);
-      for (int iz=0; iz<nz; iz++) for (int iy=0; iy<ny; iy++) for (int ix=0; ix<nx; ix++) arr->Ecoul0[0][iz][iy][ix] += (arr->fftin[iz][iy][ix] - arr->ucoullr[iz][iy][ix]) / (shift_box.x /1000);
-    shift = Vector(0, -shift_box.y /1000, 0);
-      build_charge_mesh(sys, arr, arr->fftin, &shift); perform_PME(sys, arr, gamma);
-      for (int iz=0; iz<nz; iz++) for (int iy=0; iy<ny; iy++) for (int ix=0; ix<nx; ix++) arr->Ecoul0[1][iz][iy][ix] += (arr->fftin[iz][iy][ix] - arr->ucoullr[iz][iy][ix]) / (shift_box.y /1000);
-    shift = Vector(0, 0, -shift_box.z /1000);
-      build_charge_mesh(sys, arr, arr->fftin, &shift); perform_PME(sys, arr, gamma);
-      for (int iz=0; iz<nz; iz++) for (int iy=0; iy<ny; iy++) for (int ix=0; ix<nx; ix++) arr->Ecoul0[2][iz][iy][ix] += (arr->fftin[iz][iy][ix] - arr->ucoullr[iz][iy][ix]) / (shift_box.z /1000);
+    Vector shift; Vector shift_box = Vector(arr->box.x/arr->nx, arr->box.y/arr->ny, arr->box.z/arr->nz) /1000;
+    if (arr->Ecoul0 && arr->Ecoul0[0]){
+        shift = Vector(-shift_box.x, 0, 0);
+        build_charge_mesh(sys, arr, arr->fftin, &shift); perform_PME(sys, arr, gamma);
+        for (int iz=0; iz<nz; iz++) for (int iy=0; iy<ny; iy++) for (int ix=0; ix<nx; ix++) arr->Ecoul0[0][iz][iy][ix] += (arr->fftin[iz][iy][ix] - arr->ucoullr[iz][iy][ix]) / (shift_box.x);
+    }
+    if (arr->Ecoul0 && arr->Ecoul0[1]){
+        shift = Vector(0, -shift_box.y, 0);
+        build_charge_mesh(sys, arr, arr->fftin, &shift); perform_PME(sys, arr, gamma);
+        for (int iz=0; iz<nz; iz++) for (int iy=0; iy<ny; iy++) for (int ix=0; ix<nx; ix++) arr->Ecoul0[1][iz][iy][ix] += (arr->fftin[iz][iy][ix] - arr->ucoullr[iz][iy][ix]) / (shift_box.y);
+    }
+    if (arr->Ecoul0 && arr->Ecoul0[2]){
+        shift = Vector(0, 0, -shift_box.z);
+        build_charge_mesh(sys, arr, arr->fftin, &shift); perform_PME(sys, arr, gamma);
+        for (int iz=0; iz<nz; iz++) for (int iy=0; iy<ny; iy++) for (int ix=0; ix<nx; ix++) arr->Ecoul0[2][iz][iy][ix] += (arr->fftin[iz][iy][ix] - arr->ucoullr[iz][iy][ix]) / (shift_box.z);
+    }
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 void build_force_field_uuv_ur(IET_Param * sys, IET_arrays * arr, double dielect=1){

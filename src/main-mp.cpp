@@ -13,7 +13,7 @@
 
         if (id<=0) return;
         int ndeadclk = 0;
-        bool alert_on_exit = sys->debug_level>=1? true : false;
+        bool alert_on_exit = sys->debug_level>=2? true : false;
         //fprintf(stderr, "FORK: %d\n", id); fflush(stderr);
         while (true){ double time_stamp = get_current_time_double();
             if (__mp_tasks[id] == MPTASK_TERMINATE){
@@ -48,18 +48,29 @@
                 RISMHI3D_RISMNS::perform_closure(sys, arr, id);
                 jobs_done_total ++; jobs_time_total += get_current_time_double() - time_stamp;
             } else if (__mp_tasks[id] == MPTASK_FFSR){
-                build_force_field_sr_1(arr->ffsr_mp.irange[id][0], arr->ffsr_mp.irange[id][1], &arr->ffsr_mp.irange[id][2], sys, arr, arr->ffsr_mp.lj[id], arr->ffsr_mp.coulsr[id], arr->ffsr_mp.r2uvmin[id], arr->ffsr_mp.coulp2[id], arr->ffsr_mp.pseudoliquid_potential[id]);
+                build_force_field_sr_1(arr->ffsr_mp.irange[id][0], arr->ffsr_mp.irange[id][1], &arr->ffsr_mp.irange[id][2], sys, arr, arr->ffsr_mp.lj[id], arr->ffsr_mp.ljr[id], get_uljr_algorithm(sys), arr->ffsr_mp.coulsr[id], arr->ffsr_mp.r2uvmin[id], arr->ffsr_mp.coulp2[id]);
                 jobs_done_total ++; jobs_time_total += get_current_time_double() - time_stamp;
             } else if (__mp_tasks[id] == MPTASK_MERGE_FF_DATA){
                 merge_force_field_mp_data(sys, arr, id);
                 jobs_done_total ++; jobs_time_total += get_current_time_double() - time_stamp;
+            } else if (__mp_tasks[id] == MPTASK_RUN){
+                FILE * fd = popen(sys->batch_cmd[id], "r"); if (fd){
+                    memset(sys->batch_out[id], 0, sys->len_batch_out);
+                    // sprintf(sys->batch_out[id], "id %d :", id);
+                    while (true){
+                        size_t len_now = strnlen(sys->batch_out[id], sys->len_batch_out);
+                        if (!fgets(&sys->batch_out[id][len_now], sys->len_batch_out-len_now-1, fd)) break;
+                    }
+                    // printf("%s", sys->batch_out[id]);
+                    pclose(fd);
+                }
             }
             __mp_tasks[id] = MPTASK_NONE;
         }
         join_here(id, mp_by_fork);
         if (alert_on_exit && sys->log()){ char buffer[1024];
             if (id==0) fprintf(sys->log(), "DEBUG:: %s ends normally\n", mp_by_fork?"process":"thread[0]");
-            else if (sys->log()==stdout||sys->log()==stderr) fprintf(sys->log(), "DEBUG:: %s[%d] done after %d jobs, %s sec\n", mp_by_fork?"process":"thread", id, jobs_done_total, display_time(jobs_time_total / 1000.0, buffer));
+            else if (sys->log()==stdout||sys->log()==stderr) fprintf(sys->log(), "DEBUG:: %s[%d]: %d jobs, %s sec\n", mp_by_fork?"process":"thread", id, jobs_done_total, display_time(jobs_time_total / 1000.0, buffer));
         }
         #ifdef _LOCALPARALLEL_PTHREAD_
             pthread_exit(nullptr);

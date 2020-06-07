@@ -1,25 +1,11 @@
-inline double atomised_molecule_uv_potential(IET_Param * sys, IET_arrays * arr, int iv, size_t i3){
-    double U = 0;
-    for (int iia=sys->vmmapi[iv][0]; iia<sys->vmmapi[iv][1]; iia++){ int ia = sys->vmmap[iia]; U += arr->uuv[ia][0][0][i3]; }
-    return U;
-}
 
-inline double atomised_molecule_uv_potential(IET_Param * sys, IET_arrays * arr, int iv, int ix, int iy, int iz){
-    double U = 0;
-    for (int iia=sys->vmmapi[iv][0]; iia<sys->vmmapi[iv][1]; iia++){ int ia = sys->vmmap[iia]; U += arr->uuv[ia][iz][iy][ix]; }
-    return U;
-    /*
-    for (int iia=sys->vmmapi[iv][0]; iia<sys->vmmapi[iv][1]; iia++){ int ia = sys->vmmap[iia]; U += arr->ulj[ia][iz][iy][ix] + (arr->ucoulsr[iz][iy][ix] + arr->ucoullr[iz][iy][ix]) * sys->av[ia].charge; }
-    return U / sys->temperature * sys->default_temperature;
-    */
-}
 
-void calculate_potential_HI(__REAL__ **** potential, __REAL__ **** dd, __REAL__ *** zeta, __REAL__ **** guvm, __REAL__ **** phi, double llambda[MAX_SOL], __REAL__ **** buf0, __REAL__ **** buf1, IET_Param * sys, IET_arrays * arr){
+void calculate_potential_HI(__REAL__ **** potential, __REAL__ **** dd, __REAL__ *** zeta, __REAL__ **** theta, __REAL__ **** phi, double llambda[MAX_SOL], __REAL__ **** buf0, __REAL__ **** buf1, IET_Param * sys, IET_arrays * arr){
     size_t N3 = arr->nx*arr->ny*arr->nz;
   // 1. ρ_i = n_i ρ^b_i g_i
-    //for (int iv=0; iv<sys->nvm; iv++) for (int iz=0; iz<arr->nz; iz++) for (int iy=0; iy<arr->ny; iy++) for (int ix=0; ix<arr->nx; ix++) buf0[iv][iz][iy][ix] = dd[iv][iz][iy][ix] * guvm[iv][iz][iy][ix] * sys->density_hi;
+    //for (int iv=0; iv<sys->nvm; iv++) for (int iz=0; iz<arr->nz; iz++) for (int iy=0; iy<arr->ny; iy++) for (int ix=0; ix<arr->nx; ix++) buf0[iv][iz][iy][ix] = dd[iv][iz][iy][ix] * theta[iv][iz][iy][ix] * sys->density_hi;
     for (int iv=0; iv<sys->nvm; iv++) for (size_t i3=0; i3<N3; i3++){
-        buf0[iv][0][0][i3] = (dd[iv][0][0][i3] * guvm[iv][0][0][i3] + (arr->nphi?arr->nphi[iv][0][0][i3]:0)) * sys->density_hi;
+        buf0[iv][0][0][i3] = (dd[iv][0][0][i3] * theta[iv][0][0][i3] + (arr->nphi?arr->nphi[iv][0][0][i3]:0)) * sys->density_hi;
     }
   // 2. ρ_j * ζ_ij term -> buf1
     lap_timer_livm();
@@ -66,25 +52,15 @@ void subroutine_hi_solver(IET_Param * sys, IET_arrays * arr, int id){
     }
 }
 
-void prepare_hi_guv(IET_Param * sys, IET_arrays * arr){
-    // step 1: prepare guvm
-        if (sys->guvmal == GUVMAL_GUV){
-            for (int i=0; i<sys->nvm; i++){ int guvmi = sys->vmmapi[i][0];
-                for (int j=sys->vmmapi[i][0]; j<sys->vmmapi[i][1]; j++) if (sys->av[sys->vmmap[j]].is_key) guvmi = sys->vmmap[j];
-                size_t N3 = arr->nx * arr->ny * arr->nz;
-                for (size_t i3=0; i3<N3; i3++) arr->guvm[i][0][0][i3] = arr->huv[guvmi][0][0][i3] + 1;
-            }
-        } else {
-        //} else if (sys->guvmal == GUVMAL_THETA*/){
-            for (int iv=0; iv<sys->nvm; iv++) for (int iz=0; iz<arr->nz; iz++) for (int iy=0; iy<arr->ny; iy++) for (int ix=0; ix<arr->nx; ix++){
-                double U = atomised_molecule_uv_potential(sys, arr, iv, ix, iy ,iz);
-                if (U >= sys->ucutoff_hs) arr->guvm[iv][iz][iy][ix] = 0; else arr->guvm[iv][iz][iy][ix] = 1;
-            }
+void prepare_hi_theta(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, double * hi_param, int n_hi_param){
+    for (int iv=0; iv<sys->nvm; iv++) for (int iz=0; iz<arr->nz; iz++) for (int iy=0; iy<arr->ny; iy++) for (int ix=0; ix<arr->nx; ix++){
+        double U = atomised_molecule_uv_potential(sys, arr, iv, ix, iy ,iz);
+        if (U >= sys->ucutoff_hs) arr->theta[iv][iz][iy][ix] = 0; else arr->theta[iv][iz][iy][ix] = 1;
+    }
 
-          #ifdef _EXPERIMENTAL_
-            post_prepare_guv(sys, arr);
-          #endif
-      }
+  #ifdef _EXPERIMENTAL_
+    post_prepare_theta(sys, arr, hi_param_indicator, hi_param, n_hi_param);
+  #endif
 }
 
 bool prepare_phi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, double * hi_param, int n_hi_param){
@@ -93,10 +69,7 @@ bool prepare_phi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, do
     bool success = false;
   // step 2: preparation, majorly phi
     size_t N3 = arr->nx * arr->ny * arr->nz; size_t N4 = sys->nv * N3; size_t N4m = sys->nvm * N3;
-    if (sys->hial == HIAL_HSHI){
-        if (arr->phi&&arr->phi[0]) clear_tensor4d(arr->phi, N4m);
-        if (arr->nphi&&arr->nphi[0]) clear_tensor4d(arr->nphi, N4m);
-    } else if (sys->hial==HIAL_DPHI){   // dipole HI
+    if (sys->hial==HIAL_DPHI){   // dipole HI
         if (arr->phi && arr->phi[0]){
             double beta = sys->default_temperature/sys->temperature;
             //double nphi_unit = fabs(arr->zeta[0][0][0] *sys->density_mv[0]);
@@ -124,29 +97,12 @@ bool prepare_phi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, do
             }
         }
         if (arr->phi&&arr->phi[0]) clear_tensor4d(arr->phi, N4m);
-    } else if (sys->hial==HIAL_PLHI || sys->hial==HIAL_RES_PLHI){
-        double beta = sys->default_temperature / sys->temperature;
-        int ivm_select = 0; for (int ivm=1; ivm<=sys->nvm; ivm++) if (sys->nbulk[ivm]>sys->nbulk[ivm_select]) ivm_select = ivm;
-
-        double r_mol_selected = pow(fabs(1/(sys->bulk_density_mv[ivm_select]*4*PI/3)), 1.0/3);
-        double zeta0_selected = arr->zeta[ivm_select][0][0] / sys->nbulk[ivm_select] * sys->density_hi / 4;
-        double dipole_selected = sys->dipole_mv[ivm_select];
-        double dipole_self_interaction = COULCOOEF*dipole_selected*dipole_selected/r_mol_selected/r_mol_selected/r_mol_selected; if (dipole_self_interaction<fabs(zeta0_selected)) dipole_self_interaction = -fabs(zeta0_selected);
-
-//printf("selected effective solvent: %d, dipole %g, zeta %g\n", ivm_select, dipole_selected, zeta0_selected);
-        if (arr->nphi && arr->nphi[0] && dipole_self_interaction!=0){
-            clear_tensor4d(arr->nphi, N4m);
-            double hardsphere_cutoff = sys->ucutoff_hs;
-            double r_pseudoliquid_potential = r_mol_selected;
-            double r2_pseudoliquid_potential = r_pseudoliquid_potential*r_pseudoliquid_potential;
-            for (size_t i3=0; i3<N3; i3++){
-                if (sys->hial!=HIAL_RES_PLHI || atomised_molecule_uv_potential(sys, arr, ivm_select, i3) > hardsphere_cutoff){
-                    double n = fabs(beta * COULCOOEF * arr->pseudoliquid_potential[0][0][i3] / r2_pseudoliquid_potential * dipole_selected / sys->dielect_hi / dipole_self_interaction); if (n>1) n = 1;
-                    arr->nphi[ivm_select][0][0][i3] = n;
-                }
-            }
-        }
+    } else if (sys->hial == HIAL_HSHI){
         if (arr->phi&&arr->phi[0]) clear_tensor4d(arr->phi, N4m);
+        if (arr->nphi&&arr->nphi[0]) clear_tensor4d(arr->nphi, N4m);
+    } else {
+        if (arr->phi&&arr->phi[0]) clear_tensor4d(arr->phi, N4m);
+        if (arr->nphi&&arr->nphi[0]) clear_tensor4d(arr->nphi, N4m);
     }
 
 
@@ -160,15 +116,15 @@ bool perform_hi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, dou
     bool success = false;
     size_t N3 = arr->nx * arr->ny * arr->nz; size_t N4 = sys->nv * N3; size_t N4m = sys->nvm * N3;
 
-  // step 1: prepare initial guess of n[]
+  // step 1: prepare theta
+    prepare_hi_theta(sys, arr, hi_param_indicator, hi_param, n_hi_param);
+
+  // step 2: preparation, majorly phi
+    prepare_phi(sys, arr, hi_param_indicator, hi_param, n_hi_param);
+
+  // step 3: prepare initial guess of n[]
     for (int iv=0; iv<sys->nvm; iv++) for (size_t i3=0; i3<=N3; i3++) arr->dd[iv][0][0][i3] = sys->nbulk[iv];
-    //for (int iv=0; iv<sys->nvm; iv++){ for (int jv=0; jv<sys->nvm; jv++){ printf(" %11g", arr->zeta[iv][jv][0]); }; printf("\n"); }
-  // step 2: prepare guvm
-    prepare_hi_guv(sys, arr);
-  // step 3: preparation, majorly phi
-    if (prepare_phi(sys, arr, hi_param_indicator, hi_param, n_hi_param)){
-        //return true;
-    }
+
   // step 4 prepare lambda for each site
     if (arr->zeta && sys->hial>=HIAL_HI){
         double llambda[MAX_SOL];
@@ -184,7 +140,7 @@ bool perform_hi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, dou
             while (sys->suspend_calculation){ usleep(100); sys->is_suspend_calculation = true; continue; }
             sys->is_suspend_calculation = false;
           // 5.1. calculate potential -> arr->ddpot_hi
-            calculate_potential_HI(arr->ddpot_hi, arr->dd, arr->convolution_zeta, arr->guvm, arr->phi, llambda, arr->res, arr->ddpot_hi, sys, arr);
+            calculate_potential_HI(arr->ddpot_hi, arr->dd, arr->convolution_zeta, arr->theta, arr->phi, llambda, arr->res, arr->ddpot_hi, sys, arr);
           #ifdef _LOCALPARALLEL_
             for (int i=1; i<sys->nt; i++) __mp_tasks[i] = MPTASK_HI_SOLVER;
             subroutine_hi_solver(sys, arr, 0);
@@ -194,6 +150,11 @@ bool perform_hi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, dou
           #endif
           // 5.3. step forward and loop control
             lap_timer_livm();
+            if (sys->_n_hold_list>0){
+                for (int i=0; i<sys->_n_hold_list; i++){
+                    int ivh = sys->_hold_list[i]-1; if (ivh>=0 && ivh<sys->nvm) clear_tensor3d(arr->res[ivh], N3);
+                }
+            }
             double err = 0;
             if (sys->ndiis_hi<=1){
                 for (int iv=0; iv<sys->nvm; iv++) for (int iz=0; iz<arr->nz; iz++) for (int iy=0; iy<arr->ny; iy++) for (int ix=0; ix<arr->nx; ix++){
@@ -212,7 +173,8 @@ bool perform_hi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, dou
                 if (err < 0 || err > 10){ success = false; stop_loop = true; }
                 if (istep+1 >= sys->stepmax_hi) stop_loop = true;
             if (flog && (sys->detail_level>=1 || stop_loop)){
-                fprintf(flog, fabs(err)<1e-4?"  %s step %d, stdev: %.1e":"  %s step %d, stdev: %.5f", HIAL_name[sys->hial], istep+1, err);
+                fprintf(flog, "  %s step %d, stdev: ", HIAL_name[sys->hial], istep+1);
+                fprintf(flog, (fabs(err)<sys->errtolhi||istep+1>=sys->stepmax_hi)? "%g" : fabs(err)<1e-4?"%.1e":"%.5f", err);
                 if (sys->ndiis_hi>1) fprintf(flog, " (DIISx%d)", arr->diis_hi.ndiis);
                 if (sys->debug_level>=3||sys->detail_level>=3){ char time_buffer[40]; fprintf(flog, " (%s)", get_current_time_text(time_buffer)); }
                 fprintf(flog, "%s", (sys->detail_level==1&&istep+1<sys->stepmax_hi&&err>sys->errtolhi&&is_out_tty)?"\r":"\n");
@@ -224,9 +186,9 @@ bool perform_hi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, dou
         }
     }
 
-  #ifdef _EXPERIMENTAL_
+  /*#ifdef _EXPERIMENTAL_
     experimental_post_perform_hi(sys, arr, hi_param_indicator, hi_param, n_hi_param);
-  #endif
+  #endif*/
 
   // step 6. If not converged, return false
     return success;

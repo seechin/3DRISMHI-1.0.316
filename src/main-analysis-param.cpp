@@ -10,26 +10,37 @@ const char * szHelp1 = "\
   Basic options:\n\
     -p, -solvent            iet parameter file, can be screen/con\n\
                             will also lookup the $IETLIB folder\n\
-    -s, -solute             solute file, start with: [solute] or [atom]\n\
+    -s, -solute             solute file (solute file, prmtop file, or a folder)\n\
+                            batch mode enabled when both -s and -f are folders\n\
 ";
 #ifdef _GROMACS_
   const char * szHelpXTC = "\
-    -f/traj/conf[ormation]  trajectory file: pdb, gro or xtc\n\
+    -f/traj/conf[ormation]  trajectory file: pdb, gro, xtc, or a folder\n\
      -b, -e, -be            xtc time range (ps), default all frames: -be 0,0\n\
      -dt                    xtc time step (ps), default all frames: -dt 0\n\
 ";
 #else
   const char * szHelpXTC = "\
-    -f, traj                trajectory file: pdb, gro\n\
+    -f, traj                trajectory file: pdb, gro, or a folder\n\
 ";
 #endif
 #if defined(_LOCALPARALLEL_) && defined(_LOCALPARALLEL_PTHREAD_)
+ #if defined(_FFTWMPPARALLEL_)
+ const char * szHelpMP = "\
+   -nt/thread, -np/fork    parallel thread/process number\n\
+   -ntb, -npb              thread/process number for batch mode\n\
+   -ntf, -nt-fft           thread number for multithread fftw\n\
+";
+ #else
   const char * szHelpMP = "\
     -nt/thread, -np/fork    parallel thread/process number\n\
+    -ntb, -npb              thread/process number for batch mode\n\
 ";
+ #endif
 #elif defined(_LOCALPARALLEL_)
 const char * szHelpMP = "\
     -np/fork                parallel process number\n\
+    -npb                    parallel process number for batch mode\n\
 ";
 #else
   const char * szHelpMP = "";
@@ -38,10 +49,12 @@ const char * szHelp2 = "\
     -nice[-level] 0         nice level of process\n\
     -nr                     grid number, e.g.: 50, 40x60x50, 40 60 50\n\
     -rc 1                   interaction cutoff for LJ and Coulomb\n\
-    -pwd                    redirect the current working directory immediately\n\
+    -pwd, -workspace        choose a new directory for log and output\n\
     -log                    log file, could be stdout/con/screen/stderr\n\
     -v[bose] [0/1/2]        0=-silent, 1=-brief, 2=-detailed, 2=-v\n\
     -debug[-level] 0/1/2/3  debug level: 0=-nodebug, 1=-debug, 2=-debugging\n\
+      -[no-]debug-crc       calculate & display CRC32 of important data blocks\n\
+      -[no-]debug-xvv       display the beginning elements of wvv & nhkvv\n\
 ";
 #ifdef _LIBZ_
   const char * szHelpLibZ = "\
@@ -61,6 +74,7 @@ const char * szHelp3 = "\
     -cmd, -do               add a command to the queue\n\
     -do-rism-kh             perform 3DRISM-KH\n\
     -do-rismhi-d2/kh        perform 3DRISM-HI-D2MSA/KH\n\
+    -[default/set-]box      set default box. -set-box replaces all frame boxes.\n\
 ";
 
 const char * szHelpCommands = "\
@@ -70,7 +84,9 @@ const char * szHelpCommands = "\
     done/break              end current block treatment\n\
     build-force-field       force to (re-)build ff\n\
     rism/hi:step=100        run rism/hi with given steps\n\
-      rism: rism/ssoz/vrism, hi: nohi/hshi/plhi\n\
+      rism: rism/ssoz/vrism, hi: nohi/hshi/h2hi/eehi/e2hi\n\
+    ci:[factor=]0.02        run CI with given slope of CI correction\n\
+    hold:1,2,3,...          the sites that being held in rism/ssoz\n\
     closure[-a/m]:...       20 (or less) closures, or one closure for all\n\
       closures: HNC/HNCB, PY/PH, MSA/KGK, KH/PSE2/.../PSE10\n\
       other closures: D2/DH/MS, MHNC/BPGGHNC/VM/MP\n\
@@ -100,6 +116,7 @@ const char * szHelpAdvanced = "\
     -Yukawa/YukawaFFT       = -Coulomb YukawaFFT\n\
   Advanced settings: (all optional)\n\
     [#]include   [-p file]  (in -p file) include another file\n\
+    -%14.7g                 output data format\n\
     -temperature, -T 298    temperature in Kelvin\n\
     -ff opls[aa]/amber/gaff\n\
       -amberff/-ffamber     = -Tdef 502.97 -arith-sigma\n\
@@ -111,6 +128,8 @@ const char * szHelpAdvanced = "\
     -dielect-hi             dielect const for Coulomb based HI theories\n\
     -ccutoff 5              cutoff for hybrid closures\n\
     -cceil 148              (-gceil) = exp(ccutoff)\n\
+    -gcutoff-liquid         \n\
+    -gcutoff-ef             \n\
     -rdf-grps               1-1,2-1,3-2,...\n\
     -rdf-content rdf        (-rdf-for) rdf/h/dd/c/ch, lj/f/coul/ef/ff\n\
     -rdf-bins 50            number of rdf bins\n\
@@ -118,7 +137,6 @@ const char * szHelpAdvanced = "\
     -arith[metic]-sigma     sigma combining rule: arithmetic mean\n\
     -geo[metric]-sigma      sigma combining rule: geometric mean\n\
     -Tdef 120.27            (-default_temperature) T of forcefield energy unit\n\
-    -skip-missing-xvv never skip zero xvv in FFT, can be yes/no\n\
     -list, -ls              list settings and parameters (no calculation)\n\
     -test                   test settings but do not actually run\n\
     -rb 0.052911            (-Bohr-radius) minimal hardsphere radius\n\
@@ -126,22 +144,26 @@ const char * szHelpAdvanced = "\
     -pbc xyz                period boundary box: xy, yz, xyz, no/none=-nopbc\n\
     -significant-digits     (-sd), digits for IETS output, can be float/double\n\
     -external-electrofield  external electric field in eV/nm, default: 0 0 0\n\
-    -[no-]enhance-closure   * closure enhancement, default -enhance-closure\n\
-    -bounded-to-ram         memory not exceeding RAM capacity\n\
-      -ignore-memory-capacity (-ignore-ram) is off by default\n\
+    -dynamic-delvv 1        dynamic factor for convergence\n\
     -xvv-extend 0           times of expanding wvv&nhkvv\n\
+    -xvv-scheme so          scheme for xvv, can be none/so/sc/sx/s1\n\
+    -xvv-scale              factors to scale hvv, order: columns in [gvv_map]\n\
+    -allow/-forbid          turn on/off options:\n\
+        pme                 allow/forbid to perform PME\n\
+        missing-xvv         allow/forbid to skip undefeined xvv, default off\n\
+        missing-zeta        allow/forbid to skip undefeined zeta, default off\n\
+        exceed-ram          allow/forbid to exceed physical memory, default off\n\
+        alloc-rmin/Ef       * allow/forbid to generate rmin/Ef\n\
   Internal features: (all optional, cautious!)\n\
     -dielect-from-dipole    automatically calculate dielects from dipoles\n\
       -dielect-use-original disable any recalculation of dielect constants\n\
     -dipole-from-dielect    automatically calculate dipoles from dielects\n\
       -dipole-use-original  disable any recalculation of dipoles\n\
     -[in]homo-iet           homogeneous rism, default: off\n\
-    -coulomb-renorm-factor 1 scaling of Coulomb in hardsphere\n\
-    -lj-renorm-factor 1     scaling of LJ in hardsphere\n\
     -doPME, -noPME          do or skip PME, default: -doPME\n\
     -pme-gamma              * long range PME decreasor, default value: 2/rcoul\n\
-    -xvv-k-shift            * the first k of wvv/nhkvv (unit dk), default: 0\n\
-    -tr-vv, -trvv           * transpose of *vv, yes/true or (default) no/false\n\
+    -gvv-align[ment]-left   the input gvv is aligned left (default)\n\
+    -gvv-align[ment]-right  the input gvv is aligned right\n\
     -page[-]size 4096       page size in compression\n\
 ";
 
@@ -177,10 +199,9 @@ const char * szHelpSecRISM3D_HI = "\
     -ccutoff-[hs]hi         potential cutoff for theta function in HSHI\n\
     -lsa, -lsb              default: -lsa 0.3 -lsb auto\n\
                             Auto value of B = (lnλ - <ab|zeta|ab>/<c|c>)/Aρ\n\
-    -guvm                   * guv algorithm: theta@[uuv>]5.00(default) or guv\n\
-    -theta                  -guvm theta with cutoff, default: -theta 5\n\
+    -theta                  theta cutoff of potential (in kT), default: -theta 5\n\
     -phi-cutoff             lowerbound of phi in HI equation, default: -20\n\
-    -lambda                 list of λ. llambda for lnλ, default: all 1 (lnλ=0)\n\
+    -lambda                 a list of λ. llambda for lnλ, default: all 1 (lnλ=0)\n\
 ";
 const char * szHelpSecRISM3DS = "\
   [solute] defines solute in -s:\n\
@@ -196,7 +217,7 @@ const char * szHelpSecATOM = "\
   [gvv_map] defines the mapping of the solvent-solvent RDF (for gvv)\n\
     3 cols: atom_name_or_index_1 atom_name_or_index_2 gvv_col_num\n\
   [zeta] defines the command to generate zeta\n\
-    4 cols: molecule_1 molecule_2 zeta_at_origin zeta_cutoff_r\n\
+    4 cols: molecule_1 molecule_2 zeta_cutoff_r zeta_at_origin [zeta_unit]\n\
 ";
 const char * szHelpNote = "Note: \n\
   1. Default units: [L]=nm, [E]=kJ/mol, [q]=e\n\
@@ -218,7 +239,47 @@ int closure_from_string(StringNS::string closure_str, STKeywordTableUnit * alias
     return -1;
 }
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+int analysis_solvent_atom_additional_word(IET_Param * sys, AtomSite * atom, StringNS::string sline, const char * script_name, int script_line){
+    if (sline.text[0]=='#' || (sline.text[0]=='/'&&sline.text[1]=='/')) return -1; // stop further analysis
+    if (sline=="done" || sline=="break") return -1;
+
+    if (sline.sub(0, 7)=="charge:" || sline.sub(0, 7)=="charge="){
+        atom->charge = atof(&sline.text[7]);
+    } else if (sline.sub(0, 2)=="q:" || sline.sub(0, 2)=="q="){
+        atom->charge = atof(&sline.text[2]);
+    } else if (sline.sub(0, 4)=="esp:" || sline.sub(0, 4)=="esp="){
+        atom->charge_esp = atof(&sline.text[4]);
+    } else if (sline.sub(0, 11)=="charge-esp:" || sline.sub(0, 11)=="charge-esp=" || sline.sub(0, 11)=="charge_esp:" || sline.sub(0, 11)=="charge_esp="){
+        atom->charge_esp = atof(&sline.text[11]);
+    } else if (sline.sub(0, 6)=="q-esp:" || sline.sub(0, 6)=="q-esp=" || sline.sub(0, 6)=="q_esp:" || sline.sub(0, 6)=="q_esp="){
+        atom->charge_esp = atof(&sline.text[6]);
+
+    } else if (sline.sub(0, 3)=="dc:" || sline.sub(0, 3)=="dc=" || sline.sub(0, 18)=="dipole-correction:" || sline.sub(0, 18)=="dipole-correction=" || sline.sub(0, 18)=="dipole_correction:" || sline.sub(0, 18)=="dipole_correction="){
+        StringNS::string this_sline = sline.sub(18);
+            if (sline.sub(0, 3)=="dc:" || sline.sub(0, 3)=="dc=") this_sline = sline.sub(3);
+        StringNS::string sl[4]; int nw = analysis_csv_line(sline.sub(3), sl, 4);
+        if (nw>=2){
+            atom->ren_charge = atof(sl[0].text);
+            atom->ren_bond = atof(sl[1].text);
+            atom->ren_dielect = 1;
+            if (nw>=3) atom->ren_dielect = atof(sl[2].text);
+            //if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: %s[%d] : solvent %s.%s defined with dipole correction: q=%g, bond=%g, dielect=%g\n", get_second_fn(script_name), script_line, atom->mole, atom->name, atom->ren_charge, atom->ren_bond, atom->ren_dielect);
+        } else {
+            fprintf(sys->log(), "%s%s : %s[%d] : error : not enough arguments for dc: %s%s\n", sys->is_log_tty?color_string_of_error:"", software_name, get_second_fn(script_name), script_line, sline.text, sys->is_log_tty?color_string_end:"");
+            return 0;
+        }
+
+//printf("atom %s:%s has dc %g %g %g\n", atom->mole, atom->name, atom->ren_charge, atom->ren_bond, atom->ren_dielect);
+
+    } else {
+        fprintf(sys->log(), "%s%s : %s[%d] : error : unrecognizable string %s%s\n", sys->is_log_tty?color_string_of_error:"", software_name, get_second_fn(script_name), script_line, sline.text, sys->is_log_tty?color_string_end:"");
+        return 0;
+    }
+
+    return 1;
+}
 bool analysis_solvent_atom_7(IET_Param * sys, char * argv[], int * argi, int argc, char * script_name, int script_line, int nargs){
+    bool ret = true;
     //if (argc<7){ fprintf(sys->log(), "%s : %s[%d] : incomplete atom line\n", software_name, script_name, script_line); return false; }
     if (sys->nav >= MAX_SOL){ fprintf(sys->log(), "%s : %s[%d] : too many solvents\n", software_name, get_second_fn(script_name), script_line); return false; }
     int ifound = -1; int grp = atoi(argv[3]); for (int i=0; i<sys->nav && ifound<0; i++) if (sys->av[i].grp == grp) ifound = i;
@@ -227,23 +288,24 @@ bool analysis_solvent_atom_7(IET_Param * sys, char * argv[], int * argi, int arg
     if (!element) fprintf(sys->log(), "%s%s : %s[%d] : warning : no element found for atom %s%s\n", sys->is_log_tty?color_string_of_warning:"", software_name, get_second_fn(script_name), script_line, argv[0], sys->is_log_tty?color_string_end:"");
     double mass = element? element->m : 0;
     if (ifound<0 || ifound>=sys->nav){
+      // preparing
         bool is_this_atom_key = false;
         if (sys->nav<=0){
             is_this_atom_key = true;
         } else if (StringNS::string(argv[1]) != sys->av[sys->nav-1].mole){
             __iaanow ++; is_this_atom_key = true;
         } else is_this_atom_key = false;
-        if (nargs==5){
-            sys->av[sys->nav].init(id, grp, argv[1], __iaanow, argv[0], mass, atof(argv[4]), 2*sys->rbohr, -1);
-        } else if (nargs==6){
-            sys->av[sys->nav].init(id, grp, argv[1], __iaanow, argv[0], mass, atof(argv[4]), atof(argv[5]), -1);
-        } else {
-            sys->av[sys->nav].init(id, grp, argv[1], __iaanow, argv[0], mass, atof(argv[4]), atof(argv[5]), atof(argv[6]));
+      // fill atom infromation
+        sys->av[sys->nav].init(id, grp, argv[1], __iaanow, argv[0], mass, atof(argv[4]), atof(argv[5]), atof(argv[6]));
+      // fill additional information of atom
+        for (int iarg=7; iarg<nargs; iarg++){
+            int ret_additional = analysis_solvent_atom_additional_word(sys, &sys->av[sys->nav], argv[iarg], script_name, script_line);
+            if (ret_additional==0) ret = false; else if (ret_additional<0) break;
         }
-        if (nargs>=9){
+        /*if (nargs>7){
             sys->av[sys->nav].charge = atof(argv[7]);
             sys->av[sys->nav].dipole = atof(argv[8]);
-        }
+        }*/
         sys->av[sys->nav].is_key = is_this_atom_key;
         sys->nav ++;
     } else {
@@ -257,7 +319,7 @@ bool analysis_solvent_atom_7(IET_Param * sys, char * argv[], int * argi, int arg
             memcpy(al, sys->atom_list, sizeof(SYSITEM_AtomNameList)*sys->nmax_atom_list); free(sys->atom_list);
         }
         sys->atom_list = al;
-        if (!sys->atom_list){ fprintf(sys->log(), "%s : malloc failure\n", software_name); return false; }
+        if (!sys->atom_list){ fprintf(sys->log(), "%s : malloc failure\n", software_name); exit(-1); }
     }
     if (sys->atom_list){
         memset(&sys->atom_list[sys->n_atom_list], 0, sizeof(SYSITEM_AtomNameList));
@@ -270,7 +332,7 @@ bool analysis_solvent_atom_7(IET_Param * sys, char * argv[], int * argi, int arg
         sys->n_atom_list ++;
     }
   // end
-    return true;
+    return ret;
 }
 bool analysis_solvent_atom(IET_Param * sys, char * argv[], int * argi, int argc, char * script_name, int script_line){
     int nargs = 0;
@@ -280,6 +342,43 @@ bool analysis_solvent_atom(IET_Param * sys, char * argv[], int * argi, int argc,
     } else {
         return analysis_solvent_atom_7(sys, argv, argi, nargs, script_name, script_line, nargs);
     }
+}
+void analysis_format_string(IET_Param * sys, const char * fmt){
+    int len = strlen(fmt);
+    int i = 0;
+    bool left_aligned = false; if (i<len && fmt[i]=='-'){ i++; left_aligned = true; }
+    int fmt_len = 0; {
+        int begin = i; while (i<len&&fmt[i]>='0'&&fmt[i]<='9') i++; int end = i;
+        if (end>begin) fmt_len = atoi(&fmt[begin]);
+    }
+    int fmt_float = 0;
+    if (i<len && fmt[i]=='.'){ i++;
+        int begin = i; while (i<len&&fmt[i]>='0'&&fmt[i]<='9') i++; int end = i;
+        if (end>begin) fmt_float = atoi(&fmt[begin]);
+    }
+    char fmt_indicator[2]; strncpy(fmt_indicator, "f", sizeof(fmt_indicator));
+    if (i<len && (fmt[i]=='e'||fmt[i]=='E'||fmt[i]=='f'||fmt[i]=='F'||fmt[i]=='g'||fmt[i]=='G')){ fmt_indicator[0] = fmt[i]; i++; }
+
+    if (fmt_len<7) fmt_len = 7;
+
+    if (fmt_len<=0 && fmt_float<=0){
+        snprintf(sys->output_realnumber_format, sizeof(sys->output_realnumber_format), " %%%s%s", left_aligned?"-":"", fmt_indicator);
+    } else if (fmt_float<=0){
+        snprintf(sys->output_realnumber_format, sizeof(sys->output_realnumber_format), " %%%s%d%s", left_aligned?"-":"", fmt_len, fmt_indicator);
+    } else if (fmt_len<=0){
+        snprintf(sys->output_realnumber_format, sizeof(sys->output_realnumber_format), " %%%s.%d%s", left_aligned?"-":"", fmt_float, fmt_indicator);
+    } else {
+        snprintf(sys->output_realnumber_format, sizeof(sys->output_realnumber_format), " %%%s%d.%d%s", left_aligned?"-":"", fmt_len, fmt_float, fmt_indicator);
+    }
+    if (fmt_len>0){
+        sys->output_realnumber_length = fmt_len;
+        snprintf(sys->output_title_format, sizeof(sys->output_realnumber_format), " %%%s%ds", left_aligned?"-":"", fmt_len);
+    } else {
+        snprintf(sys->output_title_format, sizeof(sys->output_realnumber_format), " %%%s%ds", left_aligned?"-":"", 7);
+    }
+
+    //printf(" align=%s length=%d float=%d indicator=[%s] fmt=[%s][%s]\n", left_aligned?"left":"right", fmt_len, fmt_float, fmt_indicator, sys->output_realnumber_format, sys->output_title_format);
+
 }
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 bool analysis_solvent_bond(IET_Param * sys, char * argv[], int * argi, int argc, char * script_name, int script_line, const char * session_name){
@@ -376,8 +475,20 @@ bool analysis_zeta_line(IET_Param * sys, char * argv[], int * argi, int argc, ch
     int iaai = -1; int iaaj = -1; StringNS::string st_argv0 = argv[0]; StringNS::string st_argv1 = argv[1];
     if (StringNS::is_string_number(st_argv0)) iaai = atoi(argv[0]); else if (sys->atom_list) iaai = search_mole_list(sys->atom_list, 0, sys->n_atom_list, argv[0], -1);
     if (StringNS::is_string_number(st_argv1)) iaaj = atoi(argv[1]); else if (sys->atom_list) iaaj = search_mole_list(sys->atom_list, 0, sys->n_atom_list, argv[1], -1);
-    double zeta0 = atof(argv[2]);
-    double rc_zeta0 = atof(argv[3]);
+    double rc_zeta0 = atof(argv[2]);
+    double deltaG = atof(argv[3]); double deltaG_defining_temperature = sys->default_temperature;
+    if (argc>4 && !StringNS::is_string_number(argv[4])){ StringNS::string energy_unit_here = argv[4];
+        if (energy_unit_here=="kJ/mol" || energy_unit_here=="(kJ/mol)" || energy_unit_here=="kJ_mol" || energy_unit_here=="(kJ_mol)"){
+            deltaG_defining_temperature = 120.27;
+        } else if (energy_unit_here=="kcal/mol" || energy_unit_here=="(kcal/mol)" || energy_unit_here=="kcal_mol" || energy_unit_here=="(kcal_mol)"){
+            deltaG_defining_temperature = 502.97;
+        } else if (energy_unit_here=="KT" || energy_unit_here=="(KT)"){
+            deltaG_defining_temperature = sys->temperature;
+        } else {
+            fprintf(sys->log(), "%s%s : error : unrecognizable energy unit %s%s\n", sys->is_log_tty?color_string_of_error:"", software_name, argv[4], sys->is_log_tty?color_string_end:"");
+            return false;
+        }
+    }
 
     if (iaai>=0 && iaaj>=0 && iaai<sys->nmv && iaaj<sys->nmv){
         if (sys->n_zeta_list+1 <= sys->nmax_zeta_list || ! sys->zeta_list){
@@ -392,7 +503,7 @@ bool analysis_zeta_line(IET_Param * sys, char * argv[], int * argi, int argc, ch
         if (!sys->zeta_list){ fprintf(sys->log(), "%s : malloc failure\n", software_name); return false; }
         sys->zeta_list[sys->n_zeta_list].iaai = iaai;
         sys->zeta_list[sys->n_zeta_list].iaaj = iaaj;
-        sys->zeta_list[sys->n_zeta_list].zeta0 = zeta0;
+        sys->zeta_list[sys->n_zeta_list].deltaG_in_Kelvin = deltaG * deltaG_defining_temperature;
         sys->zeta_list[sys->n_zeta_list].rc_zeta0 = rc_zeta0;
         sys->n_zeta_list ++;
     } else {
@@ -400,6 +511,34 @@ bool analysis_zeta_line(IET_Param * sys, char * argv[], int * argi, int argc, ch
         return false;
     }
     return true;
+}
+
+bool set_sys_options(IET_Param * sys, const char * sline, bool flag, const char * script_name, int script_line){
+    bool ret = true; StringNS::string sl[MAX_WORD]; int nw = analysis_csv_line(sline, sl, MAX_WORD);
+    for (int i=0; i<nw; i++){
+        if (sl[i]=="pme"){
+            sys->perform_pme = flag;                //printf("PME: %s\n", flag?"true":"false");
+        } else if (sl[i]=="missing-xvv" || sl[i]=="missing_xvv" || sl[i]=="xvv-missing" || sl[i]=="xvv_missing" || sl[i]=="skip-missing-xvv" || sl[i]=="skip_missing_xvv" || sl[i]=="skip-xvv-missing" || sl[i]=="skip_xvv_missing"){
+            sys->check_zero_xvv = flag;             //printf("check_zero_xvv: %s\n", flag?"true":"false");
+        } else if (sl[i]=="exceed-memory-capacity"||sl[i]=="exceed_memory_capacity"||sl[i]=="exceed-ram"||sl[i]=="exceed_ram"){
+            sys->ignore_memory_capacity = flag;
+            _ignore_memory_capacity = flag;         //printf("exceed_memory_capacity: %s\n", flag?"true":"false");
+        } else if (sl[i]=="missing-zeta" || sl[i]=="missing_zeta" || sl[i]=="zeta-missing" || sl[i]=="zeta_missing" || sl[i]=="skip-missing-zeta" || sl[i]=="skip_missing_zeta" || sl[i]=="skip-zeta-missing" || sl[i]=="skip_zeta_missing"){
+            sys->zeta_list_allow_missing = flag;    //printf("zeta_allow_missing: %s\n", flag?"true":"false");
+        } else if (sl[i]=="rmin" || sl[i]=="alloc-rmin" || sl[i]=="alloc_rmin"){
+            sys->b_allow_r2uvmin = flag;
+        } else if (sl[i]=="Ef" || sl[i]=="alloc-Ef" || sl[i]=="alloc_Ef"){
+            sys->b_allow_Ecoul0 = flag;
+      #ifdef _EXPERIMENTAL_
+        } else if (!set_sys_options_experimental(sys, sl, i, flag)){
+      #else
+        } else {
+      #endif
+            char buffer[1024]; strncpy(buffer, sl[i].text, sizeof(buffer));
+            fprintf(sys->log(), "%s : %s[%d] : unknown flag \"%s\"\n", software_name, get_second_fn(script_name), script_line, buffer); ret = false;
+        }
+    }
+    return ret;
 }
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 void pre_analysis_params(int argc, char * argv[], int * debug_level, int * detail_level, char * log_filename, bool * help_out){
@@ -427,8 +566,12 @@ void pre_analysis_params(int argc, char * argv[], int * debug_level, int * detai
                 *detail_level = 0;
             } else if (key=="-detailed" || key=="detailed" || key=="--detailed" || key=="-details" || key=="details" || key=="--details"){
                 *detail_level = 2;
-            } else if (key == "-log" || key == "log"){
+            } else if (key == "-log" || key == "log" || key == "--log"){
                 if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){ if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++; i++; strcpy(log_filename, argv[i]); }
+            } else if (key == "-pwd" || key == "pwd" || key == "--pwd"){
+                if (i+1<argc){ i++;
+                    if (!cp_file_with_path(szfn_path, argv[i], nullptr)) szfn_path[0] = 0;   //printf("szfn_path = [%s]\n", szfn_path);
+                }
             }
         }
     }
@@ -494,11 +637,18 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
             }
         }
     } else if (!analysis_script && key.text[0] != '-'){
-        fprintf(sys->log(), "%s%s : %s[%d] : unknown string \"%s\"%s\n", istty?color_string_of_error:"", software_name, script_name, script_line, argv[i], istty?color_string_end:""); ret = 1;
+        fprintf(sys->log(), "%s%s : %s[%d] : unknown string \"%s\"%s\n", istty?color_string_of_synerr:"", software_name, script_name, script_line, argv[i], istty?color_string_end:""); ret = 1;
   #ifdef _LOCALPARALLEL_
    #ifdef _LOCALPARALLEL_PTHREAD_
     } else if (key == "-nt" || key == "--nt" || key == "nt" || key == "-thread" || key == "--thread" || key == "thread"){
         if (i+1<argc && StringNS::is_string_number(argv[i+1])) sys->nt = atoi(argv[++i]); if (sys->nt<1) sys->nt = 1; else if (sys->nt>MAX_THREADS) sys->nt = MAX_THREADS;
+        #ifdef _LOCALPARALLEL_PTHREAD_
+            sys->mp_by_fork = false;
+        #else
+            sys->mp_by_fork = true;
+        #endif
+    } else if (key == "-ntb" || key == "--ntb" || key == "ntb"){
+        if (i+1<argc && StringNS::is_string_number(argv[i+1])) sys->ntb = atoi(argv[++i]); if (sys->ntb<1) sys->ntb = 1; else if (sys->ntb>MAX_THREADS) sys->ntb = MAX_THREADS;
         #ifdef _LOCALPARALLEL_PTHREAD_
             sys->mp_by_fork = false;
         #else
@@ -511,6 +661,9 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
    #endif
     } else if (key == "-np" || key == "--np" || key == "np" || key == "-fork" || key == "--fork" || key == "fork"){
         if (i+1<argc && StringNS::is_string_number(argv[i+1])) sys->nt = atoi(argv[++i]); if (sys->nt<1) sys->nt = 1; else if (sys->nt>MAX_THREADS) sys->nt = MAX_THREADS;
+        sys->mp_by_fork = true;
+    } else if (key == "-npb" || key == "--npb" || key == "npb"){
+        if (i+1<argc && StringNS::is_string_number(argv[i+1])) sys->ntb = atoi(argv[++i]); if (sys->ntb<1) sys->ntb = 1; else if (sys->ntb>MAX_THREADS) sys->ntb = MAX_THREADS;
         sys->mp_by_fork = true;
   #endif
     } else if (key == "-nice" || key == "--nice" || key == "nice" || key == "-nice-level" || key == "--nice-level" || key == "nice-level" || key == "-nice_level" || key == "--nice_level" || key == "nice_level"){
@@ -534,6 +687,8 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
                 }
             }
         }
+    } else if (StringNS::string(key.text, 2)=="-%" || StringNS::string(key.text, 2)=="--%"){   // format string
+        analysis_format_string(sys, StringNS::string(key.text, 2)=="--%"? &key.text[3] : &key.text[2]);
    // ---------------------------------------------------------------------------------
    // The input/output control parameters ---------------------------------------------
    // ---------------------------------------------------------------------------------
@@ -551,18 +706,23 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
                 for (int i=0; i<2; i++) memcpy(slpt[i], slp[i].text, slp[i].length>sizeof(slpt[i])-1?sizeof(slpt[i])-1:slp[i].length);
                 sys->time_begin = atof(slpt[0]); sys->time_end = atof(slpt[1]);
             } else {
-                fprintf(sys->log(), "%s : %s[%d] : incorrect -be: %s\n", software_name, get_second_fn(script_name), script_line, argv[i]); ret = 1;
+                fprintf(sys->log(), "%s%s : %s[%d] : incorrect -be: %s%s\n", istty?color_string_of_synerr:"", software_name, get_second_fn(script_name), script_line, argv[i], istty?color_string_end:""); ret = 1;
             }
         }
     } else if (key == "-f" || key == "--f" || key == "traj" || key == "-traj" || key == "conf" || key == "-conf" || key == "conformation" || key == "-conformation" || key == "conformations" || key == "-conformations"){
         if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){ if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++; i++; strcpy(szfn_xtc, argv[i]); }
     } else if (key == "-pwd" || key == "pwd"){
-        if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){
+        if (i+1<argc){ i++;
+            if (!szfn_path[0]){
+                fprintf(sys->log(), "%s%s : %s[%d] : cannot find directory: -pwd %s%s\n", istty?color_string_of_synerr:"", software_name, get_second_fn(script_name), script_line, argv[i], istty?color_string_end:""); ret = 1;
+            }
+        }
+        /*if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){
             if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++;
             i++; int chdir_ret = chdir(argv[i]);
             char * p_szfn_path = getcwd(szfn_path, sizeof(szfn_path));
-        }
-    } else if (key == "-log" || key == "log"){
+        }*/
+    } else if (key == "-log" || key == "--log" || key == "log"){
         if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){ if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++; i++; strcpy(szfn_log, argv[i]); }
     } else if (key == "-i" || key == "--i" || key == "-in" || key == "--in" || key == "in" ){
         if (i+1<argc && (argv[i+1][0]!='-'||(i+2<argc&&StringNS::string(argv[i+1])=="--"))){ if (i+2<argc&&StringNS::string(argv[i+1])=="--") i++; i++; strcpy(szfn_in, argv[i]); }
@@ -615,8 +775,9 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
                 sls[0] = sls[1] = "\0";
                 int nsls = analysis_general_line(sep_sv, sl[ist], sls, 4, false, true);
                 for (int isls=0; isls<2; isls++){
-                    if (isls>=nsls || sls[isls]=="*" || sls[isls]=="*.*" || sls[isls]=="*:*" || sls[isls]==".*" || sls[isls]=="*." || sls[isls]=="."){
-                        id[isls] = 0; // not specified, matches anything
+                    if (isls>=nsls || sls[isls]=="*" || sls[isls]=="*.*" || sls[isls]=="*:*" || sls[isls]==".*" || sls[isls]=="*." || sls[isls]=="." || sls[isls]=="all"){
+                        id[isls] = -1; // not specified, matches anything
+                        sys->b_allow_r2uvmin = true;
                     } else if (StringNS::is_string_number(sls[isls])){
                         id[isls] = sls[isls].ToInt();
                     } else {
@@ -642,10 +803,16 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
         if (i+1<argc && StringNS::is_string_number(argv[i+1])){
             sys->gcutoff_liquid_occupation = atof(argv[++i]);
         }
+    } else if (key == "-gcutoff-ef" || key == "gcutoff-ef" || key == "--gcutoff-ef" || key == "-gcutoff_ef" || key == "gcutoff_ef" || key == "--gcutoff_ef"){
+        if (i+1<argc && StringNS::is_string_number(argv[i+1])){
+            sys->gcutoff_ef_occupation = atof(argv[++i]);
+        }
     } else if (key == "-rdf-content" || key == "rdf-content" || key == "--rdf-content" || key == "-rdf_content" || key == "rdf_content" || key == "--rdf_content" || key == "-rdf-for" || key == "rdf-for" || key == "--rdf-for" || key == "-rdf_for" || key == "rdf_for" || key == "--rdf_for"){
         if (i+1<argc && argv[i+1][0]!='-'){ i++; StringNS::string rdf_content = argv[i];
-            if (rdf_content == "rdf" || rdf_content == "rdf"){
+            if (rdf_content == "rdf" || rdf_content == "density"){
                 sys->rdf_content = IETCMD_v_rdf;
+            } else if (rdf_content == "g" || rdf_content == "guv"){
+                sys->rdf_content = IETCMD_v_guv;
             } else if (rdf_content == "h" || rdf_content == "huv"){
                 sys->rdf_content = IETCMD_v_huv;
             } else if (rdf_content == "hlr"){
@@ -666,10 +833,9 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
                 sys->rdf_content = IETCMD_v_uuv;
             } else if (rdf_content == "ef"){
                 sys->rdf_content = IETCMD_v_Ef;
-            } else if (rdf_content == "f"){
-                sys->rdf_content = IETCMD_v_Mayer;
+                sys->b_allow_Ecoul0 = true;
             } else {
-                fprintf(sys->log(), "%s : %s[%d] : unrecognizable rdf content %s\n", software_name, get_second_fn(script_name), script_line, argv[i]); ret = 1;
+                fprintf(sys->log(), "%s%s : %s[%d] : unrecognizable rdf content %s%s\n", istty?color_string_of_synerr:"", software_name, get_second_fn(script_name), script_line, argv[i], istty?color_string_end:""); ret = 1;
             }
         }
     } else if (key == "-sd" || key == "sd" || key == "--sd" || key == "-significant-digits" || key == "significant-digits" || key == "--significant-digits" || key == "-significant_digits" || key == "significant_digits" || key == "--significant_digits"){
@@ -680,16 +846,16 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
         } else if (i+1<argc && StringNS::string(argv[i+1])=="double"){
             i++; sys->output_significant_digits = 18;
         } else if (i+1<argc) { i++;
-            fprintf(sys->log(), "%s : %s[%d] : unrecognizable option for output precision: %s\n", software_name, get_second_fn(script_name), script_line, argv[i]); ret = 1;
+            fprintf(sys->log(), "%s%s : %s[%d] : unrecognizable option for output precision: %s%s\n", istty?color_string_of_synerr:"", software_name, get_second_fn(script_name), script_line, argv[i], istty?color_string_end:""); ret = 1;
         }
     } else if (key == "-pagesize" || key == "pagesize" || key == "--pagesize" || key == "-page-size" || key == "page-size" || key == "--page-size" || key == "-page_size" || key == "page_size" || key == "--page_size"){
         size_t compress_page_size = sys->compress_page_size;
         if (i+1<argc && StringNS::is_string_number(argv[i+1])) compress_page_size = atol(argv[++i]);
         if (compress_page_size<1024){
-            fprintf(sys->log(), "%s%s : warning : size of compress page too small (%lu), use 1KB instead%s\n", sys->is_log_tty?color_string_of_warning:"", software_name, compress_page_size, sys->is_log_tty?color_string_end:"");
+            fprintf(sys->log(), "%s%s : warning : size of compress page too small (%lu), use 1KB instead%s\n", istty?color_string_of_synwarn:"", software_name, compress_page_size, istty?color_string_end:"");
             compress_page_size = 1024;
         } else if (compress_page_size>1024*1024*500){
-            fprintf(sys->log(), "%s%s : warning : size of compress page too large (%lu), use 500MB instead%s\n", sys->is_log_tty?color_string_of_warning:"", software_name, compress_page_size, sys->is_log_tty?color_string_end:"");
+            fprintf(sys->log(), "%s%s : warning : size of compress page too large (%lu), use 500MB instead%s\n", istty?color_string_of_synwarn:"", software_name, compress_page_size, istty?color_string_end:"");
             compress_page_size = 1024*1024*500;
         }
         sys->compress_page_size = compress_page_size;
@@ -710,7 +876,15 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
         } else if (nw==1){
             if (!cp_file_with_path(szfn_gvv, sl[0].text, script_path)) error_message = "file not exist";
         }
-        if (error_message){ fprintf(sys->log(), "%s : %s[%d] : %s : %s%s %s %s\n", software_name, get_second_fn(script_name), script_line, error_message, key.text[0]=='-'?"":"-", key.text, nw>=1?sl[0].text:"", nw>=2?sl[1].text:""); ret = 1; }
+        if (error_message){ fprintf(sys->log(), "%s%s : %s[%d] : %s : %s%s %s %s%s\n", istty?color_string_of_synerr:"", software_name, get_second_fn(script_name), script_line, error_message, key.text[0]=='-'?"":"-", key.text, nw>=1?sl[0].text:"", nw>=2?sl[1].text:"", istty?color_string_end:""); ret = 1; }
+    } else if (key=="-gvv-align-left" || key=="--gvv-align-left" || key=="gvv-align-left" || key=="-gvv_align_left" || key=="--gvv_align_left" || key=="gvv_align_left"){
+        sys->gvv_is_left_aligned = true;
+    } else if (key=="-gvv-alignment-left" || key=="--gvv-alignment-left" || key=="gvv-alignment-left" || key=="-gvv_alignment_left" || key=="--gvv_alignment_left" || key=="gvv_alignment_left"){
+        sys->gvv_is_left_aligned = true;
+    } else if (key=="-gvv-align-right" || key=="--gvv-align-right" || key=="gvv-align-right" || key=="-gvv_align_right" || key=="--gvv_align_right" || key=="gvv_align_right"){
+        sys->gvv_is_left_aligned = false;
+    } else if (key=="-gvv-alignment-right" || key=="--gvv-alignment-right" || key=="gvv-alignment-right" || key=="-gvv_alignment_right" || key=="--gvv_alignment_right" || key=="gvv_alignment_right"){
+        sys->gvv_is_left_aligned = false;
     } else if (key == "-zvv" || key == "--zvv" || key == "zvv" || key == "-zeta" || key == "--zeta" || key == "zeta"){
         const char * error_message = nullptr;
         int nw=0; StringNS::string sl[2]; if (i+2<argc && argv[i+1][0]!='-' && argv[i+2][0]!='-'){ sl[0] = argv[i+1]; sl[1] = argv[i+2]; nw = 2; i+=2; } else if (i+1<argc && argv[i+1][0]!='-'){ sl[0] = argv[i+1]; nw = 1; i++; }
@@ -727,24 +901,24 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
         } else if (nw==1){
             if (!cp_file_with_path(szfn_zeta, sl[0].text, script_path)) error_message = "file not exist";
         }
-        if (error_message){ fprintf(sys->log(), "%s : %s[%d] : %s : %s%s %s %s\n", software_name, get_second_fn(script_name), script_line, error_message, key.text[0]=='-'?"":"-", key.text, nw>=1?sl[0].text:"", nw>=2?sl[1].text:""); ret = 1; }
+        if (error_message){ fprintf(sys->log(), "%s%s : %s[%d] : %s : %s%s %s %s%s\n", istty?color_string_of_synerr:"", software_name, get_second_fn(script_name), script_line, error_message, key.text[0]=='-'?"":"-", key.text, nw>=1?sl[0].text:"", nw>=2?sl[1].text:"", istty?color_string_end:""); ret = 1; }
    // ---------------------------------------------------------------------------------
    // The basic parameters for algorithm ----------------------------------------------
    // ---------------------------------------------------------------------------------
     } else if (key == "-dr" || key == "--dr" || key == "dr"){
         if (i+1<argc && StringNS::is_string_number(argv[i+1])){
-            if (sys->drrism>0 && sys->drrism!=atof(argv[i+1])){ fprintf(sys->log(), "%s : %s[%d] : %sdrrism%s changed to %s from %g\n", software_name, get_second_fn(script_name), script_line, istty?prompt_highlight_prefix:"", istty?prompt_highlight_suffix:"", argv[i+1], sys->drrism); ret = 1; }
-            if (sys->drhi>0 && sys->drhi!=atof(argv[i+1])){ fprintf(sys->log(), "%s : %s[%d] : %sdrhi%s changed to %s from %g\n", software_name, get_second_fn(script_name), script_line, istty?prompt_highlight_prefix:"", istty?prompt_highlight_suffix:"", argv[i+1], sys->drhi); ret = 1; }
+            if (sys->drrism>0 && sys->drrism!=atof(argv[i+1])){ fprintf(sys->log(), "%s%s : %s[%d] : drrism changed to %s from %g%s\n", istty?color_string_of_synerr:"", software_name, get_second_fn(script_name), script_line, argv[i+1], sys->drrism, istty?color_string_end:""); ret = 1; }
+            if (sys->drhi>0 && sys->drhi!=atof(argv[i+1])){ fprintf(sys->log(), "%s%s : %s[%d] : drhi changed to %s from %g%s\n", istty?color_string_of_synerr:"", software_name, get_second_fn(script_name), script_line, argv[i+1], sys->drhi, istty?color_string_end:""); ret = 1; }
             sys->drrism = sys->drhi = atof(argv[++i]);
         }
     } else if (key == "-drxvv" || key == "--drxvv" || key == "drxvv" || key == "-drrism" || key == "--drrism" || key == "drrism"){
         if (i+1<argc && StringNS::is_string_number(argv[i+1])){
-            if (sys->drrism>0 && sys->drrism!=atof(argv[i+1])){ fprintf(sys->log(), "%s : %s[%d] : %sdrrism%s changed to %s from %g\n", software_name, get_second_fn(script_name), script_line, istty?prompt_highlight_prefix:"", istty?prompt_highlight_suffix:"", argv[i+1], sys->drrism); ret = 1; }
+            if (sys->drrism>0 && sys->drrism!=atof(argv[i+1])){ fprintf(sys->log(), "%s%s : %s[%d] : %sdrrism%s changed to %s from %g%s\n", istty?color_string_of_synerr:"", software_name, get_second_fn(script_name), script_line, istty?prompt_highlight_prefix:"", istty?prompt_highlight_suffix:"", argv[i+1], sys->drrism, istty?color_string_end:""); ret = 1; }
             sys->drrism = atof(argv[++i]);
         }
     } else if (key == "-drzeta" || key == "--drzeta" || key == "drzeta" || key == "-drhi" || key == "--drhi" || key == "drhi"){
         if (i+1<argc && StringNS::is_string_number(argv[i+1])){
-            if (sys->drhi>0 && sys->drhi!=atof(argv[i+1])){ fprintf(sys->log(), "%s : %s[%d] : %sdrhi%s changed to %s from %g\n", software_name, get_second_fn(script_name), script_line, istty?prompt_highlight_prefix:"", istty?prompt_highlight_suffix:"", argv[i+1], sys->drhi); ret = 1; }
+            if (sys->drhi>0 && sys->drhi!=atof(argv[i+1])){ fprintf(sys->log(), "%s%s : %s[%d] : %sdrhi%s changed to %s from %g%s\n", istty?color_string_of_synerr:"", software_name, get_second_fn(script_name), script_line, istty?prompt_highlight_prefix:"", istty?prompt_highlight_suffix:"", argv[i+1], sys->drhi, istty?color_string_end:""); ret = 1; }
             sys->drhi = atof(argv[++i]);
         }
     } else if (key == "-nr" || key == "nr" || key == "--nr"){
@@ -755,7 +929,7 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
                 StringNS::string slp[3]; char sep[4] = { ',', 'x', 'X', 0 };
                 int nwp = StringNS::analysis_general_line(sep, argv[i], slp, 3);
                 if (nwp<3){
-                    fprintf(sys->log(), "%s : %s[%d] : incorrect -nr: %s\n", software_name, get_second_fn(script_name), script_line, argv[i]); ret = 1;
+                    fprintf(sys->log(), "%s%s : %s[%d] : incorrect -nr: %s%s\n", istty?color_string_of_synerr:"", software_name, get_second_fn(script_name), script_line, argv[i], istty?color_string_end:""); ret = 1;
                 } else {
                     char slpt[3][64]; memset(slpt, 0, sizeof(slpt));
                     for (int i_=0; i_<3; i_++) memcpy(slpt[i_], slp[i_].text, slp[i_].length>sizeof(slpt[i_])-1?sizeof(slpt[i_])-1:slp[i_].length);
@@ -764,6 +938,30 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
             } else {
                 if (i+1<argc && StringNS::is_string_number(argv[i+1])) sys->nr[0] = sys->nr[1] = sys->nr[2] = atoi(argv[++i]);
                 if (i+2<argc && StringNS::is_string_number(argv[i+1]) && StringNS::is_string_number(argv[i+2])){ sys->nr[1] = atoi(argv[++i]); sys->nr[2] = atoi(argv[++i]); }
+            }
+        }
+    } else if (key == "-box" || key == "box" || key == "--box" || key == "-default-box" || key == "default-box" || key == "--default-box" || key == "-default_box" || key == "default_box" || key == "--default_box" || key == "-set-box" || key == "set-box" || key == "--set-box" || key == "-set_box" || key == "set_box" || key == "--set_box"){
+        if (i+1<argc && argv[i+1][0]!='-'){
+            if (key == "-set-box" || key == "set-box" || key == "--set-box" || key == "-set_box" || key == "set_box" || key == "--set_box"){
+                sys->force_box = true;
+            } else {
+                sys->force_box = false;
+            }
+            bool analysis_compact = false;
+            for (int j=0; argv[i+1][j] && !analysis_compact; j++) if (argv[i+1][j]==',' || argv[i+1][j]=='x' || argv[i+1][j]=='X') analysis_compact = true;
+            if (analysis_compact){ i++;
+                StringNS::string slp[3]; char sep[4] = { ',', 'x', 'X', 0 };
+                int nwp = StringNS::analysis_general_line(sep, argv[i], slp, 3);
+                if (nwp<3){
+                    fprintf(sys->log(), "%s%s : %s[%d] : incorrect -nr: %s%s\n", istty?color_string_of_synerr:"", software_name, get_second_fn(script_name), script_line, argv[i], istty?color_string_end:""); ret = 1;
+                } else {
+                    char slpt[3][64]; memset(slpt, 0, sizeof(slpt));
+                    for (int i_=0; i_<3; i_++) memcpy(slpt[i_], slp[i_].text, slp[i_].length>sizeof(slpt[i_])-1?sizeof(slpt[i_])-1:slp[i_].length);
+                    sys->box = Vector(atof(slpt[0]), atof(slpt[1]), atof(slpt[2]));
+                }
+            } else {
+                if (i+1<argc && StringNS::is_string_number(argv[i+1])) sys->box.x = sys->box.y = sys->box.z = atof(argv[++i]);
+                if (i+2<argc && StringNS::is_string_number(argv[i+1]) && StringNS::is_string_number(argv[i+2])){ sys->box.y = atof(argv[++i]); sys->box.z = atof(argv[++i]); }
             }
         }
     } else if (key == "-dielect-from-dipole" || key == "--dielect-from-dipole" || key == "dielect-from-dipole" || key == "-dielect_from_dipole" || key == "--dielect_from_dipole" || key == "dielect_from_dipole"        || key == "-dielect-rism-on" || key == "--dielect-rism-on" || key == "dielect-rism-on"){
@@ -801,7 +999,7 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
                     }
                 }
             } else {
-                fprintf(sys->log(), "%s : %s[%d] : unknown Coulomb algorithm \"%s\"\n", software_name, get_second_fn(script_name), script_line, argv[i]);
+                fprintf(sys->log(), "%s%s : %s[%d] : unknown Coulomb algorithm \"%s\"%s\n", istty?color_string_of_synerr:"", software_name, get_second_fn(script_name), script_line, argv[i], istty?color_string_end:"");
                 ret = 1;
             }
         } else {
@@ -840,14 +1038,12 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
     } else if (key == "-dielect-yukawa" || key == "--dielect-yukawa" || key == "dielect-yukawa" || key == "-dielect-y" || key == "--dielect-y" || key == "dielect-y" || key == "-dielect_yukawa" || key == "--dielect_yukawa" || key == "dielect_yukawa" || key == "-dielect_y" || key == "--dielect_y" || key == "dielect_y"){
         if (i+1<argc && StringNS::is_string_number(argv[i+1])){
             sys->dielect_yukawa = atof(argv[++i]);
-            if (sys->dielect_yukawa<0) fprintf(sys->log(), "%s : %s[%d] : warning: invalid dielect_Yukawa %s\n", software_name, get_second_fn(script_name), script_line, argv[i]);
+            if (sys->dielect_yukawa<0) fprintf(sys->log(), "%s%s : %s[%d] : warning: invalid dielect_Yukawa %s%s\n", istty?color_string_of_synwarn:"", software_name, get_second_fn(script_name), script_line, argv[i], istty?color_string_end:"");
         }
     } else if (key=="-ld-expand" || key=="--ld-expand" || key=="ld-expand" || key=="-ld_expand" || key=="--ld_expand"  || key=="ld_expand" || key=="-ld-kernel-expand" || key=="--ld-kernel-expand" || key=="ld-kernel-expand" || key=="-ld_kernel_expand" || key=="--ld_kernel_expand"  || key=="ld_kernel_expand" || key=="-ld-kernel-expanding" || key=="--ld-kernel-expanding" || key=="ld-kernel-expanding" || key=="-ld_kernel_expanding" || key=="--ld_kernel_expanding"  || key=="ld_kernel_expanding"){
         if (i+1<argc && StringNS::is_string_number(argv[i+1])){
             sys->ld_kernel_expand = atof(argv[++i]); if (sys->ld_kernel_expand<MACHINE_REASONABLE_ERROR) sys->ld_kernel_expand = MACHINE_REASONABLE_ERROR;
         }
-    } else if (key == "-pseudoliquid-factor" || key == "--pseudoliquid-factor" || key == "pseudoliquid-factor" || key == "-pseudoliquid_factor" || key == "--pseudoliquid_factor" || key == "pseudoliquid_factor" || key == "-psf" || key == "--psf" || key == "psf"){
-        if (i+1<argc && StringNS::is_string_number(argv[i+1])) sys->pseudoliquid_potential_r_factor = atof(argv[++i]);
     } else if (key == "-T" || key == "--T" || key == "temperature" || key == "-temperature" || key == "--temperature"){
         if (i+1<argc && StringNS::is_string_number(argv[i+1])) sys->temperature = atof(argv[++i]);
     } else if (key == "-Tdef" || key == "--Tdef" || key == "default-temperature" || key == "-default-temperature" || key == "--default-temperature" || key == "default_temperature" || key == "-default_temperature" || key == "--default_temperature"){ sys->default_temperature = atof(argv[++i]);
@@ -866,61 +1062,15 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
         if (i+1<argc && StringNS::is_string_number(argv[i+1])){
             double exp_cutoff = atof(argv[++i]);
             if (exp_cutoff>0) sys->ccutoff = log(exp_cutoff);
-            else { fprintf(sys->log(), "%s : %s[%d] : invalid HNC ceil %s\n", software_name, get_second_fn(script_name), script_line, argv[i]); ret = 1; }
+            else { fprintf(sys->log(), "%s%s : %s[%d] : invalid HNC ceil %s%s\n", istty?color_string_of_synerr:"", software_name, get_second_fn(script_name), script_line, argv[i], istty?color_string_end:""); ret = 1; }
         }
-    } else if (key=="-enhance-closure" || key=="--enhance-closure" || key=="enhance-closure" || key=="-enhance_closure" || key=="--enhance_closure" || key=="enhance_closure" || key=="-closure-enhance" || key=="--closure-enhance" || key=="closure-enhance" || key=="-closure_enhance" || key=="--closure_enhance" || key=="closure_enhance" || key=="-closure-enhancement" || key=="--closure-enhancement" || key=="closure-enhancement" || key=="-closure_enhancement" || key=="--closure_enhancement" || key=="closure_enhancement"){
+    } else if (key=="-dynamic-delvv" || key=="--dynamic-delvv" || key=="dynamic-delvv" || key=="-dynamic_delvv" || key=="--dynamic_delvv" || key=="dynamic_delvv" || key=="-enhance-closure" || key=="--enhance-closure" || key=="enhance-closure" || key=="-enhance_closure" || key=="--enhance_closure" || key=="enhance_closure" || key=="-closure-enhance" || key=="--closure-enhance" || key=="closure-enhance" || key=="-closure_enhance" || key=="--closure_enhance" || key=="closure_enhance" || key=="-closure-enhancement" || key=="--closure-enhancement" || key=="closure-enhancement" || key=="-closure_enhancement" || key=="--closure_enhancement" || key=="closure_enhancement"){
         sys->closure_enhance_level = 1;
         if (i+1<argc && StringNS::is_string_number(argv[i+1])){
             i++; sys->closure_enhance_level = atof(argv[i]);
         }
-    } else if (key=="-no-enhance-closure" || key=="--no-enhance-closure" || key=="no-enhance-closure" || key=="-no_enhance_closure" || key=="--no_enhance_closure" || key=="no_enhance_closure" || key=="-no-closure-enhance" || key=="--no-closure-enhance" || key=="no-closure-enhance" || key=="-no_closure_enhance" || key=="--no_closure_enhance" || key=="no_closure_enhance" || key=="-no-closure-enhancement" || key=="--no-closure-enhancement" || key=="no-closure-enhancement" || key=="-no_closure_enhancement" || key=="--no_closure_enhancement" || key=="no_closure_enhancement"){
+    } else if (key=="-no-dynamic-delvv" || key=="--no-dynamic-delvv" || key=="no-dynamic-delvv" || key=="-no_dynamic_delvv" || key=="--no_dynamic_delvv" || key=="no_dynamic_delvv" || key=="-no-enhance-closure" || key=="--no-enhance-closure" || key=="no-enhance-closure" || key=="-no_enhance_closure" || key=="--no_enhance_closure" || key=="no_enhance_closure" || key=="-no-closure-enhance" || key=="--no-closure-enhance" || key=="no-closure-enhance" || key=="-no_closure_enhance" || key=="--no_closure_enhance" || key=="no_closure_enhance" || key=="-no-closure-enhancement" || key=="--no-closure-enhancement" || key=="no-closure-enhancement" || key=="-no_closure_enhancement" || key=="--no_closure_enhancement" || key=="no_closure_enhancement"){
         sys->closure_enhance_level = 0;
-    } else if (key=="-coulomb-renorm-scaling" || key=="--coulomb-renorm-scaling" || key=="coulomb-renorm-scaling" || key=="-coulomb_renorm_scaling" || key=="--coulomb_renorm_scaling" || key=="coulomb_renorm_scaling" || key=="-coulomb-renorm-factor" || key=="--coulomb-renorm-factor" || key=="coulomb-renorm-factor" || key=="-coulomb_renorm_factor" || key=="--coulomb_renorm_factor" || key=="coulomb_renorm_factor"){
-        if ((i+1<argc && StringNS::is_string_number(argv[i+1]))){
-            i++; sys->renorm_coulomb_scaling[0] = atof(argv[i]); int n_renorm_coulomb_scaling = 1;
-            if ((i+1<argc && StringNS::is_string_number(argv[i+1]))){
-                while (i+1<argc && StringNS::is_string_number(argv[i+1])){
-                    i++; sys->renorm_coulomb_scaling[n_renorm_coulomb_scaling++] = atof(argv[i]); if (n_renorm_coulomb_scaling >= MAX_SOL) break;
-                }
-            }
-            if (n_renorm_coulomb_scaling==1) for (int j=1; j<MAX_SOL; j++) sys->renorm_coulomb_scaling[j] = sys->renorm_coulomb_scaling[0];
-            //printf("\33[31msys->renorm_coulomb_scaling[%d] =", n_renorm_coulomb_scaling); for (int k=0; k<n_renorm_coulomb_scaling || k<4; k++) printf(" %g", sys->renorm_coulomb_scaling[k]); printf("\n\33[0m");
-        }
-    } else if (key=="-lj-renorm-scaling" || key=="--lj-renorm-scaling" || key=="lj-renorm-scaling" || key=="-lj_renorm_scaling" || key=="--lj_renorm_scaling" || key=="lj_renorm_scaling" || key=="-lj-renorm-factor" || key=="--lj-renorm-factor" || key=="lj-renorm-factor" || key=="-lj_renorm_factor" || key=="--lj_renorm_factor" || key=="lj_renorm_factor"){
-        if ((i+1<argc && StringNS::is_string_number(argv[i+1]))){
-            i++; sys->renorm_lj_scaling[0] = atof(argv[i]); int n_renorm_lj_scaling = 1;
-            if ((i+1<argc && StringNS::is_string_number(argv[i+1]))){
-                while (i+1<argc && StringNS::is_string_number(argv[i+1])){
-                    i++; sys->renorm_lj_scaling[n_renorm_lj_scaling++] = atof(argv[i]); if (n_renorm_lj_scaling >= MAX_SOL) break;
-                }
-            }
-            if (n_renorm_lj_scaling==1) for (int j=1; j<MAX_SOL; j++) sys->renorm_lj_scaling[j] = sys->renorm_lj_scaling[0];
-            //printf("\33[31msys->renorm_lj_scaling[%d] =", n_renorm_lj_scaling); for (int k=0; k<n_renorm_lj_scaling || k<4; k++) printf(" %g", sys->renorm_lj_scaling[k]); printf("\n\33[0m");
-        }
-    /*} else if (key=="-scale.hvv" || key=="--scale.hvv" || key=="scale.hvv" || key=="-scale-hvv" || key=="--scale-hvv" || key=="scale-hvv" || key=="-scale_hvv" || key=="--scale_hvv" || key=="scale_hvv" || key=="-hvv-scale" || key=="--hvv-scale" || key=="hvv-scale" || key=="-hvv_scale" || key=="--hvv_scale" || key=="hvv_scale"){
-        if ((i+1<argc && StringNS::is_string_number(argv[i+1]))){
-            i++; int nsf=1;
-            while (i+nsf<argc && StringNS::is_string_number(argv[i+nsf])) nsf ++;
-            if (sys->scale_hvv) free(sys->scale_hvv); sys->scale_hvv = (double*)malloc(sizeof(double) * nsf); sys->n_scale_hvv = nsf;
-            for (int j=0; j<nsf; j++) sys->scale_hvv[j] = atof(argv[i+j]);
-            i += nsf;
-            printf("\33[31msys->scale_hvv[%d] =", sys->n_scale_hvv); for (int k=0; k<sys->n_scale_hvv; k++) printf(" %g", sys->scale_hvv[k]); printf("\n\33[0m");
-        }*/
-    } else if (key=="-renorm-scaling" || key=="--renorm-scaling" || key=="renorm-scaling" || key=="-renorm_scaling" || key=="--renorm_scaling" || key=="renorm_scaling" || key=="-renorm-factor" || key=="--renorm-factor" || key=="renorm-factor" || key=="-renorm_factor" || key=="--renorm_factor" || key=="renorm_factor"){
-        if ((i+1<argc && StringNS::is_string_number(argv[i+1]))){
-            i++; sys->renorm_coulomb_scaling[0] = sys->renorm_lj_scaling[0] = atof(argv[i]); int n_renorm_in_hs = 1;
-            if ((i+1<argc && StringNS::is_string_number(argv[i+1]))){
-                while (i+1<argc && StringNS::is_string_number(argv[i+1])){
-                    i++; sys->renorm_coulomb_scaling[n_renorm_in_hs] = sys->renorm_lj_scaling[n_renorm_in_hs] = atof(argv[i]);
-                    n_renorm_in_hs ++; if (n_renorm_in_hs >= MAX_SOL) break;
-                }
-            }
-            if (n_renorm_in_hs==1) for (int j=1; j<MAX_SOL; j++){
-                sys->renorm_coulomb_scaling[j] = sys->renorm_coulomb_scaling[0];
-                sys->renorm_lj_scaling[j] = sys->renorm_lj_scaling[0];
-            }
-            //printf("\33[31msys->renorm_coulomb_scaling[%d] =", n_renorm_coulomb_scaling); for (int k=0; k<n_renorm_coulomb_scaling || k<4; k++) printf(" %g", sys->renorm_coulomb_scaling[k]); printf("\n\33[0m");
-        }
     } else if (key=="-hlr-no-hi" || key=="--hlr-no-hi" || key=="hlr-no-hi" || key=="-hlr_no_hi" || key=="--hlr_no_hi" || key=="-hlr_no_hi"){
         sys->hlr_no_hi = true;
     } else if (key=="-hlr-with-hi" || key=="--hlr-with-hi" || key=="hlr-with-hi" || key=="-hlr_with_hi" || key=="--hlr_with_hi" || key=="-hlr_with_hi"){
@@ -929,10 +1079,6 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
         sys->use_homogeneous_rism = true;
     } else if (key=="-inhomo-iet" || key=="--inhomo-iet" || key=="inhomo-iet" || key=="-inhomo_iet" || key=="--inhomo_iet" || key=="inhomo_iet"){
         sys->use_homogeneous_rism = false;
-    } else if (key=="-zeta-allow-missing" || key=="--zeta-allow-missing" || key=="zeta-allow-missing" || key=="-allow-zeta-missing" || key=="--allow-zeta-missing" || key=="allow-zeta-missing" || key=="-zeta_allow_missing" || key=="--zeta_allow_missing" || key=="zeta_allow_missing" || key=="-allow_zeta_missing" || key=="--allow_zeta_missing" || key=="allow_zeta_missing"){
-        sys->zeta_list_allow_missing = true;
-    } else if (key=="-zeta-forbid-missing" || key=="--zeta-forbid-missing" || key=="zeta-forbid-missing" || key=="-forbid-zeta-missing" || key=="--forbid-zeta-missing" || key=="forbid-zeta-missing" || key=="-zeta_forbid_missing" || key=="--zeta_forbid_missing" || key=="zeta_forbid_missing" || key=="-forbid_zeta_missing" || key=="--forbid_zeta_missing" || key=="forbid_zeta_missing"){
-        sys->zeta_list_allow_missing = false;
     } else if (key=="-rb" || key=="rb" || key=="--rb" || key=="-rbohr" || key=="rbohr" || key=="--rbohr" || key=="-Bohr-radius" || key=="--Bohr-radius" || key=="Bohr-radius" || key=="-Bohr_radius" || key=="--Bohr_radius" || key=="Bohr_radius" ){
         if (i+1<argc && StringNS::is_string_number(argv[i+1])){
             sys->rbohr = atof(argv[++i]);
@@ -941,20 +1087,18 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
         if (i+1<argc && StringNS::is_string_number(argv[i+1])){
             sys->rbcharge = atof(argv[++i]);
         }
-    } else if (key=="-trvv" || key=="trvv" || key=="--trvv" || key=="-tr-vv" || key=="tr-vv" || key=="--tr-vv" || key=="-tr_vv" || key=="tr_vv" || key=="--tr_vv" || key=="-transpose-vv" || key=="transpose-vv" || key=="--transpose-vv" || key=="-transpose_vv" || key=="transpose_vv" || key=="--transpose_vv"){
-        if (i+1<argc && argv[i+1][0]!='-'){ i++; StringNS::string key2 = argv[i];
-            if (key2 == "y" || key2 == "yes" || key2 == "on" || key2 == "true"){
-                sys->transpose_vv = true;
-            } else if (key2 == "n" || key2 == "no" || key2 == "off" || key2 == "false"){
-                sys->transpose_vv = false;
-            } else {
-                fprintf(sys->log(), "%s : %s[%d] : unknown option for -tr-vv: %s\n", software_name, get_second_fn(script_name), script_line, argv[i]); ret = 1;
-            }
-        } else sys->transpose_vv = true;
-    } else if (key=="-xvv-k-shift" || key=="--xvv-k-shift" || key=="xvv-k-shift" || key=="-xvv_k_shift" || key=="--xvv_k_shift" || key=="xvv_k_shift"){
-        if (i+1<argc && StringNS::is_string_number(argv[i+1])){ i++; sys->xvv_k_shift = atof(argv[i]); }
     } else if (key=="-xvv-extend" || key=="--xvv-extend" || key=="xvv-extend" || key=="-xvv_extend" || key=="--xvv_extend" || key=="xvv_extend"){
         if (i+1<argc && StringNS::is_string_number(argv[i+1])){ i++; sys->xvv_extend = atof(argv[i]); }
+    } else if (key=="-xvv-scheme" || key=="--xvv-scheme" || key=="xvv-scheme"){
+        if (i+1<argc && argv[i+1][0]!='-'){
+            i++; sys->xvv_scheme = argv[i];
+        }
+    } else if (key=="-hvv-scale" || key=="--hvv-scale" || key=="hvv-scale" || key=="-xvv-scale" || key=="--xvv-scale" || key=="xvv-scale" || key=="-scale-hvv" || key=="--scale-hvv" || key=="scale-hvv" || key=="-scale-xvv" || key=="--scale-xvv" || key=="scale-xvv"){
+        if (i+1<argc && StringNS::is_string_number(argv[i+1])){
+            i++; int i_begin = i; int i_end = i+1; while (i+1<argc && StringNS::is_string_number(argv[i+1])){ i++; i_end = i+1; }
+            sys->n_xvv_scale = i_end-i_begin; if (sys->xvv_scale) free(sys->xvv_scale); sys->xvv_scale = (double*) malloc(sizeof(double)*(sys->n_xvv_scale+1)); if (!sys->xvv_scale){ fprintf(sys->log(), "%s%s : malloc failure%s\n", istty?color_string_of_synerr:"", software_name, istty?color_string_end:""); exit(-1); }
+            for (int j=0; j<sys->n_xvv_scale; j++) sys->xvv_scale[j] = atof(argv[i_begin+j]);
+        }
   #ifdef _INTERACTIVE_
     } else if (key=="-interactive" || key=="--interactive" || key=="interactive" || key=="-intervene" || key=="--intervene" || key=="intervene"){
         sys->allow_interactive = true;
@@ -973,7 +1117,7 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
                   if (pbc_str.text[i]=='x' || pbc_str.text[i]=='X') sys->pbc_x = true;
                   else if (pbc_str.text[i]=='y' || pbc_str.text[i]=='Y') sys->pbc_y = true;
                   else if (pbc_str.text[i]=='z' || pbc_str.text[i]=='Z') sys->pbc_z = true;
-                  else { fprintf(sys->log(), "%s : %s[%d] : unknown pbc \"%s\"\n", software_name, get_second_fn(script_name), script_line, pbc_str.text); ret = 1; }
+                  else { fprintf(sys->log(), "%s%s : %s[%d] : unknown type of pbc \"%s\"%s\n", istty?color_string_of_synerr:"", software_name, get_second_fn(script_name), script_line, pbc_str.text, istty?color_string_end:""); ret = 1; }
                 }
             }
         }
@@ -998,10 +1142,22 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
         sys->mixingrule_sigma_geometric = false; sys->mixingrule_sigma_geometric_specified = true;
     } else if (key == "-geometric-sigma" || key == "geometric-sigma" || key == "--geometric-sigma" || key == "-geo-sigma" || key == "geo-sigma" || key == "--geo-sigma" || key == "-geometric_sigma" || key == "geometric_sigma" || key == "--geometric_sigma" || key == "-geo_sigma" || key == "geo_sigma" || key == "--geo_sigma"){
         sys->mixingrule_sigma_geometric = true; sys->mixingrule_sigma_geometric_specified = true;
-    } else if (key == "-dopme" || key == "--dopme" || key == "dopme" || key == "-do-pme" || key == "--do-pme" || key == "do-pme" || key == "-do_pme" || key == "--do_pme" || key == "do_pme"){
-        sys->perform_pme = true;
-    } else if (key == "-nopme" || key == "--nopme" || key == "nopme" || key == "-no-pme" || key == "--no-pme" || key == "no-pme" || key == "-no_pme" || key == "--no_pme" || key == "no_pme"){
-        sys->perform_pme = false;
+    } else if (key == "-allow"||key == "--allow"||key == "allow" || key == "-enable"||key == "--enable"||key == "enable"){
+        if (i+1<argc && argv[i+1][0]!='-') if (!set_sys_options(sys, argv[++i], true, script_name, script_line)) ret = 1;
+    } else if (key == "-forbid"||key == "--forbid"||key == "forbid" || key == "-disable"||key == "--disable"||key == "disable"){
+        if (i+1<argc && argv[i+1][0]!='-') if (!set_sys_options(sys, argv[++i], false, script_name, script_line)) ret = 1;
+    } else if (key.sub(0,7) == "-allow-" || key.sub(0,7) == "-allow_"){
+        if (!set_sys_options(sys, key.sub(7).text, true, script_name, script_line)) ret = 1;
+    } else if (key.sub(0,8) == "--allow-" || key.sub(0,8) == "--allow_"){
+        if (!set_sys_options(sys, key.sub(8).text, true, script_name, script_line)) ret = 1;
+    } else if (key.sub(0,8) == "-forbid-" || key.sub(0,8) == "-forbid_"){
+        if (!set_sys_options(sys, key.sub(8).text, false, script_name, script_line)) ret = 1;
+    } else if (key.sub(0,9) == "--forbid-" || key.sub(0,9) == "--forbid_"){
+        if (!set_sys_options(sys, key.sub(9).text, false, script_name, script_line)) ret = 1;
+    } else if (key.sub(0,6) == "-skip-" || key.sub(0,6) == "-skip_"){
+        if (!set_sys_options(sys, key.sub(6).text, false, script_name, script_line)) ret = 1;
+    } else if (key.sub(0,7) == "--skip-" || key.sub(0,7) == "--skip_"){
+        if (!set_sys_options(sys, key.sub(0,7).text, false, script_name, script_line)) ret = 1;
    // ---------------------------------------------------------------------------------
    // The iteration control parameters ------------------------------------------------
    // ---------------------------------------------------------------------------------
@@ -1014,17 +1170,6 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
             i++; sys->stepmax_hi = sys->stepmax_rism = atoi(argv[i]);
             if (i+1<argc && StringNS::is_string_number(argv[i+1])){ i++; sys->stepmax_rism = atoi(argv[i]); }
         }
-    } else if (key=="-skip-zero-xvv" || key=="--skip-zero-xvv" || key=="skip-zero-xvv" || key=="-skip_zero_xvv" || key=="--skip_zero_xvv" || key=="skip_zero_xvv" || key=="-skip-missing-xvv" || key=="--skip-missing-xvv" || key=="skip-missing-xvv" || key=="-skip_missing_xvv" || key=="--skip_missing_xvv" || key=="skip_missing_xvv" || key=="-xvv-skip-missing" || key=="--xvv-skip-missing" || key=="xvv-skip-missing" || key=="--xvv_skip_missing" || key=="--xvv_skip_missing" || key=="xvv_skip_missing"){
-        sys->check_zero_xvv = true;
-        if (i+1<argc && argv[i+1][0]!='-'){ i ++; StringNS::string check_zero_xvv_specifier = argv[i];
-            if (check_zero_xvv_specifier=="on"|| check_zero_xvv_specifier=="true" || check_zero_xvv_specifier=="yes" || check_zero_xvv_specifier=="ok"){
-                sys->check_zero_xvv = true;
-            } else if (check_zero_xvv_specifier=="off" || check_zero_xvv_specifier=="false" || check_zero_xvv_specifier=="none" || check_zero_xvv_specifier=="no" || check_zero_xvv_specifier=="never"){
-                sys->check_zero_xvv = false;
-            } else {
-                fprintf(sys->log(), "%s : %s[%d] : unknown -check-zero-xvv specifier \"%s\"\n", software_name, get_second_fn(script_name), script_line, argv[i]); ret = 1;
-            }
-        }
     } else if (key=="-dof" || key=="--dof" || key=="dof" || key=="-degree-of-freedom" || key=="-degree-of-freedom" || key=="degree-of-freedom" || key=="-degree_of_freedom" || key=="--degree_of_freedom" || key=="degree_of_freedom"){
         sys->n_degree_of_freedom = 0; while (i+1<argc && StringNS::is_string_number(argv[i+1])){
             i++; if (sys->n_degree_of_freedom<MAX_SOL) sys->degree_of_freedom[sys->n_degree_of_freedom++] = atof(argv[i]);
@@ -1032,6 +1177,10 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
     } else if (key=="-scale.zeta" || key=="--scale.zeta" || key=="scale.zeta"){
         sys->n_zeta_scaling_factor = 0; while (i+1<argc && StringNS::is_string_number(argv[i+1])){
             i++; if (sys->n_zeta_scaling_factor<MAX_SOL) sys->zeta_scaling_factor[sys->n_zeta_scaling_factor++] = atof(argv[i]);
+        }
+    } else if (key=="-ucutoff-hi" || key=="--ucutoff-hi" || key=="ucutoff-hi" || key=="-ucutoff_hi" || key=="--ucutoff_hi" || key=="ucutoff_hi" || key=="-ucutoff-hshi" || key=="--ucutoff-hshi" || key=="ucutoff-hshi" || key=="-ucutoff_hshi" || key=="--ucutoff_hshi" || key=="ucutoff_hshi"){
+        if (i+1<argc && StringNS::is_string_number(argv[i+1])){
+            i++; sys->ucutoff_hs = atof(argv[i]);
         }
     } else if (key=="-ccutoff-hi" || key=="--ccutoff-hi" || key=="ccutoff-hi" || key=="-ccutoff_hi" || key=="--ccutoff_hi" || key=="ccutoff_hi" || key=="-ccutoff-hshi" || key=="--ccutoff-hshi" || key=="ccutoff-hshi" || key=="-ccutoff_hshi" || key=="--ccutoff_hshi" || key=="ccutoff_hshi" || key=="-ccutoff-theta" || key=="--ccutoff-theta" || key=="ccutoff-theta" || key=="-ccutoff_theta" || key=="--ccutoff_theta" || key=="ccutoff_theta"){
         if (i+1<argc && StringNS::is_string_number(argv[i+1])){
@@ -1075,41 +1224,20 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
         sys->debug_level = 2;
     } else if (key=="-debug" || key=="debug"  || key=="--debug"){
         sys->debug_level = 1; if (i+1<argc && StringNS::is_string_number(argv[i+1])){ i++; sys->debug_level = atoi(argv[i]); }
-    } else if (key=="-debug-crc" || key=="debug-crc" || key=="--debug-crc" || key=="-debug_crc" || key=="debug_crc" || key=="--debug_crc" || key=="-debug-show-crc" || key=="debug-show-crc" || key=="--debug-show-crc" || key=="-debug_show_crc" || key=="debug_show_crc" || key=="--debug_show_crc"){
+    } else if (key=="-debug-crc" || key=="debug-crc" || key=="--debug-crc" || key=="-debug_crc" || key=="debug_crc" || key=="--debug_crc" || key=="-check-crc" || key=="check-crc" || key=="--check-crc" || key=="-check_crc" || key=="check_crc" || key=="--check_crc"){
         sys->debug_show_crc = true;
-    } else if (key=="-debug-hide-crc" || key=="debug-hide-crc" || key=="--debug-hide-crc" || key=="-debug_hide_crc" || key=="debug_hide_crc" || key=="--debug_hide_crc"){
+    } else if (key=="-no-debug-crc" || key=="no-debug-crc" || key=="--no-debug-crc" || key=="-no_debug_crc" || key=="no_debug_crc" || key=="--no_debug_crc"){
         sys->debug_show_crc = false;
+    } else if (key=="-debug-xvv" || key=="debug-xvv" || key=="--debug-xvv" || key=="-debug_xvv" || key=="debug_xvv" || key=="--debug_xvv" || key=="-check-xvv" || key=="check-xvv" || key=="--check-xvv" || key=="-check_xvv" || key=="check_xvv" || key=="--check_xvv"){
+        sys->debug_xvv = true;
+    } else if (key=="-no-debug-xvv" || key=="no-debug-xvv" || key=="--no-debug-xvv" || key=="-no_debug_xvv" || key=="no_debug_xvv" || key=="--no_debug_xvv"){
+        sys->debug_xvv = false;
     } else if (key=="-test" || key=="test"  || key=="--test"){              sys->mode_test = true;
     } else if (key=="-nodebug" || key=="nodebug"  || key=="--nodebug"){     sys->debug_level = 0;
     } else if (key == "-list" || key == "--list" || key == "list" || key == "-listonly" || key == "--listonly" || key == "listonly" || key == "-list-only" || key == "--list-only" || key == "list-only" || key == "-list_only" || key == "--list_only" || key == "list_only"){
         sys->listonly = true; sys->listall = true;
     } else if (key == "-ls" || key == "--ls" || key == "ls"){
         sys->listonly = true; sys->listall = false;
-    } else if (key == "-ignore-ram" || key == "--ignore-ram" || key == "ignore-ram" || key == "-ignore_ram" || key == "--ignore_ram" || key == "ignore_ram" || key == "-ignore-memory-capacity" || key == "--ignore-memory-capacity" || key == "ignore-memory-capacity" || key == "-ignore_memory_capacity" || key == "--ignore_memory_capacity" || key == "ignore_memory_capacity"){
-        sys->ignore_memory_capacity = true;
-        _ignore_memory_capacity = true;
-    } else if (key == "-bounded-to-ram" || key == "--bounded-to-ram" || key == "bounded-to-ram" || key == "-bounded_to_ram" || key == "--bounded_to_ram" || key == "bounded_to_ram" || key == "-check-memory-capacity" || key == "--check-memory-capacity" || key == "check-memory-capacity" || key == "-check_memory_capacity" || key == "--check_memory_capacity" || key == "check_memory_capacity"){
-        sys->ignore_memory_capacity = false;
-        _ignore_memory_capacity = false;
-    } else if (key=="-theta" || key=="theta"){
-        sys->guvmal = GUVMAL_THETA;
-        if (i+1<argc && StringNS::is_string_number(argv[i+1])){ i++;
-            sys->ucutoff_hs = atof(argv[i]);
-        }
-    } else if (key=="-guvm" || key=="guvm"){
-        if (i+1<argc && argv[i+1][0] != '-'){ i++; StringNS::string key2 = argv[i];
-            if (key2 == "theta"){
-                sys->guvmal = GUVMAL_THETA; sys->ucutoff_hs = 5;
-            } else if (key2.length>=6 && (StringNS::string(key2.text,6) == "theta@")){
-                sys->guvmal = GUVMAL_THETA; sys->ucutoff_hs = 5;
-                if (StringNS::is_string_number(&argv[i][6])) sys->ucutoff_hs = atof(&argv[i][6]);
-            } else if (key2.length>=10 && (StringNS::string(key2.text,10) == "theta@uuv>")){
-                sys->guvmal = GUVMAL_THETA; sys->ucutoff_hs = 5;
-                if (StringNS::is_string_number(&argv[i][10])) sys->ucutoff_hs = atof(&argv[i][10]);
-            } else if (key2 == "guv"){
-                sys->guvmal = GUVMAL_GUV; sys->ucutoff_hs = 0;
-            } else { fprintf(sys->log(), "%s : %s[%d] : unknown HI.guvm algorithm \"%s\"\n", software_name, get_second_fn(script_name), script_line, argv[i]); ret = 1; }
-        }
     } else if (key=="-lambda" || key=="--lambda" || key=="lambda" || key=="-llambda" || key=="--llambda" || key=="llambda"){
         bool is_lambda = (key=="-lambda" || key=="--lambda" || key=="lambda"); double logEE = log(EE);
         while (i+1<argc && StringNS::is_string_number(argv[i+1])){
@@ -1151,7 +1279,7 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
                 ret = analysis_parameter_line(sys, "-Tdef 120.27", script_name, script_line, script_path);
                 ret = analysis_parameter_line(sys, "-arith-sigma", script_name, script_line, script_path);
             } else {
-                fprintf(sys->log(), "%s : %s[%d] : unknown forcefield specification: \"%s\"\n", software_name, get_second_fn(script_name), script_line, argv[i]);
+                fprintf(sys->log(), "%s%s : %s[%d] : unknown forcefield specification: \"%s\"%s\n", istty?color_string_of_synerr:"", software_name, get_second_fn(script_name), script_line, argv[i], istty?color_string_end:"");
                 ret = 1;
             }
         }
@@ -1167,24 +1295,35 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
     } else if (key == "-Lorentz-Berthelot" || key == "--Lorentz-Berthelot" || key == "Lorentz-Berthelot" || key == "-Lorentz_Berthelot" || key == "--Lorentz_Berthelot" || key == "Lorentz_Berthelot"){
         ret = analysis_parameter_line(sys, "-arith-sigma", script_name, script_line, script_path);
     } else if (key == "-do-rism-kh" || key == "-do-kh-rism" || key == "-do-khrism"){
-        ret = analysis_parameter_line(sys, "-cmd closure=kh rism report:energy display:rdf savee:cmd,guv", script_name, script_line, script_path);
+        ret = analysis_parameter_line(sys, "-cmd closure=kh rism report:energy,rdf savee:cmd,guv,cuv", script_name, script_line, script_path);
     } else if (key == "-do-rismhi-d2" || key == "-do-d2-rismhi" || key == "-do-d2rismhi"){
-        ret = analysis_parameter_line(sys, "-cmd hshi closure=d2 rism report:energy display:rdf savee:cmd,guv", script_name, script_line, script_path);
-    } else if (key == "-do-rismhi-kh" || key == "-do-kh-rismhi" || key == "-do-khrismhi"){
-        ret = analysis_parameter_line(sys, "-cmd hshi closure=kh rism report:energy display:rdf savee:cmd,guv", script_name, script_line, script_path);
+        ret = analysis_parameter_line(sys, "-cmd hshi closure=d2 rism report:energy,rdf savee:cmd,guv,cuv", script_name, script_line, script_path);
+  // ---------------------------------------------------------------------------------
+  // Shortcuts for old versions ------------------------------------------------------
+  // ---------------------------------------------------------------------------------
+    } else if (key=="-skip-zero-xvv" || key=="--skip-zero-xvv" || key=="skip-zero-xvv" || key=="-skip_zero_xvv" || key=="--skip_zero_xvv" || key=="skip_zero_xvv" || key=="-skip-missing-xvv" || key=="--skip-missing-xvv" || key=="skip-missing-xvv" || key=="-skip_missing_xvv" || key=="--skip_missing_xvv" || key=="skip_missing_xvv" || key=="-xvv-skip-missing" || key=="--xvv-skip-missing" || key=="xvv-skip-missing" || key=="--xvv_skip_missing" || key=="--xvv_skip_missing" || key=="xvv_skip_missing"){
+        ret = analysis_parameter_line(sys, "-allow missing-xvv", script_name, script_line, script_path);
+    } else if (key=="-zeta-allow-missing" || key=="--zeta-allow-missing" || key=="zeta-allow-missing" || key=="-allow-zeta-missing" || key=="--allow-zeta-missing" || key=="allow-zeta-missing" || key=="-zeta_allow_missing" || key=="--zeta_allow_missing" || key=="zeta_allow_missing" || key=="-allow_zeta_missing" || key=="--allow_zeta_missing" || key=="allow_zeta_missing"){
+        ret = analysis_parameter_line(sys, "-allow missing-zeta", script_name, script_line, script_path);
+    } else if (key=="-zeta-forbid-missing" || key=="--zeta-forbid-missing" || key=="zeta-forbid-missing" || key=="-forbid-zeta-missing" || key=="--forbid-zeta-missing" || key=="forbid-zeta-missing" || key=="-zeta_forbid_missing" || key=="--zeta_forbid_missing" || key=="zeta_forbid_missing" || key=="-forbid_zeta_missing" || key=="--forbid_zeta_missing" || key=="forbid_zeta_missing"){
+        ret = analysis_parameter_line(sys, "-forbid missing-zeta", script_name, script_line, script_path);
+    } else if (key == "-ignore-ram" || key == "--ignore-ram" || key == "ignore-ram" || key == "-ignore_ram" || key == "--ignore_ram" || key == "ignore_ram" || key == "-ignore-memory-capacity" || key == "--ignore-memory-capacity" || key == "ignore-memory-capacity" || key == "-ignore_memory_capacity" || key == "--ignore_memory_capacity" || key == "ignore_memory_capacity"){
+        ret = analysis_parameter_line(sys, "-allow exceed-memory-capacity", script_name, script_line, script_path);
+    } else if (key == "-bound-to-ram" || key == "--bound-to-ram" || key == "bound-to-ram" || key == "-bound_to_ram" || key == "--bound_to_ram" || key == "bound_to_ram" || key == "-check-memory-capacity" || key == "--check-memory-capacity" || key == "check-memory-capacity" || key == "-check_memory_capacity" || key == "--check_memory_capacity" || key == "check_memory_capacity"){
+        ret = analysis_parameter_line(sys, "-forbid exceed-memory-capacity", script_name, script_line, script_path);
    // ---------------------------------------------------------------------------------
    // Done for all known parameters ---------------------------------------------------
    // ---------------------------------------------------------------------------------
     } else if (key.text[0] == '-'){
         #ifdef _EXPERIMENTAL_
-            if (analysis_experinemtal_parameter_line(sys, argv, &i, argc, script_name, script_line, script_path)){
-                fprintf(sys->log(), "%s%s : %s[%d] : unknown option \"%s\"%s\n", istty?color_string_of_error:"", software_name, get_second_fn(script_name), script_line, argv[i], istty?color_string_end:""); ret = 1;
+            if (analysis_experinemtal_parameter_line(sys, argv, &i, argc, script_name, script_line, script_path)>0){
+                fprintf(sys->log(), "%s%s : %s[%d] : unknown option \"%s\"%s\n", istty?color_string_of_synerr:"", software_name, get_second_fn(script_name), script_line, argv[i], istty?color_string_end:""); ret = 1;
             }
         #else
-            fprintf(sys->log(), "%s%s : %s[%d] : unknown option \"%s\"%s\n", istty?color_string_of_error:"", software_name, get_second_fn(script_name), script_line, argv[i], istty?color_string_end:""); ret = 1;
+            fprintf(sys->log(), "%s%s : %s[%d] : unknown option \"%s\"%s\n", istty?color_string_of_synerr:"", software_name, get_second_fn(script_name), script_line, argv[i], istty?color_string_end:""); ret = 1;
         #endif
     } else {
-        fprintf(sys->log(), "%s%s : %s[%d] : unknown string \"%s\"%s\n", istty?color_string_of_error:"", software_name, get_second_fn(script_name), script_line, argv[i], istty?color_string_end:""); ret = 1;
+        fprintf(sys->log(), "%s%s : %s[%d] : unknown string \"%s\"%s\n", istty?color_string_of_synerr:"", software_name, get_second_fn(script_name), script_line, argv[i], istty?color_string_end:""); ret = 1;
     }
     *argi = i;
     return ret;
@@ -1469,6 +1608,15 @@ int analysis_params_post(IET_Param * sys){
     if (!error){
         if (sys->stepmax_rism<0) sys->stepmax_rism = 0; else if (sys->stepmax_rism>1000000000) sys->stepmax_rism = 1000000000;
     }
+  // check sigma
+    if (!error){
+        for (int iv=0; iv<sys->nv; iv++){
+            if (fabs(sys->av[iv].sigma)<=MACHINE_REASONABLE_ERROR || fabs(sys->av[iv].epsilon)<=MACHINE_REASONABLE_ERROR){
+                for (int ib=0; ib<sys->n_bond_list; ib++) if (sys->bond_list[ib].grpi==iv || sys->bond_list[ib].grpj==iv){
+                }
+            }
+        }
+    }
   // other check
     if (!error) if (!sys->mixingrule_sigma_geometric_specified){
         fprintf(sys->log(), "%s%s : error : -ff : force field type not defined%s\n", sys->is_log_tty?color_string_of_error:"", software_name, sys->is_log_tty?color_string_end:""); error = 1;
@@ -1596,9 +1744,52 @@ int analysis_params_post(IET_Param * sys){
       // check Debye wave length of YukawaFFT
         if (sys->rc_yukawafft<0) sys->rc_yukawafft = 1 / sys->yukawa_alpha;
     }
+    if (sys->cmd_flag_rdf_ever_display && sys->n_rdf_grps<=0){
+        fprintf(sys->log(), "%s%s : warning : rdf will not show as -rdf-grps is missing%s\n", sys->is_log_tty?color_string_of_warning:"", software_name, sys->is_log_tty?color_string_end:"");
+    }
 //printf("density: "); for (int i=0; i<sys->nmv; i++) printf("%11f ", sys->density_mv[i]); printf("\n");
 //printf("density_hi: "); for (int i=0; i<sys->nmv; i++) printf("%11f ", sys->density_hi[i]); printf("\n");
 //printf("%d atoms: corre dr: %12f, grids: %dx%dx%d\n", sys->nav, sys->dr, sys->nr[0], sys->nr[1], sys->nr[2]); for (int i=0; i<sys->nv; i++) printf("    %9s(%d).%-6s : %12f %12f %12f %12f\n", sys->av[i].mole, sys->av[i].iaa, sys->av[i].name, sys->bulk_density_av[i], sys->av[i].charge, sys->av[i].sigma, sys->av[i].epsilon);
+    return error;
+}
+int analysis_params_post_commands(IET_Param * sys){
+    int error = 0; if (!sys->cmd || sys->ncmd<=0) return 0;
+
+  // check command queue
+    for (int ic=0; ic<sys->ncmd; ic++){
+        /*if (sys->cmd[ic].command>1500&&sys->cmd[ic].command<2000){
+            sys->cmd_flag_rism_ever_performed = true;
+        } else if (sys->cmd[ic].command==IETCMD_DISPLAY || sys->ncmd==IETCMD_REPORT){
+            for (int i=0; i<sys->cmd[ic].step; i++){
+                if (sys->cmd[ic].command_params_int[i] == IETCMD_v_rdf){
+                    sys->cmd_flag_rdf_ever_display = true;
+                } else {
+                    sys->cmd_flag_energy_ever_display = true;
+                }
+            }
+        } else if (sys->cmd[ic].command==IETCMD_TI){
+            sys->cmd_flag_energy_ever_display = true;
+        } else */
+        if (sys->cmd[ic].command==IETCMD_CLOSURE || sys->ncmd==IETCMD_CLOSURE_A){
+            for (int i=0; i<sys->cmd[ic].step; i++){
+                if (sys->cmd[ic].command_params_int[i] == CLOSURE_RBC_HNC){
+                    sys->cmd_rbc_ljr_allowed = true;
+                } else if (sys->cmd[ic].command_params_int[i] == CLOSURE_RBC_KH){
+                    sys->cmd_rbc_ljr_allowed = true;
+                }
+            }
+        }
+    }
+
+  // check global settings
+    for (int i=0; i<sys->nv; i++){
+        if (sys->closures[i]==CLOSURE_RBC_HNC){
+            sys->cmd_rbc_ljr_allowed = true;
+        } else if (sys->closures[i]==CLOSURE_RBC_KH){
+            sys->cmd_rbc_ljr_allowed = true;
+        }
+    }
+
     return error;
 }
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -1656,35 +1847,41 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
         } else if (sl[0]=="calculate"){ cmd_type = 7; cmd.command = IETCMD_DISPLAY;
         } else if (sl[0]=="calc"){      cmd_type = 7; cmd.command = IETCMD_DISPLAY;
         } else if (sl[0]=="display"){   cmd_type = 7; cmd.command = IETCMD_DISPLAY;
-        } else if (sl[0]=="display-final"||sl[0]=="display_final"||sl[0]=="final-display"||sl[0]=="final_display"||sl[0]=="display-at-the-end"||sl[0]=="display_at_the_end"||sl[0]=="display-at-end"||sl[0]=="display_at_the_end"||sl[0]=="display-at-ending"||sl[0]=="display_at_ending"){
-            cmd_type = 7; cmd.command = IETCMD_DISPLAY; cmd.time_to_run = -1;
+        } else if (sl[0]=="print"){     cmd_type = 7; cmd.command = IETCMD_DISPLAY;
         } else if (sl[0]=="report"){    cmd_type = 7; cmd.command = IETCMD_REPORT;
-        } else if (sl[0]=="report-final"||sl[0]=="report_final"||sl[0]=="final-report"||sl[0]=="final_report"||sl[0]=="report-at-the-end"||sl[0]=="report_at_the_end"||sl[0]=="report-at-end"||sl[0]=="report_at_the_end"||sl[0]=="report-at-ending"||sl[0]=="report_at_ending"){
-            cmd_type = 7; cmd.command = IETCMD_REPORT; cmd.time_to_run = -1;
+        } else if (sl[0]=="hi-solver"){ cmd_type = 0; cmd.command = IETCMD_HI_SOLVER;
+        } else if (sl[0]=="lse"){       cmd_type = 0; cmd.command = IETCMD_LSE;
       // cmd: kernel calculation: HI, IET
         } else if (sl[0]=="build-force-field" || sl[0]=="build_force_field" || sl[0]=="build-ff" || sl[0]=="build_ff" || sl[0]=="rebuild-force-field" || sl[0]=="rebuild_force_field" || sl[0]=="rebuild-ff" || sl[0]=="rebuild_ff"){
             cmd_type = 13; cmd.command = IETCMD_BUILD_FF; cmd.step = 1;
         } else if (sl[0]=="no-build-force-field" || sl[0]=="no_build_force_field" || sl[0]=="no-build-ff" || sl[0]=="no_build_ff" || sl[0]=="skip-force-field" || sl[0]=="skip_force_field" || sl[0]=="skip-ff" || sl[0]=="skip_ff"){
             cmd_type = 13; cmd.command = -IETCMD_BUILD_FF; cmd.step = 1;
+        } else if (sl[0]=="build-uuv" || sl[0]=="build_uuv" || sl[0]=="rebuild-uuv" || sl[0]=="rebuild_uuv"){
+            cmd_type = 13; cmd.command = IETCMD_BUILD_UUV; cmd.step = 1;
+            cmd.command_params_int[0] = CoulAL_Coulomb;
+            cmd.command_params_double[0] = 1;
+            cmd.command_params_double[1] = 0;
         } else if (sl[0]=="hi"){        cmd_type = 10; cmd.command = 2000+HIAL_HSHI;      cmd.step = sys->stepmax_hi;
             check_hi_diis_default_steps(sys);
             //fprintf(sys->log(), "%s : %s[%d][%ld] : warning : \"%s\" redirected to \"hshi\"\n", software_name, script_name, script_line, 1+sl[0].text-line+first_char_offset, sl[0].text);
         } else if (sl[0]=="nohi"){      cmd_type = 10; cmd.command = 2000+HIAL_NOHI;      cmd.step = sys->stepmax_hi;
         } else if (sl[0]=="hshi"){      cmd_type = 10; cmd.command = 2000+HIAL_HSHI;      cmd.step = sys->stepmax_hi;
             check_hi_diis_default_steps(sys);
+        } else if (sl[0]=="h2hi"){      cmd_type = 10; cmd.command = 2000+HIAL_H2HI;      cmd.step = sys->stepmax_hi;
+            check_hi_diis_default_steps(sys);
+        } else if (sl[0]=="eehi"){      cmd_type = 10; cmd.command = 2000+HIAL_EEHI;      cmd.step = sys->stepmax_hi;
+            check_hi_diis_default_steps(sys);
+            sys->b_allow_Ecoul0 = true;
+        } else if (sl[0]=="e2hi"){      cmd_type = 10; cmd.command = 2000+HIAL_E2HI;      cmd.step = sys->stepmax_hi;
+            check_hi_diis_default_steps(sys);
+            sys->b_allow_Ecoul0 = true;
         } else if (sl[0]=="dphi"){      cmd_type = 10; cmd.command = 2000+HIAL_DPHI;      cmd.step = sys->stepmax_hi;
             check_hi_diis_default_steps(sys);
+            sys->b_allow_Ecoul0 = true;
         } else if (sl[0]=="dnhi"){      cmd_type = 10; cmd.command = 2000+HIAL_DNHI;      cmd.step = sys->stepmax_hi;
             check_hi_diis_default_steps(sys);
-        } else if (sl[0]=="qnhi"){      cmd_type = 10; cmd.command = 2000+HIAL_PLHI;      cmd.step = sys->stepmax_hi;
-            check_hi_diis_default_steps(sys);
-        } else if (sl[0]=="phi" || sl[0]=="pshi" || sl[0]=="plhi" || sl[0]=="psedoliquid-hi" || sl[0]=="psedoliquid_hi"){
-            cmd_type = 10; cmd.command = 2000+HIAL_PLHI;      cmd.step = sys->stepmax_hi;
-            check_hi_diis_default_steps(sys);
-        } else if (sl[0]=="rqnhi" || sl[0]=="rphi" || sl[0]=="rpshi" || sl[0]=="rplhi" || sl[0]=="restrained-psedoliquid-hi" || sl[0]=="restrained_psedoliquid_hi"){
-            cmd_type = 10; cmd.command = 2000+HIAL_RES_PLHI;  cmd.step = sys->stepmax_hi;
-            check_hi_diis_default_steps(sys);
-        } else if (sl[0]=="init-rism"){
+            sys->b_allow_Ecoul0 = true;
+        } else if (sl[0]=="init-rism" || sl[0]=="norism"){
             cmd_type = 12; cmd.command = 1500+IETAL_NONE;
         } else if (sl[0]=="ssoz"){      cmd_type = 12; cmd.command = 1500+IETAL_SSOZ;   cmd.step = sys->stepmax_rism;
             check_rism_diis_default_steps(sys);
@@ -1692,15 +1889,11 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
         } else if (sl[0]=="rism"){      cmd_type = 12; cmd.command = 1500+IETAL_RRISM;  cmd.step = sys->stepmax_rism;
             check_rism_diis_default_steps(sys);
             sys->cmd_flag_rism_ever_performed = true;
-        } else if (sl[0]=="vrism"){      cmd_type = 12; cmd.command = 1500+IETAL_VRISM; cmd.step = sys->stepmax_rism;
-            check_rism_diis_default_steps(sys); cmd.command_params_int[0] = 0;
-            sys->cmd_flag_rism_ever_performed = true;
-        } else if (sl[0]=="irism"){      cmd_type = 12; cmd.command = 1500+IETAL_IRISM; cmd.step = sys->stepmax_rism;
-            check_rism_diis_default_steps(sys);
-            sys->cmd_flag_rism_ever_performed = true;
         } else if (sl[0]=="ti" || sl[0]=="tibegin" || sl[0]=="ti_begin" || sl[0]=="ti-begin"){
             cmd_type = 14; cmd.command = IETCMD_TI; cmd.step = 10;
-            sys->cmd_flag_energy_ever_display = true;
+            sys->b_allow_Ecoul0 = true;
+        } else if (sl[0]=="hold"){
+            cmd_type = IETCMD_HOLD; cmd.command = IETCMD_HOLD; cmd.step = 0;
       // cmd: set values of arrays
         } else if (sl[0]=="closure"){   cmd_type = 21; cmd.command = IETCMD_CLOSURE;
         } else if (sl[0]=="closure-a" || sl[0]=="closure_a"){ cmd_type = 21; cmd.command = IETCMD_CLOSURE_A;
@@ -1711,8 +1904,8 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
         } else if (sl[0]=="cf-a" || sl[0]=="cf_a"){ cmd_type = 22; cmd.command = IETCMD_CF_A;
         } else if (sl[0]=="closure-factor-m" || sl[0]=="closure_factor_m"){ cmd_type = 22; cmd.command = IETCMD_CF;
         } else if (sl[0]=="cf-m" || sl[0]=="cf_m"){ cmd_type = 22; cmd.command = IETCMD_CF;
-        } else if (sl[0]=="density"){   cmd_type = 23; cmd.command = IETCMD_density;
-        } else if (sl[0]=="dielect"){   cmd_type = 24; cmd.command = IETCMD_dielect;
+        } else if (sl[0]=="density"){   cmd_type = 23; cmd.command = IETCMD_DENSITY;
+        } else if (sl[0]=="dielect"){   cmd_type = 24; cmd.command = IETCMD_DIELECT;
         } else if (sl[0]=="test"){ cmd_type = IETCMD_TEST; cmd.command = IETCMD_TEST;
         } else if (sl[0]=="test-and-save"){ cmd_type = IETCMD_TEST_SAVE; cmd.command = IETCMD_TEST_SAVE;
       // cmd: experimental
@@ -1747,13 +1940,56 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
                         success = false; sl[i].text[sl[i].length] = cc;
                     }
                 }
-            } else if (cmd_type==10){ // HI
+            } else if (cmd_type==10){ // HI and CI
                 if ((sl[i]=="step" || sl[i]=="steps")){
                     if (i+1<nw && StringNS::is_string_number(sl[i+1])){
                         cmd.step = atoi(sl[i+1].text);
                         i++;
                     }
-                } else if (sl[i]=="factor"||sl[i]=="ih" || sl[i]=="is" || sl[i]=="oh" || sl[i]=="os"){
+                } else if (sl[i]=="factor"){ // format: hi,factor=1,2,3...
+                    while (i+1<nw && StringNS::is_string_number(sl[i+1])){
+                        double value = atof(sl[i+1].text); i++;
+                        int i_available=-1; for (int ic=0; ic<MAX_CMD_PARAMS; ic++) if (cmd.command_params_int[ic]==0){ i_available = ic; break; }
+                        if (i_available>=0 && i_available<MAX_CMD_PARAMS){
+                            cmd.command_params_int[i_available] = 1;
+                            cmd.command_params_double[i_available] = value;
+                        }
+                    }
+                } else if (sl[i]=="te" || sl[i]=="theta-expand" || sl[i]=="theta_expand" || sl[i]=="theta-expansion" || sl[i]=="theta_expansion"){
+                    if (i+1<nw && StringNS::is_string_number(sl[i+1])){
+                        double value = atof(sl[i+1].text); i++;
+                        int i_available=-1; for (int ic=0; ic<MAX_CMD_PARAMS; ic++) if (cmd.command_params_int[ic]==0){ i_available = ic; break; }
+                        if (i_available>=0 && i_available<MAX_CMD_PARAMS){
+                            cmd.command_params_int[i_available] = 0xB34349; // last six digitals of md5sum("theta expansion")
+                            cmd.command_params_double[i_available] = value;
+                        }
+                    }
+                } else if (sl[i]=="ke" || sl[i]=="kernel-expand" || sl[i]=="kernel_expand" || sl[i]=="kernel-expansion" || sl[i]=="kernel_expansion" || sl[i]=="ld" || sl[i]=="ld-expand" || sl[i]=="ld_expand" || sl[i]=="ld-expansion" || sl[i]=="ld_expansion"){
+                    if (i+1<nw && StringNS::is_string_number(sl[i+1])){
+                        double value = atof(sl[i+1].text); i++;
+                        int i_available=-1; for (int ic=0; ic<MAX_CMD_PARAMS; ic++) if (cmd.command_params_int[ic]==0){ i_available = ic; break; }
+                        if (i_available>=0 && i_available<MAX_CMD_PARAMS){
+                            cmd.command_params_int[i_available] = 0xB59E5B; // last six digitals of md5sum("kernel expansion")
+                            cmd.command_params_double[i_available] = value;
+                        }
+                    }
+                } else if (sl[i]=="dielect" || sl[i]=="dielect-hi" || sl[i]=="dielect_hi"){
+                    if (i+1<nw && StringNS::is_string_number(sl[i+1])){
+                        double value = atof(sl[i+1].text); i++;
+                        int i_available=-1; for (int ic=0; ic<MAX_CMD_PARAMS; ic++) if (cmd.command_params_int[ic]==0){ i_available = ic; break; }
+                        if (i_available>=0 && i_available<MAX_CMD_PARAMS){
+                            cmd.command_params_int[i_available] = 0x724E6D; // last six digitals of md5sum("dielect hi")
+                            cmd.command_params_double[i_available] = value;
+                        }
+                    }
+                } else if (StringNS::is_string_number(sl[i])){ // format: hi,1,2,3...
+                    double value =  atof(sl[i].text);
+                    int i_available=-1; for (int ic=0; ic<MAX_CMD_PARAMS; ic++) if (cmd.command_params_int[ic]==0){ i_available = ic; break; }
+                    if (i_available>=0 && i_available<MAX_CMD_PARAMS){
+                        cmd.command_params_int[i_available] = 1;
+                        cmd.command_params_double[i_available] = value;
+                    }
+                /*} else if (sl[i]=="factor"||sl[i]=="ih" || sl[i]=="is" || sl[i]=="oh" || sl[i]=="os"){
                     memset(cmd.command_params_int, 0, sizeof(cmd.command_params_int));
                     int factor_identifier = 1;
                         if (sl[i]=="oh") factor_identifier = -1;
@@ -1763,7 +1999,7 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
                         cmd.command_params_int[icpi] = factor_identifier;
                         cmd.command_params_double[icpi] = atof(sl[i+1].text);
                         i++; icpi ++;
-                    }
+                    }*/
                 } else {
                     char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
                     fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined variable \"%s\" for %s%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, HIAL_name[cmd.command-2000], sys->is_log_tty?color_string_end:"");
@@ -1772,29 +2008,6 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
             } else if (cmd_type==12){ // RISM
                 if (sl[i]=="step" || sl[i]=="steps"){
                     if (i+1<nw&&StringNS::is_string_number(sl[i+1])){ if (StringNS::is_string_number(sl[i+1])) cmd.step = atoi(sl[i+1].text); i++; }
-                } else if (cmd.command == 1500+IETAL_VRISM && sl[i]=="merge"){
-                    if (i+1<nw){ i++;
-                        if (sl[i]=="default"){
-                            cmd.command_params_int[0] = 0;
-                        } else if (sl[i]=="none" || sl[i]=="no"){
-                            cmd.command_params_int[0] = -1;
-                        } else if (sl[i]=="local" || sl[i]=="clr"){
-                            cmd.command_params_int[0] = 1;
-                        } else if (sl[i]=="hlr"){
-                            cmd.command_params_int[0] = 2;
-                        } else if (sl[i]=="smoothed" || sl[i]=="smooth" || sl[i]=="sm"){
-                            cmd.command_params_int[0] = 3;
-                        } else if (sl[i]=="-smoothed" || sl[i]=="-smooth" || sl[i]=="-sm"){
-                            cmd.command_params_int[0] = 4;
-                        } else if (sl[i]=="yukawa" || sl[i]=="y"){
-                            cmd.command_params_int[0] = 5;
-                        } else if (sl[i]=="-yukawa" || sl[i]=="-y"){
-                            cmd.command_params_int[0] = 6;
-                        } else {
-                            fprintf(sys->log(), "%s%s : %s[%d][%ld] : error : undefined method \"%s\" for VRISM merging%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
-                            success = false;
-                        }
-                    }
                 } else {
                     char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
                     fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined variable \"%s\" for RISM%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
@@ -1876,7 +2089,7 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
                         cmd.command_params_int[i_param_list++] = IETCMD_v_ulj;
                         cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
                         cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul2;
-                        cmd.command_params_int[i_param_list++] = IETCMD_v_rmin;
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_rmin; sys->b_allow_r2uvmin = true;
                         cmd.command_params_int[i_param_list++] = IETCMD_v_uuv;
                         cmd.command_params_int[i_param_list++] = IETCMD_v_ulr;
                         cmd.command_params_int[i_param_list++] = IETCMD_v_cuv;
@@ -1917,6 +2130,7 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
                 } else if (sl[i]=="hlr"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_hlr;
                 } else if (sl[i]=="dd"){        if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_dd;
                 } else if (sl[i]=="ddp"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_ddp;
+                } else if (sl[i]=="theta"){     if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_theta;
                 } else if (sl[i]=="nphi"){      if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = -IETCMD_v_dd;
                 } else if (sl[i]=="density"){   if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_guv;
                 } else if (sl[i]=="guv"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_guv;
@@ -1924,6 +2138,9 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
                     sys->cmd_flag_rdf_ever_display = true;
                 } else if (sl[i]=="rmin" || sl[i]=="min-dist" || sl[i]=="min_dist" || sl[i]=="mindist"){
                     if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_rmin;
+                    sys->b_allow_r2uvmin = true;
+                } else if (sl[i]=="ld" || sl[i]=="local-density" || sl[i]=="local_density"){
+                    if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_ld;
                 } else {
                     char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
                     fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : \"%s\" undefined in saving%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
@@ -1955,7 +2172,109 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
                     success = false; sl[i].text[sl[i].length] = cc;
                 }
                 cmd.step = i_param_list;
-            } else if (cmd.command==IETCMD_DISPLAY){
+            } else if ((cmd.command==IETCMD_REPORT || cmd.command==IETCMD_DISPLAY)){
+                if (StringNS::is_string_number(sl[i])){
+                    cmd.command_params_double[i_param_list>0?i_param_list-1:i_param_list] = atof(sl[i].text);
+                } else if (i_param_list+1<MAX_CMD_PARAMS){
+                    if (sl[i]=="all"){
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_mass;
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_DeltaN;
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_DeltaN0;
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_TS;
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_ulj;
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_Ef; sys->b_allow_Ecoul0 = true;
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_PMV;
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_excess_GF;
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_excess_RISM;
+                        sys->cmd_flag_energy_ever_display = true;
+                    } else if (sl[i]=="energy"){
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_mass;
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_DeltaN;
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_DeltaN0;
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_TS;
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_ulj;
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_Ef; sys->b_allow_Ecoul0 = true;
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_PMV;
+                        sys->cmd_flag_energy_ever_display = true;
+                    } else if (sl[i]=="basic"){
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_mass;
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_DeltaN;
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_DeltaN0;
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_ulj;
+                        if (i_param_list+1<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_PMV;
+                        sys->cmd_flag_energy_ever_display = true;
+                    } else if (sl[i]=="mass"){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_mass;
+                    } else if (sl[i]=="lj"){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_ulj;
+                        sys->cmd_flag_energy_ever_display = true;
+                    } else if (sl[i]=="coul"){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
+                        sys->cmd_flag_energy_ever_display = true;
+                    } else if (sl[i]=="entropy" || sl[i]=="TS"){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_TS;
+                        sys->cmd_flag_energy_ever_display = true;
+                    } else if (sl[i]=="N" || sl[i]=="dN"){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_DeltaN;
+                        sys->cmd_flag_energy_ever_display = true;
+                    } else if (sl[i]=="N0" || sl[i]=="dN0" || sl[i]=="dN_vac"){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_DeltaN0;
+                        sys->cmd_flag_energy_ever_display = true;
+                    } else if (sl[i]=="volume" || sl[i]=="V" || sl[i]=="pmv"){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_PMV;
+                        sys->cmd_flag_energy_ever_display = true;
+                    } else if (sl[i]=="ef0" || sl[i]=="ef" || sl[i]=="Uef0" || sl[i]=="Hef0"){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_Ef;
+                        sys->cmd_flag_energy_ever_display = true;
+                        sys->b_allow_Ecoul0 = true;
+                    } else if (sl[i]=="ef1"){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_Ef1;
+                        sys->cmd_flag_energy_ever_display = true;
+                        sys->b_allow_Ecoul0 = true;
+                    } else if (sl[i]=="cuv" || sl[i]=="c" || sl[i]=="direct-correlation" || sl[i]=="direct_correlation"){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_cuv;
+                        sys->cmd_flag_energy_ever_display = true;
+                    } else if (sl[i]=="csr"){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_csr;
+                        sys->cmd_flag_energy_ever_display = true;
+                    } else if (sl[i]=="clr"){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_clr;
+                        sys->cmd_flag_energy_ever_display = true;
+                    } else if (sl[i]=="chuv" || sl[i]=="tuv"){
+                        cmd.command_params_int[i_param_list++] = -IETCMD_v_cuv;
+                        sys->cmd_flag_energy_ever_display = true;
+                    } else if (sl[i]=="chsr"){
+                        cmd.command_params_int[i_param_list++] = -IETCMD_v_csr;
+                    } else if (sl[i]=="chlr"){
+                        cmd.command_params_int[i_param_list++] = -IETCMD_v_clr;
+                        sys->cmd_flag_energy_ever_display = true;
+                    } else if (sl[i]=="excessGF" || sl[i]=="exGF" || sl[i]=="excess-GF" || sl[i]=="excess_GF" || sl[i]=="excessChemGF" || sl[i]=="excess-chem-GF" || sl[i]=="excessive-chemical-potential-GF" || sl[i]=="excess_chem_GF" || sl[i]=="excessive_chemical_potential_GF"){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_excess_GF;
+                        sys->cmd_flag_energy_ever_display = true;
+                    } else if (sl[i]=="chandler" || sl[i]=="excess" || sl[i]=="excessChem" || sl[i]=="excess-chem" || sl[i]=="excessive-chemical-potential" || sl[i]=="excess_chem" || sl[i]=="excessive_chemical_potential"){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_excess_RISM;
+                        sys->cmd_flag_energy_ever_display = true;
+                    } else if (sl[i]=="excessHyb" || sl[i]=="exHyb" || sl[i]=="excess-Hyb" || sl[i]=="excess_Hyb" || sl[i]=="excessChemHyb" || sl[i]=="excess-chem-hyb" || sl[i]=="excessive-chemical-potential-hybid" || sl[i]=="excess_chem_hyb" || sl[i]=="excessive_chemical_potential_hybrid"){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_excess_hyb;
+                    } else if (sl[i]=="zeta" || sl[i]=="zeta-hnc" || sl[i]=="zeta_hnc" || sl[i]=="zetaHNC"){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_zeta_hnc;
+                        sys->cmd_flag_energy_ever_display = true;
+                    } else if (sl[i]=="zeta-closure" || sl[i]=="zeta_closure"){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_zeta_closure;
+                        sys->cmd_flag_energy_ever_display = true;
+                    } else if (sl[i]=="rdf"){
+                        cmd.command_params_int[i_param_list++] = IETCMD_v_rdf;
+                        sys->cmd_flag_rdf_ever_display = true;
+                    } else {
+                        char cc = sl[i].text[sl[i].length]; sl[i].text[sl[i].length] = 0;
+                        fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined %s item \"%s\"%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, cmd.command==IETCMD_REPORT?"report":"display", sl[i].text, sys->is_log_tty?color_string_end:"");
+                        success = false; sl[i].text[sl[i].length] = cc;
+                    }
+                }
+                cmd.step = i_param_list;
+            /*} else if (cmd.command==IETCMD_DISPLAY){
                 if (StringNS::is_string_number(sl[i])){
                     cmd.command_params_double[i_param_list>0?i_param_list-1:i_param_list] = atof(sl[i].text);
                 } else if (sl[i]=="all"||sl[i]=="everything"||sl[i]=="anything"){
@@ -2017,7 +2336,44 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
                     fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : \"%s\" undefined in displaying%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
                     success = false; sl[i].text[sl[i].length] = cc;
                 }
+                cmd.step = i_param_list;*/
+            } else if (cmd.command==IETCMD_HI_SOLVER){
+                if (StringNS::is_string_number(sl[i]) && i_param_list<MAX_CMD_PARAMS){
+                    cmd.command_params_int[i_param_list] = 1;
+                    cmd.command_params_double[i_param_list++] = atof(sl[i].text);
+                }
                 cmd.step = i_param_list;
+            } else if (cmd.command==IETCMD_LSE){
+                if (i_param_list+1 < MAX_CMD_PARAMS){
+                    int i_val = 0; double v_val = 0;
+                    if (sl[i].text[0]>='A' && sl[i].text[0]<='Z') i_val = sl[i].text[0] - 'A' + 1;
+                    if (sl[i].text[0]>='a' && sl[i].text[0]<='z') i_val = sl[i].text[0] - 'a' + 1;
+                    if (i+1<nw && StringNS::is_string_number(sl[i+1])){ i++; v_val = atof(sl[i].text); }
+                    cmd.command_params_int[i_param_list] = i_val;
+                    cmd.command_params_double[i_param_list] = v_val;
+                    i_param_list ++;
+                }
+                cmd.step = i_param_list;
+            } else if (cmd.command==IETCMD_BUILD_UUV){
+                if (StringNS::is_string_number(sl[i])){
+                    if (i_param_list<MAX_CMD_PARAMS){
+                        cmd.command_params_double[i_param_list++] = atof(sl[i].text);
+                    } else {
+                        fprintf(sys->log(), "%s : %s[%d] : too many parameters for Coulomb algorithm \"%s\"\n", software_name, get_second_fn(script_name), script_line, sl[i].text);
+                    }
+                } else {
+                    int esal_here = -1;
+                    for (int j=0; esal_here<0 && j<sizeof(CoulAL_names)/sizeof(CoulAL_names[0]); j++) if (sl[i]==CoulAL_names[j]) esal_here = j;
+                    for (int j=0; esal_here<0 && j<sizeof(CoulAL_alias)/sizeof(CoulAL_alias[0]); j++) if (sl[i]==CoulAL_alias[j].name) esal_here = j;
+                    if (esal_here>=0){
+                        cmd.command_params_int[0] = esal_here;
+                        cmd.command_params_double[0] = 1;   // mean dielect
+                        cmd.command_params_double[1] = 0;   // Yukawa decay length
+                    } else {
+                        fprintf(sys->log(), "%s : %s[%d] : unknown Coulomb algorithm \"%s\"\n", software_name, get_second_fn(script_name), script_line, sl[i].text);
+                        success = false;
+                    }
+                }
             } else if (cmd.command==IETCMD_TEST || cmd.command==IETCMD_TEST_SAVE){ // test
                 if (sl[i]=="coul" || sl[i]=="coulomb"){
                     if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul;
@@ -2041,9 +2397,20 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
                 }
                 if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = this_closure;
                 cmd.step = i_param_list;
-            } else if (cmd.command==IETCMD_density || cmd.command==IETCMD_dielect || cmd.command==IETCMD_CF || cmd.command==IETCMD_CF_A){
+            } else if (cmd.command==IETCMD_DENSITY || cmd.command==IETCMD_DIELECT || cmd.command==IETCMD_CF || cmd.command==IETCMD_CF_A){
                 if (StringNS::is_string_number(sl[i])) if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_double[i_param_list++] = atof(sl[i].text);
                 cmd.step = i_param_list;
+            } else if (cmd.command==IETCMD_HOLD){
+                if (sl[i]=="none" || sl[i]=="clear"){
+                    cmd.step = 0; i_param_list = 0; memset(cmd.command_params_int, 0, sizeof(cmd.command_params_int));
+                } else if (StringNS::is_string_number(sl[i])){
+                    int this_hold = atoi(sl[i].text);
+                    if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = this_hold;
+                    cmd.step = i_param_list;
+                } else {
+                    fprintf(sys->log(), "%s%s : %s[%d][%ld] : syntex error : undefined type for -cmd hold: \"%s\"%s\n", sys->is_log_tty?color_string_of_error:"", software_name, script_name, script_line, 1+sl[i].text-line+first_char_offset, sl[i].text, sys->is_log_tty?color_string_end:"");
+                    success = false;
+                }
           // experimental
           #ifdef _EXPERIMENTAL_
             } else if (experimental_analysis_command_params(sl, nw, i, i_param_list, cmd, cmd_type, sys->log(), sys->is_log_tty, script_name, script_line)){

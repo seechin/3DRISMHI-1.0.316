@@ -1,10 +1,10 @@
 const char * software_name = "rismhi3d";
-const char * software_version = "a.255.1542";
+const char * software_version = "0.295.1743";
 const char * copyright_string = "(c) Cao Siqin";
 
+#include    "header.h"
 #include    "main-header.h"
 
-#include    "header.h"
 #if defined(_GROMACS4_) || defined(_GROMACS5_) || defined(_GROMACS2016_) || defined(_GROMACS2018_)
   #define _GROMACS_
 #endif
@@ -20,6 +20,7 @@ const char * copyright_string = "(c) Cao Siqin";
 #include    <unistd.h>
 #include    <time.h>
 #include    <libgen.h>
+#include    <dirent.h>
 #include    <sys/time.h>
 #include    <sys/types.h>
 #include    <sys/wait.h>
@@ -50,6 +51,9 @@ const char * copyright_string = "(c) Cao Siqin";
     const char * color_string_of_warning = "\33[0;30;103m"; // "\33[38;5;232;48;5;226m"; // "\33[0;44;38;5;228m";
     const char * color_string_of_error   = "\33[0;93;41m"; // "\33[0;41;38;5;228m"; //"\33[0;31;48;5;226m"
     const char * color_string_end        = "\33[0m";
+
+    const char * color_string_of_synerr  = color_string_of_error;
+    const char * color_string_of_synwarn = color_string_of_warning;
 #else
     const char * prompt_path_prefix = "";
     const char * prompt_path_suffix = "";
@@ -62,6 +66,9 @@ const char * copyright_string = "(c) Cao Siqin";
     const char * color_string_of_warning = "";
     const char * color_string_of_error   = "";
     const char * color_string_end        = "";
+
+    const char * color_string_of_synerr  = "";
+    const char * color_string_of_synwarn = "";
 #endif
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 #define PI  3.1415926535897932384626433832795
@@ -83,6 +90,7 @@ const char * copyright_string = "(c) Cao Siqin";
 #define MPTASK_DIIS             24
 #define MPTASK_DIIS_WEIGHT      25
 #define MPTASK_DIIS_STEPIN      26
+#define MPTASK_RUN              27
 #endif
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 #include    "crc32_zlib.h"
@@ -106,26 +114,15 @@ struct STKeywordTableUnit { int id; const char * name; };
 #define CoulAL_Coulomb          0
 #define CoulAL_Dielect          1
 #define CoulAL_YukawaFFT        2
-#ifdef _EXPERIMENTAL_
-  #define CoulAL_Dipole           6
-  #define CoulAL_Local            7
-  #define CoulAL_Local_Dielect    8
-#endif
-const char * CoulAL_names[] = { "Coulomb", "dielect", "YukawaFFT", "", "", "", "dipole", "local", "dlocal" };
+const char * CoulAL_names[] = { "Coulomb", "dielect", "YukawaFFT" };
 STKeywordTableUnit CoulAL_alias [] = {
     { CoulAL_Coulomb            , "Coul" },
     { CoulAL_Dielect            , "dielectric" },
     { CoulAL_YukawaFFT          , "Yukawa" },
     { CoulAL_YukawaFFT          , "YukawaFT" },
     { CoulAL_YukawaFFT          , "YukawaDFT" },
-  #ifdef _EXPERIMENTAL_
-    { CoulAL_Dipole             , "dipole-ren" },
-    { CoulAL_Dipole             , "dipole_ren" },
-    { CoulAL_Dipole             , "dipole-renormalization" },
-    { CoulAL_Dipole             , "dipole_renormalization" },
     { CoulAL_NONE               , "none" },
     { CoulAL_NONE               , "no" }
-  #endif
 };
 #define CLOSURE_NONE            0
 #define CLOSURE_HNC             1
@@ -152,9 +149,11 @@ STKeywordTableUnit CoulAL_alias [] = {
 #define CLOSURE_VM              24
 #define CLOSURE_MP              25
 #define CLOSURE_MHNC            26
-#define CLOSURE_USER1           28
-#define CLOSURE_USER2           29
-#define CLOSURE_USER3           30
+#define CLOSURE_RBC_HNC         27
+#define CLOSURE_RBC_KH          28
+#define CLOSURE_USER1           30
+#define CLOSURE_USER2           31
+#define CLOSURE_USER3           32
 const char * CLOSURE_name[100];
 STKeywordTableUnit CLOSURE_alias[200] = {
   // key names here
@@ -178,11 +177,13 @@ STKeywordTableUnit CLOSURE_alias[200] = {
     { CLOSURE_PSE9              , "PSE9" },
     { CLOSURE_PSE10             , "PSE10" },
     { CLOSURE_MS                , "MS" },
-    { CLOSURE_MSHNC            , "MSHNC" },
+    { CLOSURE_MSHNC             , "MSHNC" },
     { CLOSURE_BPGGHNC           , "BPGGHNC" },
     { CLOSURE_VM                , "VM" },
     { CLOSURE_MP                , "Marucho-Pettitt" },
     { CLOSURE_MHNC              , "MHNC" },
+    { CLOSURE_RBC_HNC           , "RBC-HNC" },
+    { CLOSURE_RBC_KH            , "RBC-KH" },
     { CLOSURE_USER1             , "user1" },
     { CLOSURE_USER2             , "user2" },
     { CLOSURE_USER3             , "user3" },
@@ -202,28 +203,27 @@ STKeywordTableUnit CLOSURE_alias[200] = {
     { CLOSURE_VM                , "Verlet-Modified" },
     { CLOSURE_VM                , "Modified-Verlet" },
     { CLOSURE_MS                , "Martynov-Sarkisov" },
-    { CLOSURE_MSHNC            , "Martynov-Sarkisov-HNC" },
-    { CLOSURE_BPGGHNC           , "BPGG" }
+    { CLOSURE_MSHNC             , "Martynov-Sarkisov-HNC" },
+    { CLOSURE_BPGGHNC           , "BPGG" },
+    { CLOSURE_RBC_HNC           , "RBC" },
+    { CLOSURE_RBC_HNC           , "RBC_HNC" },
+    { CLOSURE_RBC_KH            , "RBC_KH" }
 };
 int n_CLOSURE_alias = sizeof(CLOSURE_alias)/sizeof(CLOSURE_alias[0]);
 #define IETAL_NONE          0
 #define IETAL_SSOZ          1
 #define IETAL_RRISM         2
-#define IETAL_VRISM         3
-#define IETAL_IRISM         4
-const char * IETAL_name[] = { "", "SSOZ", "RISM", "VRISM", "IRISM" };
+const char * IETAL_name[] = { "", "SSOZ", "RISM" };
 #define HIAL_NONE           0
 #define HIAL_NOHI           0
 #define HIAL_HI             1
 #define HIAL_HSHI           1
-#define HIAL_DPHI           2
-#define HIAL_DNHI           3
-#define HIAL_PLHI           4
-#define HIAL_RES_PLHI       5
-const char * HIAL_name[] = { "noHI", "HSHI", "DPHI", "DNHI", "PLHI", "rPLHI" };
-#define GUVMAL_THETA        1
-#define GUVMAL_GUV          2
-const char * GUVMAL_name[3] = { "", "Theta", "guv" };
+#define HIAL_H2HI           2
+#define HIAL_EEHI           3
+#define HIAL_E2HI           4
+#define HIAL_DPHI           5
+#define HIAL_DNHI           6
+const char * HIAL_name[] = { "noHI", "HSHI", "H2HI", "EEHI", "E2HI", "DPHI", "DNHI" };
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 // for BG: integration pathway
 #define PERFORM_3DBG_PATHWAY_LJ         1
@@ -233,30 +233,33 @@ const char * GUVMAL_name[3] = { "", "Theta", "guv" };
 #define PERFORM_3DBG_PATHWAY_LJ_Coul    5
 #define PERFORM_3DBG_PATHWAY_HS         6
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-#define IETCMD_NOP          1
-#define IETCMD_END          2
-#define IETCMD_DONE         3
-#define IETCMD_CLEAR        4
-#define IETCMD_RESET        5
-#define IETCMD_SET          10
-#define IETCMD_SCALE        11
-#define IETCMD_LOAD         12
-#define IETCMD_SAVE         13
-#define IETCMD_SAVE_EXIST   14
-#define IETCMD_SAVE_FILTER  15
-#define IETCMD_DISPLAY      16
-#define IETCMD_REPORT       17
-#define IETCMD_CLOSURE      21
-#define IETCMD_CLOSURE_A    22
-#define IETCMD_CF           23
-#define IETCMD_CF_A         24
-#define IETCMD_dielect      25
-#define IETCMD_density      26
-#define IETCMD_BUILD_FF     27
-#define IETCMD_TI           28
-#define IETCMD_TEST         98
-#define IETCMD_TEST_SAVE    99
-#define IETCMD_v_box            100
+#define IETCMD_NOP              1
+#define IETCMD_END              2
+#define IETCMD_DONE             3
+#define IETCMD_CLEAR            4
+#define IETCMD_RESET            5
+#define IETCMD_SET              10
+#define IETCMD_SCALE            11
+#define IETCMD_LOAD             12
+#define IETCMD_SAVE             13
+#define IETCMD_SAVE_EXIST       14
+#define IETCMD_SAVE_FILTER      15
+#define IETCMD_DISPLAY          16
+#define IETCMD_REPORT           17
+#define IETCMD_HI_SOLVER        -18
+#define IETCMD_LSE              18
+#define IETCMD_CLOSURE          21
+#define IETCMD_CLOSURE_A        22
+#define IETCMD_CF               23
+#define IETCMD_CF_A             24
+#define IETCMD_DIELECT          25
+#define IETCMD_DENSITY          26
+#define IETCMD_BUILD_FF         27
+#define IETCMD_BUILD_UUV        28
+#define IETCMD_TI               29
+#define IETCMD_HOLD             30
+#define IETCMD_TEST             98
+#define IETCMD_TEST_SAVE        99
 #define IETCMD_v_temperature    101
 #define IETCMD_v_Coulomb        102
 #define IETCMD_v_dielect_y      104
@@ -274,20 +277,30 @@ const char * GUVMAL_name[3] = { "", "Theta", "guv" };
 #define IETCMD_v_hlr            224
 #define IETCMD_v_guv            225
 #define IETCMD_v_cuv            226
-#define IETCMD_v_clr            227
-#define IETCMD_v_rmin           228
-#define IETCMD_v_rdf            231
-#define IETCMD_v_Euv            235
-#define IETCMD_v_Ef             236
-#define IETCMD_v_EuvDetail      237
-#define IETCMD_v_DeltaN         238
-#define IETCMD_v_DeltaN0        239
-#define IETCMD_v_TS             240
-#define IETCMD_v_rism_dielect   241
-#define IETCMD_v_HFE            242
-#define IETCMD_v_Chandler_G     243
-#define IETCMD_v_Mayer          246
-#define IETCMD_v_ddp            247
+#define IETCMD_v_csr            227
+#define IETCMD_v_clr            228
+#define IETCMD_v_rmin           231
+#define IETCMD_v_rdf            235
+#define IETCMD_v_Euv            236
+#define IETCMD_v_Ef             238
+#define IETCMD_v_DeltaN         239
+#define IETCMD_v_DeltaN0        240
+#define IETCMD_v_TS             241
+#define IETCMD_v_rism_dielect   242
+#define IETCMD_v_HFE            247
+#define IETCMD_v_ddp            248
+#define IETCMD_v_theta          249
+#define IETCMD_v_ld             250
+#define IETCMD_v_mass           251
+#define IETCMD_v_PMV            252
+#define IETCMD_v_Ef1            253
+#define IETCMD_v_excess_GF      261
+#define IETCMD_v_excess_RISM    262
+#define IETCMD_v_excess_hyb     263
+
+#define IETCMD_v_zeta_hnc       271
+#define IETCMD_v_zeta_closure   272
+
 // test commands
 #define IETCMD_v_Yukawa         3001
 #define IETCMD_v_LocalCoulomb   3002
@@ -307,10 +320,12 @@ char szfn_log[MAX_PATH];
 // TENSOR4D file
 char szfn_in[MAX_PATH];
 char szfn_out[MAX_PATH]; FILE * file_out = nullptr;
+char szfn_rdf[MAX_PATH];
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 #ifdef _EXPERIMENTAL_
     #include "experimental.h"
 #endif
+#include    "main-atom-lists.h"
 #include    "main-sys.h"
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 #ifdef _LOCALPARALLEL_
@@ -318,7 +333,9 @@ char szfn_out[MAX_PATH]; FILE * file_out = nullptr;
 #endif
 #include    "main-diis.cpp"
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+#include    "main-energy-report.h"
 #include    "main-array.h"
+#include    "main-energy-report.cpp"
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 #include    "main-compress.cpp"
@@ -384,7 +401,8 @@ bool main_initialization(int argc, char * argv[], IET_Param ** _sys, IET_arrays 
       if (sys) sys->nt = maximum_default_processors();
     arr = (IET_arrays*) memalloc(sizeof(IET_arrays)); if (!arr) success = false;
       *_arr = arr;
-    szfn_path[0] = 0; char * p_szfn_path = getcwd(szfn_path, sizeof(szfn_path));
+    if (szfn_path[0]) int chdir_ret = chdir(szfn_path);
+    char * p_szfn_path = getcwd(szfn_path, sizeof(szfn_path)); //printf("CWD before all: getcwd(%s)=[%s]\n", szfn_path, p_szfn_path);
     sys->library_path = getenv("IETLIB"); //printf("ietalIB=%s\n", sys->library_path);
 
   // prepare the log file
@@ -415,16 +433,83 @@ bool main_initialization(int argc, char * argv[], IET_Param ** _sys, IET_arrays 
   // analysis parameters post
     if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: analysis_params_post()\n");
     error = analysis_params_post(sys); if (error){ if (flog) fclose(flog); if (_error) *_error = error; if (_syntax_error) *_syntax_error = true; return false; }
+    error = analysis_params_post_commands(sys); if (error){ if (flog) fclose(flog); if (_error) *_error = error; if (_syntax_error) *_syntax_error = true; return false; }
   // set priority
     if (sys->nice_level>0){
         if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: set priority to %d\n", sys->nice_level);
         if (setpriority(PRIO_PROCESS, getpid(), sys->nice_level)!=0) fprintf(flog, "%s%s : warning : fail to change nice level%s\n", sys->is_log_tty?color_string_of_warning:"", software_name, sys->is_log_tty?color_string_end:"");
     }
-  // read topology: all solute atom sites
-    if (sys->debug_level>=1) fprintf(sys->log(), "debug:: read_solute_ff(%s%s%s)\n", sys->is_log_tty?prompt_path_prefix:"\"", szfn_solute, sys->is_log_tty?prompt_path_suffix:"\"");
-    if (read_solute_ff(sys, szfn_solute) <= 0){ success = false; if (_error) *_error = error; if (_syntax_error) *_syntax_error = true; return false; }
+
+  // check whether solute is a folder
+    bool is_solute_dir = is_dir(szfn_solute); bool is_xtc_dir = is_dir(szfn_xtc);
+    if (is_solute_dir && is_xtc_dir){
+        search_solutes_and_run(sys, arr, argc, argv);
+        success = false;
+    } else if (is_solute_dir){ char buffer[MAX_PATH], filename[MAX_PATH]; memset(buffer, 0, sizeof(buffer));
+        const char * bn = basename(szfn_xtc); const char * pn = szfn_solute;
+        StringNS::string bn_no_ext = file_without_extension(bn);
+        memcpy(buffer, bn_no_ext.text, bn_no_ext.length);
+        memset(filename, 0, sizeof(filename));
+
+        if (!filename[0]) snprintf(filename, sizeof(filename), "%s%s%s.solute", StringNS::string(pn)=="."?"":pn, StringNS::string(pn)=="."?"":"/", buffer);
+        if (access(filename, F_OK) != -1){
+            memcpy(szfn_solute, filename, MAX_PATH);
+        } else filename[0] = 0;
+
+        if (!filename[0]) snprintf(filename, sizeof(filename), "%s%s%s.prmtop", StringNS::string(pn)=="."?"":pn, StringNS::string(pn)=="."?"":"/", buffer);
+        if (access(filename, F_OK) != -1){
+            memcpy(szfn_solute, filename, MAX_PATH);
+        } else filename[0] = 0;
+
+        if (filename[0]){
+            fprintf(sys->log(), "%s : -f %s\n", software_name, szfn_solute);
+        } else {
+            fprintf(sys->log(), "%s%s : cannot find solute for %s in %s%s\n", sys->is_log_tty?color_string_of_error:"", software_name, get_second_fn(szfn_xtc), szfn_solute, sys->is_log_tty?color_string_end:"");
+            success = false;
+        }
+
+        //printf("[%s]  [%s]  [%s]\n", pn, bn, szfn_solute);
+    } else if (is_xtc_dir){ char buffer[MAX_PATH], filename[MAX_PATH]; memset(buffer, 0, sizeof(buffer));
+        const char * bn = basename(szfn_solute); const char * pn = szfn_xtc;
+        StringNS::string bn_no_ext = file_without_extension(bn);
+        memcpy(buffer, bn_no_ext.text, bn_no_ext.length);
+        memset(filename, 0, sizeof(filename));
+
+        if (!filename[0]) snprintf(filename, sizeof(filename), "%s%s%s.pdb", StringNS::string(pn)=="."?"":pn, StringNS::string(pn)=="."?"":"/", buffer);
+        if (access(filename, F_OK) != -1){ memcpy(szfn_xtc, filename, MAX_PATH);
+        } else filename[0] = 0;
+
+        if (!filename[0]) snprintf(filename, sizeof(filename), "%s%s%s.gro", StringNS::string(pn)=="."?"":pn, StringNS::string(pn)=="."?"":"/", buffer);
+        if (access(filename, F_OK) != -1){ memcpy(szfn_xtc, filename, MAX_PATH);
+        } else filename[0] = 0;
+
+        #ifdef _GROMACS_
+            if (!filename[0]) snprintf(filename, sizeof(filename), "%s%s%s.xtc", StringNS::string(pn)=="."?"":pn, StringNS::string(pn)=="."?"":"/", buffer);
+            if (access(filename, F_OK) != -1){ memcpy(szfn_xtc, filename, MAX_PATH);
+            } else filename[0] = 0;
+        #endif
+
+        if (filename[0]){
+            fprintf(sys->log(), "%s : -s %s\n", software_name, szfn_xtc);
+        } else {
+            fprintf(sys->log(), "%s%s : cannot find trajectory for %s in %s%s\n", sys->is_log_tty?color_string_of_error:"\"", software_name, get_second_fn(szfn_solute), szfn_xtc, sys->is_log_tty?color_string_end:"\"");
+            success = false;
+        }
+    }
+
+  // read solute information: all solute atoms
+    if (success){
+        if (sys->debug_level>=1) fprintf(sys->log(), "debug:: read_solute_ff(%s%s%s)\n", sys->is_log_tty?prompt_path_prefix:"\"", szfn_solute, sys->is_log_tty?prompt_path_suffix:"\"");
+        if (file_extension(szfn_solute) == "prmtop"){
+            if (read_prmtop_ff(sys, szfn_solute) <= 0){ success = false; if (_error) *_error = error; if (_syntax_error) *_syntax_error = true; return false; }
+        } else {
+            if (file_extension(szfn_solute) == "top") fprintf(flog, "%s : solute file %s may need to be converted with gmxtop2solute\n", software_name, get_second_fn(szfn_solute));
+            if (read_solute_ff(sys, szfn_solute) <= 0){ success = false; if (_error) *_error = error; if (_syntax_error) *_syntax_error = true; return false; }
+        }
+    }
         //for (int i=0; i<sys->nas; i++){ printf("\33[37m Solute Atom %d%s:%d%s (%g, %g, %g, %g) has bond ", sys->as[i].iaa, sys->as[i].mole, sys->as[i].index, sys->as[i].name, sys->as[i].mass, sys->as[i].charge, sys->as[i].sigma, sys->as[i].epsilon); for (int j=0; j<sys->as[i].nbond; j++) printf("%d ", sys->as[i].ibond[j]); printf("\n\33[0m"); }
     if (success){
+        read_solute_ff_post(sys);
         sys->traj.count = sys->nas; sys->traj.box = Vector(0,0,0); sys->traj.atom = (PDBAtom*) memalloc(sizeof(PDBAtom) * (sys->nas+1));
     }
     PDBAtom * ia = sys->traj.atom;
@@ -437,14 +522,16 @@ bool main_initialization(int argc, char * argv[], IET_Param ** _sys, IET_arrays 
     }
   lap_timer_analysis_param();
   // prepare RDF pairs
-    if (sys->n_rdf_grps>0 && _rdf_datas){
-        if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: rdf_grps_to_pairs()\n");
-        main_prepair_rdf_grps_to_pairs(sys, arr, &_rdf_datas->rdf_datas[0], &_rdf_datas->n_rdf_datas[0]);
-        main_prepair_rdf_grps_to_pairs(sys, arr, &_rdf_datas->rdf_datas[1], &_rdf_datas->n_rdf_datas[1]);
-    } else sys->n_rdf_grps = 0;
+    if (success){
+        if (sys->n_rdf_grps>0 && _rdf_datas){
+            if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: rdf_grps_to_pairs()\n");
+            if (success) success &= main_prepair_rdf_grps_to_pairs(sys, arr, &_rdf_datas->rdf_datas[0], &_rdf_datas->n_rdf_datas[0]);
+            if (success) success &= main_prepair_rdf_grps_to_pairs(sys, arr, &_rdf_datas->rdf_datas[1], &_rdf_datas->n_rdf_datas[1]);
+        } else sys->n_rdf_grps = 0;
+    }
   lap_timer_analysis_param();
   // checking and other preparation
-    if (sys->nv>MAX_SOL){ fprintf(flog, "%s%s : error : too many solvent sites (%d > %d)%s\n", sys->is_log_tty?color_string_of_error:"", software_name, sys->nv, MAX_SOL, sys->is_log_tty?color_string_end:""); success = false; }
+    if (success) if (sys->nv>MAX_SOL){ fprintf(flog, "%s%s : error : too many solvent sites (%d > %d)%s\n", sys->is_log_tty?color_string_of_error:"", software_name, sys->nv, MAX_SOL, sys->is_log_tty?color_string_end:""); success = false; }
   // prepare memory and grids
     if (success){
         if (sys->nr[0]==0 && sys->nr[1]==0 && sys->nr[2]==0){
@@ -483,9 +570,7 @@ bool main_initialization(int argc, char * argv[], IET_Param ** _sys, IET_arrays 
             }
             if (b_read_solvent_xvv) b_read_solvent_xvv &= generate_solvent_xvv(sys, arr, szfn_gvv, sys->nv, sys->nv, arr->n_gvv, sys->xvv_extend);
         }
-        if (sys->b_save_original_xvv && (arr->wvv && arr->nhkvv)){
-            backup_solvent_xvv_with_shift_only(sys, arr);
-        }
+        //if (sys->b_save_original_xvv && (arr->wvv && arr->nhkvv)) backup_solvent_xvv_with_shift_only(sys, arr);
 
         bool b_read_solvent_zeta = true; bool b_analysis_post = true;
         if (sys->n_zeta_list>0 || szfn_zeta[0]){
@@ -499,7 +584,9 @@ bool main_initialization(int argc, char * argv[], IET_Param ** _sys, IET_arrays 
                 b_read_solvent_zeta = generate_solvent_zeta(sys, arr);
             }
             if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: calculate_lse_ab_automatically()\n");
-            b_analysis_post = calculate_lse_ab_automatically(sys, arr, b_read_solvent_xvv, b_read_solvent_zeta);
+            if (b_read_solvent_zeta){
+                b_analysis_post = calculate_lse_ab_automatically(sys, arr);
+            }
         }
 
         if (!b_read_solvent_xvv || !b_read_solvent_zeta || !b_analysis_post) success = false;
@@ -511,10 +598,7 @@ bool main_initialization(int argc, char * argv[], IET_Param ** _sys, IET_arrays 
         if (arr->zeta)  arr->convolution_zeta = build_xvv_pointer_skip_missing(arr->zeta, sys->nvm, sys->nvm, arr->n_zeta, sys, "zeta");
     }
     if (success && arr->nhkvv){
-        perform_xvv_enhancement(sys, arr);
-    }
-    if (success && sys->debug_level>=3 && sys->listonly){
-        debug_display_solvent_xvv(sys, arr, sys->nv);
+        success &= perform_xvv_enhancement(sys, arr);
     }
     if (success && sys->mode_test && arr->wvv && arr->nhkvv) debug_show_rism_xvv_matrix(sys, arr, sys->nv, sys->nvm);
   lap_timer_analysis_param();
@@ -561,6 +645,10 @@ bool main_initialization(int argc, char * argv[], IET_Param ** _sys, IET_arrays 
         if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: generate_default_output_filename()=%s\n", szfn_out);
     }
 
+  // generate name of rdf file
+    char filename_without_ext[MAX_PATH]; file_without_extension(szfn_out, filename_without_ext);
+    snprintf(szfn_rdf, MAX_PATH, "%s.rdf", filename_without_ext);
+
     if (_error) *_error = error;
     return success;
 }
@@ -598,9 +686,12 @@ void main_dispose(IET_Param * sys, IET_arrays * arr, FILE ** _flog, bool success
     if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: mem_dispose_all()\n");
 
   // display the end information
-    if (success && flog) main_print_tailer(sys, arr);
+    if (flog) main_print_tailer(sys, arr, success);
 
   // dispose all
+  #ifdef _FFTWMPPARALLEL_
+    fftw_cleanup_threads();
+  #endif
     mem_dispose_all(); lap_timer_alloc_memory();
     if (flog && flog!=stdout && flog!=stderr){ FILE * flog_close = flog; flog = nullptr; fclose(flog_close); }
     if (file_out && file_out!=stdout && file_out!=stderr) fclose(file_out);
@@ -625,12 +716,14 @@ bool main_run_empty_command_queue(IET_Param * sys, IET_arrays * arr, FILE * flog
         list_sys_files(sys, flog, (char*)"# ");
         fprintf(flog, "%s# ==========================================================================%s\n", islogtty?prompt_comment_prefix:"", islogtty?prompt_comment_suffix:"");
         sys->dump_text(flog, "  ", "");
+        //if (sys->log()) fflush(sys->log());
         success = false;
     }
 
   // begin of run for no trajectory systems
     if (success && !szfn_xtc[0]){
         fprintf(flog, "%s%s : warning : trajectory (-f) not specified and nothing will be done.%s\n", sys->is_log_tty?color_string_of_warning:"", software_name, sys->is_log_tty?color_string_end:"");
+        //if (sys->log()) fflush(sys->log());
         success = false;
     }
 
@@ -646,7 +739,7 @@ bool main_prepare_to_run_commands(IET_Param * sys, IET_arrays * arr, FILE * flog
     main_print_forcefield_info(sys, arr, flog, "    ");
 
   // flush log before performing calculation
-    if (sys->log()) fflush(sys->log());
+    //if (sys->log()) fflush(sys->log());
 
     return true;
 }
@@ -660,8 +753,9 @@ int main_run_commands(IET_Param * sys, IET_arrays * arr, FILE * flog, RDF_data *
 
   // set box and vecor scales, recalculating all dr and dk of 3D grids
     if (flog && !arr->set_scales(sys, sys->traj.box)){
-        fprintf(flog, "%s%s : error : unable to init box, check wvv, nhkvv and frame box vector: %s", sys->is_log_tty?color_string_of_error:"", software_name, szfn_xtc);
+        fprintf(flog, "%s%s : error : unable to init box. Please check your trajectory: %s", sys->is_log_tty?color_string_of_error:"", software_name, get_second_fn(szfn_xtc));
         if (sys->handling_xtc) fprintf(flog, " %g ps%s\n", tpa.time, sys->is_log_tty?color_string_end:""); else fprintf(flog, " frame %d%s\n", nframe, sys->is_log_tty?color_string_end:"");
+        //if (sys->log()) fflush(sys->log());
         return 1;
     }
 
@@ -683,6 +777,7 @@ int main_run_commands(IET_Param * sys, IET_arrays * arr, FILE * flog, RDF_data *
         }
         if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: cmd[end-of-frame] = add_rdf_to_sum(bins=%d)\n", sys->out_rdf_bins);
         add_rdf_to_sum(sys, arr, rdf, rdfs, sys->out_rdf_bins);
+        //if (sys->log()) fflush(sys->log());
     }
 
     return 0;
@@ -692,7 +787,9 @@ bool main_run_finalizing_commands(IET_Param * sys, IET_arrays * arr, FILE * flog
 
     if (!sys->mode_test && !sys->cmd_flag_energy_ever_display && sys->cmd_flag_rism_ever_performed){
         if (!arr->is_energy_calculated){ recalculate_energy(sys, arr); arr->is_energy_calculated = true; }
-        arr->display_solvation_energy_full(sys, flog, nullptr);
+        //arr->display_solvation_energy_full(sys, flog, nullptr);
+        print_default_IET_report(sys, arr);
+        //if (sys->log()) fflush(sys->log());
     }
 
     return true;
@@ -757,11 +854,17 @@ int main(int argc, char * argv[]){
         int read_frame_ret = read_frame(&sys->traj, &frame, &tpa);
         if (read_frame_ret==0){ break;
         } else if (read_frame_ret==-1){
-            fprintf(sys->log(), "%s%s : error : cannot read trajectory %s%s\n", sys->is_log_tty?color_string_of_error:"", software_name, get_second_fn(szfn_xtc), sys->is_log_tty?color_string_end:""); break;
+            fprintf(sys->log(), "%s%s : error : cannot read trajectory %s%s\n", sys->is_log_tty?color_string_of_error:"", software_name, get_second_fn(szfn_xtc), sys->is_log_tty?color_string_end:"");
+            success = false;
+            break;
         } else if (read_frame_ret==-2){
-            fprintf(sys->log(), "%s%s : error : incorrect number of atoms: %s%s\n", sys->is_log_tty?color_string_of_error:"", software_name, get_second_fn(szfn_xtc), sys->is_log_tty?color_string_end:""); break;
+            fprintf(sys->log(), "%s%s : error : numbers of atoms mismatch: %s and %s%s\n", sys->is_log_tty?color_string_of_error:"", software_name, get_second_fn(szfn_solute), get_second_fn(szfn_xtc), sys->is_log_tty?color_string_end:"");
+            success = false;
+            break;
         } else if (read_frame_ret<0){
-            fprintf(sys->log(), "%s%s : error : fail for %s%s\n", sys->is_log_tty?color_string_of_error:"", software_name, get_second_fn(szfn_xtc), sys->is_log_tty?color_string_end:""); break;
+            fprintf(sys->log(), "%s%s : error : fail for %s%s\n", sys->is_log_tty?color_string_of_error:"", software_name, get_second_fn(szfn_xtc), sys->is_log_tty?color_string_end:"");
+            success = false;
+            break;
         }
       // frame control: skip unwanted frames
         if (true){
@@ -771,22 +874,28 @@ int main(int argc, char * argv[]){
         };
         nframe ++;
 
+      // pre handling: check default box size
+        if ((sys->force_box || sys->traj.box.x<=0) && sys->box.x>0) sys->traj.box.x = sys->box.x;
+        if ((sys->force_box || sys->traj.box.y<=0) && sys->box.y>0) sys->traj.box.y = sys->box.y;
+        if ((sys->force_box || sys->traj.box.z<=0) && sys->box.z>0) sys->traj.box.z = sys->box.z;
+
         //if (sys->debug_level>=5){ for (int i=0; i<sys->nas; i++) fprintf(sys->log(), "DEBUG:::: %5s %5s : %12g %12g %12g\n", sys->as[i].mole, sys->as[i].name, sys->traj.atom[i].r.x, sys->traj.atom[i].r.y, sys->traj.atom[i].r.z);}
       // display frame information
         double drg[3]; drg[0] = sys->traj.box.x / sys->nr[0]; drg[1] = sys->traj.box.y / sys->nr[1]; drg[2] = sys->traj.box.z / sys->nr[2];
         if (sys->mode_test){
-            if (sys->handling_xtc) fprintf(global_flog, "> testing: %.2f ps,", tpa.time); else fprintf(global_flog, "> testing: Frame %g,", tpa.time);
-            fprintf(global_flog, " box=%gx%gx%g nm³, grid=%gx%gx%g nm³\n", sys->traj.box.x, sys->traj.box.y, sys->traj.box.z,
+            if (sys->handling_xtc) fprintf(sys->log(), "> testing: %.2f ps,", tpa.time); else fprintf(sys->log(), "> testing: Frame %g,", tpa.time);
+            fprintf(sys->log(), " box=%gx%gx%g nm³, grid=%gx%gx%g nm³\n", sys->traj.box.x, sys->traj.box.y, sys->traj.box.z,
                     sys->traj.box.x/sys->nr[0], sys->traj.box.y/sys->nr[1], sys->traj.box.z/sys->nr[2]);
             continue;
         }
-        if (global_flog){
-            if (sys->handling_xtc) fprintf(global_flog, "> %g ps,", tpa.time); else fprintf(global_flog, "> Frame %g,", tpa.time);
-            fprintf(global_flog, " box=%gx%gx%g nm³, pbc=%s%s%s, grid=%gx%gx%g nm³\n", sys->traj.box.x, sys->traj.box.y, sys->traj.box.z,
+        if (sys->log()){
+            if (sys->handling_xtc) fprintf(sys->log(), "> %g ps,", tpa.time); else fprintf(sys->log(), "> Frame %g,", tpa.time);
+            fprintf(sys->log(), " box=%gx%gx%g nm³, pbc=%s%s%s, grid=%gx%gx%g nm³\n", sys->traj.box.x, sys->traj.box.y, sys->traj.box.z,
                 (!sys->pbc_x&&!sys->pbc_y&&!sys->pbc_x)? "none" : sys->pbc_x?"x":"", sys->pbc_y?"y":"", sys->pbc_z?"z":"",
                 sys->traj.box.x/sys->nr[0], sys->traj.box.y/sys->nr[1], sys->traj.box.z/sys->nr[2]);
         }
         tframe_last = tpa.time;
+        //if (sys->log()) fflush(sys->log());
       lap_timer_io();
 
       // ====================================================================
@@ -804,7 +913,7 @@ int main(int argc, char * argv[]){
       // frame handling ends here ===========================================
       // ====================================================================
       // ====================================================================
-        if (sys->log()) fflush(sys->log());
+        //if (sys->log()) fflush(sys->log());
 
     }
 

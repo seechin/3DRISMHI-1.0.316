@@ -49,6 +49,9 @@ class Vector {
     Vector Renorm(){
         double r = mod(); if (r != 0) x /= r; y /= r; z /= r; return *this;
     }
+    Vector norm(){
+        double r = mod(); return Vector(x/r, y/r, z/r);
+    }
     double pow2(){
         return (x * x + y * y + z * z);
     }

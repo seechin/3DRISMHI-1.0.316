@@ -35,7 +35,8 @@ void subroutine_interactive(void * _id){
 
         if (run_first_time){ run_first_time = false; fprintf(fout, "%s", szHelpInteractive); }
         if (interupt_main_loop){
-            recalculate_energy(sys, arr); arr->display_solvation_energy_full(sys, fout, nullptr);
+            recalculate_energy(sys, arr); //arr->display_solvation_energy_full(sys, fout, nullptr);
+            print_default_IET_report(sys, arr);
         }
 
         time_t tt = time(nullptr); struct tm * tm_struct = localtime(&tt);
@@ -130,7 +131,8 @@ void subroutine_interactive(void * _id){
         } else if (sl[0]=="stepmaxhi" || sl[0]=="stepmax_hi" || sl[0]=="maxstephi" || sl[0]=="maxstep_hi"){
             if (nw>1) sys->stepmax_hi = atoi(sl[1].text);
         } else if (sl[0]=="energy" || (sl[0]=="Guv" && sl[0].text[0]=='G')){
-            recalculate_energy(sys, arr); arr->display_solvation_energy_full(sys, fout, nullptr); arr->display_solvation_correlations(sys, fout, nullptr);
+            recalculate_energy(sys, arr); //arr->display_solvation_energy_full(sys, fout, nullptr); arr->display_solvation_correlations(sys, fout, nullptr);
+            print_default_IET_report(sys, arr);
         } else if (sl[0]=="cceil" || sl[0]=="gceil"){
             if (nw>1){
                 double exp_cutoff = atof(sl[1].text);

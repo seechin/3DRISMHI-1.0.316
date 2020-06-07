@@ -5,7 +5,8 @@ namespace RISMHI3D_RISMNS {
     //>>>>>>>                             >>>>>>>>>>>>>>>>>>>>>>>>>
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-    void perform_closure(IET_Param * sys, size_t N3, size_t i3begin, size_t i3end, __REAL__ **** auuv, __REAL__ **** aulr, __REAL__ **** acuv, __REAL__ **** ahuv, __REAL__ **** aextra, __REAL__ **** ares, __REAL__ **** ahlr, __REAL__ **** aclr, __REAL__ **** add){ // extra: extra content for e.g. HNCB
+    void perform_closure(IET_Param * sys, size_t N3, size_t i3begin, size_t i3end, __REAL__ **** auuv, __REAL__ **** aulr, __REAL__ **** acuv, __REAL__ **** ahuv, __REAL__ **** aextra, __REAL__ **** ares, __REAL__ **** ahlr, __REAL__ **** aclr, __REAL__ **** add){
+            // extra: extra content for e.g. HNCB, RBC
         for (int iv=0; iv<sys->nv; iv++){
             __REAL__ * uuv = &auuv[iv][0][0][0];
             __REAL__ * ulr = &aulr[iv][0][0][0];
@@ -227,6 +228,17 @@ namespace RISMHI3D_RISMNS {
                     t = exp(-uuv[i3])*((1+factor)*exp(t/(1+factor)) - factor) - 1;
                     res[i3] = t - huv[i3]; huv[i3] = t;
                 }
+            } else if (closure==CLOSURE_RBC_HNC){
+                for (size_t i3=i3begin; i3<i3end; i3++){
+                    t = exp(-uuv[i3] + factor*(huv[i3] - cuv[i3])) * (extra? extra[i3] : 1) - 1;
+                    res[i3] = t - huv[i3]; huv[i3] = t;
+                }
+            } else if (closure==CLOSURE_RBC_KH){
+                for (size_t i3=i3begin; i3<i3end; i3++){
+                    t = -uuv[i3] + (huv[i3] - cuv[i3]);
+                    t = (t>0? t+1+ln(extra?fabs(extra[i3]+MACHINE_REASONABLE_ERROR):1) : exp(t)*(extra?extra[i3]:1)) - 1;
+                    res[i3] = t - huv[i3]; huv[i3] = t;
+                }
             } else if (closure==CLOSURE_USER1){
                 for (size_t i3=i3begin; i3<i3end; i3++){
                     t = exp(-uuv[i3] + (huv[i3] - cuv[i3])) - 1;
@@ -244,7 +256,7 @@ namespace RISMHI3D_RISMNS {
                 }
             } else { // default: HNC (no scaling) or experimental
               #ifdef _EXPERIMENTAL_
-                if (!experimental_closure(closure, uuv, huv, hlr, cuv, clr, dd, res, i3begin, i3end, factor, cutoff)){
+                if (!experimental_closure(closure, uuv, ulr, huv, hlr, cuv, clr, dd, res, i3begin, i3end, factor, cutoff)){
               #endif
                   for (size_t i3=i3begin; i3<i3end; i3++){
                       t = exp(-uuv[i3] + (huv[i3] - cuv[i3])) - 1;
@@ -300,34 +312,42 @@ namespace RISMHI3D_RISMNS {
     //>>>>>>>     Original RISM Main     >>>>>>>>>>>>>>>>>>>>>>>>>>
     //>>>>>>>                            >>>>>>>>>>>>>>>>>>>>>>>>>>
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    void perform_rism_equation(IET_Param * sys, IET_arrays * arr, __REAL__ **** cuv, __REAL__ **** huv, __REAL__ **** res, __REAL__ **** dd, int nx, int ny, int nz, int nv, Vector box, __REAL__ *** wvv, double dk_wvv, int n_wvv, __REAL__ *** nhkvv, double dk_nhkvv, int n_nhkvv, double *** fftin, double *** fftout, fftw_plan & planf, fftw_plan & planb, double * nhkvv_scaling){
+    void perform_rism_equation(IET_Param * sys, IET_arrays * arr, __REAL__ **** cuv, __REAL__ **** huv, __REAL__ **** res, __REAL__ **** dd, int nx, int ny, int nz, int nv, Vector box, __REAL__ *** wvv, double dk_wvv, int n_wvv, __REAL__ *** nhkvv, double dk_nhkvv, int n_nhkvv, double *** fftin, double *** fftout, fftw_plan & planf, fftw_plan & planb){
             size_t N3 = nx * ny * nz; size_t N4 = N3 * nv;
           // 1. C(r) * w(r) -> huv
-            perform_3rx1k_convolution(&arr->fftw_mp, cuv, nx, ny, nz, box, nv, nv, wvv, dk_wvv, sys->xvv_k_shift, n_wvv, huv, fftin, fftout, planf, planb, true);
+            if (wvv){
+                perform_3rx1k_convolution(&arr->fftw_mp, cuv, nx, ny, nz, box, nv, nv, wvv, dk_wvv, sys->xvv_k_shift, n_wvv, huv, fftin, fftout, planf, planb, true);
+            }
           // 2. C(r)n(r) -> res, C(r)n(r) * (w(r) + nhkvv(r)) -> huv
-            if (sys->use_homogeneous_rism){
-                perform_3rx1k_convolution(&arr->fftw_mp, cuv, nx, ny, nz, box, nv, nv, nhkvv, dk_nhkvv, sys->xvv_k_shift, n_nhkvv, huv, fftin, fftout, planf, planb, false);
-            } else {
-                for (int iv=0; iv<nv; iv++){
-                    int ivm = sys->av[iv].iaa; //fprintf(stderr, "%d -(mol)-> %d : %s\n", iv, ivm, sys->av[iv].name);
-                    double nhkvv_scaling_factor = nhkvv_scaling?nhkvv_scaling[iv] : 1;
-                    if (dd){
-                        for (size_t i3=0; i3<N3; i3++) res[iv][0][0][i3] = cuv[iv][0][0][i3] * dd[ivm][0][0][i3] * nhkvv_scaling_factor;
-                    } else {
-                        for (size_t i3=0; i3<N3; i3++) res[iv][0][0][i3] = cuv[iv][0][0][i3] * sys->nbulk[ivm] * nhkvv_scaling_factor;
+            if (nhkvv){
+                if (sys->use_homogeneous_rism){
+                    for (int iv=0; iv<nv; iv++){
+                        int ivm = sys->av[iv].iaa; //fprintf(stderr, "%d -(mol)-> %d : %s\n", iv, ivm, sys->av[iv].name);
+                        for (size_t i3=0; i3<N3; i3++) res[iv][0][0][i3] = cuv[iv][0][0][i3] * sys->nbulk[ivm];
                     }
+                    perform_3rx1k_convolution(&arr->fftw_mp, res, nx, ny, nz, box, nv, nv, nhkvv, dk_nhkvv, sys->xvv_k_shift, n_nhkvv, huv, fftin, fftout, planf, planb, false);
+                    //perform_3rx1k_convolution(&arr->fftw_mp, cuv, nx, ny, nz, box, nv, nv, nhkvv, dk_nhkvv, sys->xvv_k_shift, n_nhkvv, huv, fftin, fftout, planf, planb, wvv?false:true);
+                } else {
+                    for (int iv=0; iv<nv; iv++){
+                        int ivm = sys->av[iv].iaa; //fprintf(stderr, "%d -(mol)-> %d : %s\n", iv, ivm, sys->av[iv].name);
+                        if (dd){
+                            for (size_t i3=0; i3<N3; i3++) res[iv][0][0][i3] = cuv[iv][0][0][i3] * dd[ivm][0][0][i3];
+                        } else {
+                            for (size_t i3=0; i3<N3; i3++) res[iv][0][0][i3] = cuv[iv][0][0][i3] * sys->nbulk[ivm];
+                        }
+                    }
+                    perform_3rx1k_convolution(&arr->fftw_mp, res, nx, ny, nz, box, nv, nv, nhkvv, dk_nhkvv, sys->xvv_k_shift, n_nhkvv, huv, fftin, fftout, planf, planb, false);
                 }
-                perform_3rx1k_convolution(&arr->fftw_mp, res, nx, ny, nz, box, nv, nv, nhkvv, dk_nhkvv, sys->xvv_k_shift, n_nhkvv, huv, fftin, fftout, planf, planb, false);
             }
             lap_timer_fftw();
     }
-    void perform_rism_equation(IET_Param * sys, IET_arrays * arr, __REAL__ **** cuv, __REAL__ **** huv, __REAL__ **** res, __REAL__ *** wvv=nullptr, __REAL__ *** nhkvv=nullptr, double * nhkvv_scaling=nullptr){
+    void perform_rism_equation(IET_Param * sys, IET_arrays * arr, __REAL__ **** cuv, __REAL__ **** huv, __REAL__ **** res, __REAL__ *** wvv=nullptr, __REAL__ *** nhkvv=nullptr){
         if (!wvv) wvv = arr->convolution_wvv; if (!nhkvv) nhkvv = arr->convolution_nhkvv;
-        perform_rism_equation(sys, arr, cuv, huv, res, arr->dd, arr->nx, arr->ny, arr->nz, arr->nv, arr->box, wvv, arr->dk_wvv, arr->n_wvv, nhkvv, arr->dk_nhkvv, arr->n_nhkvv, arr->fftin, arr->fftout, arr->planf, arr->planb, nhkvv_scaling);
+        perform_rism_equation(sys, arr, cuv, huv, res, arr->dd, arr->nx, arr->ny, arr->nz, arr->nv, arr->box, wvv, arr->dk_wvv, arr->n_wvv, nhkvv, arr->dk_nhkvv, arr->n_nhkvv, arr->fftin, arr->fftout, arr->planf, arr->planb);
     }
-    void perform_rism_equation_without_hi(IET_Param * sys, IET_arrays * arr, __REAL__ **** cuv, __REAL__ **** huv, __REAL__ **** res, __REAL__ *** wvv=nullptr, __REAL__ *** nhkvv=nullptr, double * nhkvv_scaling=nullptr){
+    void perform_rism_equation_without_hi(IET_Param * sys, IET_arrays * arr, __REAL__ **** cuv, __REAL__ **** huv, __REAL__ **** res, __REAL__ *** wvv=nullptr, __REAL__ *** nhkvv=nullptr){
         if (!wvv) wvv = arr->convolution_wvv; if (!nhkvv) nhkvv = arr->convolution_nhkvv;
-        perform_rism_equation(sys, arr, cuv, huv, res, nullptr, arr->nx, arr->ny, arr->nz, arr->nv, arr->box, wvv, arr->dk_wvv, arr->n_wvv, nhkvv, arr->dk_nhkvv, arr->n_nhkvv, arr->fftin, arr->fftout, arr->planf, arr->planb, nhkvv_scaling);
+        perform_rism_equation(sys, arr, cuv, huv, res, nullptr, arr->nx, arr->ny, arr->nz, arr->nv, arr->box, wvv, arr->dk_wvv, arr->n_wvv, nhkvv, arr->dk_nhkvv, arr->n_nhkvv, arr->fftin, arr->fftout, arr->planf, arr->planb);
     }
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     //>>>>>>>                              >>>>>>>>>>>>>>>>>>>>>>>>
@@ -336,33 +356,47 @@ namespace RISMHI3D_RISMNS {
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     void prepare_closure(IET_Param * sys, IET_arrays * arr){
         size_t N3 = arr->nx * arr->ny * arr->nz; int N4 = N3 * sys->nv;
-        int n_prepare = 0; int prepare_cmds[MAX_SOL]; memset(prepare_cmds, 0, sizeof(prepare_cmds));
+        double beta = sys->default_temperature / sys->temperature;
+
+        bool enable_HNCB = false;       // HNCB: extra = h*hbar
+        bool enable_RBC = false;        // RBC: extra = exp(-ljr) * wvv
+        bool enable_prepare = false;
+
 
         for (int i=0; i<sys->nv; i++){
-            if (sys->closures[i] == CLOSURE_HNCB) prepare_cmds[n_prepare++] = CLOSURE_HNCB;
+            if (sys->closures[i] == CLOSURE_HNCB) enable_HNCB = enable_prepare = true;
+            else if (sys->closures[i] == CLOSURE_RBC_HNC) enable_RBC = enable_prepare = true;
+            else if (sys->closures[i] == CLOSURE_RBC_KH) enable_RBC = enable_prepare = true;
             //else if (sys->closures[i] == CLOSURE_RCCA2) prepare_cmds[n_prepare++] = CLOSURE_RCCA2;
         }
-        if (n_prepare>0){
+        if (enable_prepare){
             __REAL__ **** extra = arr->rismhi_cache[2];
             __REAL__ **** temp = arr->rismhi_cache[3];
             clear_tensor4d(extra, N4);
+            if (enable_HNCB){
+                perform_rism_equation(sys, arr, arr->huv, temp, arr->res, arr->convolution_wvv, arr->convolution_nhkvv);
+                for (int iv=0; iv<sys->nv; iv++) if (sys->closures[iv]==CLOSURE_HNCB){
+                    cp_tensor3d(temp[iv], extra[iv], N3);
+                }
+            } else if (enable_RBC && arr->uljr){
+                for (size_t i4=0; i4<N4; i4++) extra[0][0][0][i4] = exp(-arr->uljr[0][0][0][i4]*beta);
+                perform_rism_equation(sys, arr, extra, temp, arr->res, arr->convolution_wvv, nullptr);
+                clear_tensor4d(extra, N4);
+                for (int iv=0; iv<sys->nv; iv++) if (sys->closures[iv]==CLOSURE_RBC_HNC || sys->closures[iv]==CLOSURE_RBC_KH){
+                    cp_tensor3d(temp[iv], extra[iv], N3);
+                }
+            }
+
+            /*
             for (int ip=0; ip<n_prepare; ip++){
                 if (prepare_cmds[ip] == CLOSURE_HNCB){
-                    perform_rism_equation(sys, arr, arr->huv, temp, arr->res, arr->convolution_wvv, arr->convolution_nhkvv, sys->renorm_lj_scaling);
-                /*} else if (prepare_cmds[ip] == CLOSURE_RCCA2){
-                    double beta = sys->default_temperature / sys->temperature;
-                    for (int iv=0; iv<sys->nv; iv++){
-                        double charge = sys->av[iv].charge;
-                        double dipole = sys->dipole_mv[sys->av[iv].iaa];
-                        for (size_t i3=0; i3<N3; i3++){
-                            temp[iv][0][0][i3] = beta * dipole * Vector(arr->Ecoul0[0][0][0][i3], arr->Ecoul0[1][0][0][i3], arr->Ecoul0[2][0][0][i3]).mod();
-                        }
-                    }*/
+                    perform_rism_equation(sys, arr, arr->huv, temp, arr->res, arr->convolution_wvv, arr->convolution_nhkvv);
                 }
                 for (int iv=0; iv<sys->nv; iv++) if (sys->closures[iv]==prepare_cmds[ip]){
                     cp_tensor3d(temp[iv], extra[iv], N3);
                 }
             }
+            */
         }
     }
 
@@ -373,7 +407,7 @@ namespace RISMHI3D_RISMNS {
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     void perform_3drism_loop_ssoz(IET_Param * sys, IET_arrays * arr){
       // 1. RISM equation
-        perform_rism_equation(sys, arr, arr->cuv, arr->huv, arr->res, arr->convolution_wvv, arr->convolution_nhkvv, sys->renorm_lj_scaling);
+        perform_rism_equation(sys, arr, arr->cuv, arr->huv, arr->res, arr->convolution_wvv, arr->convolution_nhkvv);
       // 2. closure: ΔH -> res
         prepare_closure(sys, arr);
         perform_closure(sys, arr);
@@ -388,23 +422,9 @@ namespace RISMHI3D_RISMNS {
     //>>>>>>>                              >>>>>>>>>>>>>>>>>>>>>>>>
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     void perform_3drism_loop_rrism(IET_Param * sys, IET_arrays * arr){
-        size_t N3 = arr->nx * arr->ny * arr->nz; size_t N4 = N3 * sys->nv;
+        size_t N3 = arr->nx * arr->ny * arr->nz; size_t N4 = N3 * sys->nv; double beta = sys->default_temperature / sys->temperature;
       // 1. hsr -> arr->huv
-        perform_rism_equation(sys, arr, arr->cuv, arr->huv, arr->res, arr->convolution_wvv, arr->convolution_nhkvv, sys->renorm_lj_scaling);
-      // 2. h = hsr + hlr
-        for (size_t i4=0; i4<N4; i4++){
-            arr->huv[0][0][0][i4] += arr->hlr[0][0][0][i4];
-        }
-      // 3. sr closure
-        prepare_closure(sys, arr);
-        perform_closure(sys, arr);
-        lap_timer_rism();
-    }
-
-    void perform_3drism_loop_vrism(IET_Param * sys, IET_arrays * arr){
-        size_t N3 = arr->nx * arr->ny * arr->nz; size_t N4 = N3 * sys->nv;
-      // 1. hsr -> arr->huv
-        perform_rism_equation(sys, arr, arr->cuv, arr->huv, arr->res, arr->convolution_wvv, arr->convolution_nhkvv, sys->renorm_lj_scaling);
+        perform_rism_equation(sys, arr, arr->cuv, arr->huv, arr->res, arr->convolution_wvv, arr->convolution_nhkvv);
       // 2. h = hsr + hlr
         for (size_t i4=0; i4<N4; i4++){
             arr->huv[0][0][0][i4] += arr->hlr[0][0][0][i4];
@@ -428,18 +448,10 @@ namespace RISMHI3D_RISMNS {
         for (size_t i4=0; i4<N4; i4++) arr->clr[0][0][0][i4] = - arr->ulr[0][0][0][i4];
       // 2. arr->hlr = clr ρv * χvv
         if (sys->hlr_no_hi){
-            perform_rism_equation_without_hi(sys, arr, arr->clr, arr->hlr, arr->res, arr->wvv_hlr, arr->nhkvv_hlr, sys->renorm_coulomb_scaling);
+            perform_rism_equation_without_hi(sys, arr, arr->clr, arr->hlr, arr->res, arr->wvv_hlr, arr->nhkvv_hlr);
         } else {
-            perform_rism_equation(sys, arr, arr->clr, arr->hlr, arr->res, arr->wvv_hlr, arr->nhkvv_hlr, sys->renorm_coulomb_scaling);
+            perform_rism_equation(sys, arr, arr->clr, arr->hlr, arr->res, arr->wvv_hlr, arr->nhkvv_hlr);
         }
-    }
-    void prepare_3d_vrism(IET_Param * sys, IET_arrays * arr){
-        size_t N3 = arr->nx * arr->ny * arr->nz; size_t N4 = N3 * sys->nv;
-        for (int iv=0; iv<sys->nv; iv++) if (sys->av[iv].reverse_rism_factor!=1){
-            double reverse_rism_factor = sys->av[iv].reverse_rism_factor;
-            for (size_t i3=0; i3<N3; i3++) arr->ulr[iv][0][0][i3] = reverse_rism_factor * arr->ulr[iv][0][0][i3];
-        }
-        prepare_3d_rism(sys, arr);
     }
 
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -457,8 +469,6 @@ namespace RISMHI3D_RISMNS {
       // step 1: other preparations
         if (sys->ietal==IETAL_RRISM){
             prepare_3d_rism(sys, arr);
-        } else if (sys->ietal==IETAL_VRISM){
-            prepare_3d_vrism(sys, arr);
         }
       // step 2: RISM loop
         //size_t flog_pointer = 0;
@@ -469,8 +479,6 @@ namespace RISMHI3D_RISMNS {
           // 1. Perform RISM calculation
             if (sys->ietal==IETAL_SSOZ){            // SSOZ
                 perform_3drism_loop_ssoz(sys, arr);
-            } else if (sys->ietal==IETAL_VRISM){    // VRISM
-                perform_3drism_loop_vrism(sys, arr);
             } else if (sys->ietal==IETAL_RRISM){    // RRISM
                 perform_3drism_loop_rrism(sys, arr);
             } else {
@@ -478,6 +486,11 @@ namespace RISMHI3D_RISMNS {
             }
             lap_timer_rism();
           // 2. DIIS step in
+            if (sys->_n_hold_list>0){
+                for (int i=0; i<sys->_n_hold_list; i++){
+                    int ivh = sys->_hold_list[i]-1; if (ivh>=0 && ivh<sys->nv) clear_tensor3d(arr->res[ivh], N3);
+                }
+            }
             if (sys->ndiis_rism<=1){
                 for (size_t i4=0; i4<N4; i4++){
                     double res = arr->res[0][0][0][i4];
@@ -496,100 +509,17 @@ namespace RISMHI3D_RISMNS {
                 if (istep+1 >= sys->stepmax_rism) stop_loop = true;
             //if (flog && (sys->detail_level>=1 || istep+1>=sys->stepmax_rism || stop_loop)){
             if (flog && (sys->detail_level>=1 || stop_loop)){
-                fprintf(flog, "  %s-%s%s step %d,", IETAL_name[sys->ietal], CLOSURE_name[sys->closures[0]], multiple_closure?"...":"", istep+1);
-                fprintf(flog, " stdev:"); fprintf(flog, (err<1e-3?" %.1e":" %.4f"), err); //fprintf(flog, (" %.2g"), err);
+                fprintf(flog, "  %s-%s%s step %d, stdev: ", IETAL_name[sys->ietal], CLOSURE_name[sys->closures[0]], multiple_closure?"...":"", istep+1);
+                fprintf(flog, (err<sys->errtolrism||istep+1>=sys->stepmax_rism)? "%g" : err<1e-3?"%.1e":"%.4f", err); //fprintf(flog, (" %.2g"), err);
                 if (sys->ndiis_rism>1) fprintf(flog, " (DIISx%d)", arr->diis_rism.ndiis);
                 if (sys->debug_level>=3||sys->detail_level>=3){ char time_buffer[64]; fprintf(flog, " (%s)", get_current_time_text(time_buffer)); }
                 fprintf(flog, "  %s", stop_loop? "\n" : (istep<sys->stepmax_rism&&is_out_tty&&sys->detail_level==1)?"  \r":"  \n");
-                fflush(flog);
+                //fflush(flog);
             }
             lap_timer_diis();
             fflush(flog);
             //if (!stop_loop && sys->detail_level==1 && flog && flog!=stderr && flog!=stdout) fseek(flog, flog_pointer, SEEK_SET);
             if (stop_loop) break;
-        }
-
-        return success;
-    }
-
-    bool perform_inverse_3drism(FILE * flog, IET_Param * sys, IET_arrays * arr){
-        bool success = false; double err = 1;
-        size_t N3 = arr->nx*arr->ny*arr->nz; size_t N4 = sys->nv * N3;
-        bool is_out_tty = isatty(fileno(flog));
-        __REAL__ **** huv_save = arr->rismhi_cache[4];
-        __REAL__ **** cuv_save = arr->rismhi_cache[5];
-
-        /*
-
-        __REAL__ **** cache1 = arr->rismhi_cache[2];
-
-        for (int iv=0; iv<sys->nv; iv++){
-            int ivm = sys->av[iv].iaa;
-            //if (arr->dd){
-            //    for (size_t i3=0; i3<N3; i3++) cache1[iv][0][0][i3] = (1+huv_save[iv][0][0][i3]) * arr->dd[ivm][0][0][i3] - 1;
-            //} else {
-            //    for (size_t i3=0; i3<N3; i3++) cache1[iv][0][0][i3] = (1+huv_save[iv][0][0][i3]) * sys->nbulk[ivm] - 1;
-            //}
-            for (size_t i3=0; i3<N3; i3++) cache1[iv][0][0][i3] = huv_save[iv][0][0][i3];
-        }
-
-        perform_3rx1k_convolution(&arr->fftw_mp, cache1, arr->nx, arr->ny, arr->nz, arr->box, sys->nv, sys->nv, arr->xvv_inverse, arr->dk_nhkvv, sys->xvv_k_shift, arr->n_nhkvv, arr->cuv, arr->fftin, arr->fftout, arr->planf, arr->planb, true);
-
-        perform_3rx1k_convolution(&arr->fftw_mp, arr->cuv, arr->nx, arr->ny, arr->nz, arr->box, sys->nv, sys->nv, arr->wvv, arr->dk_wvv, sys->xvv_k_shift, arr->n_wvv, arr->huv, arr->fftin, arr->fftout, arr->planf, arr->planb, true);
-
-        perform_3rx1k_convolution(&arr->fftw_mp, arr->cuv, arr->nx, arr->ny, arr->nz, arr->box, sys->nv, sys->nv, arr->nhkvv, arr->dk_nhkvv, sys->xvv_k_shift, arr->n_nhkvv, arr->huv, arr->fftin, arr->fftout, arr->planf, arr->planb, false);
-
-        for (size_t i4=0; i4<N4; i4++){
-            if (1+huv_save[0][0][0][i4]<MACHINE_REASONABLE_ERROR) arr->huv[0][0][0][i4] = -1;
-        }
-
-        return success;
-
-        //*/
-
-        //cp_tensor4d<__REAL__>(arr->huv, huv_save, N4); //cp_tensor4d<__REAL__>(arr->huv, arr->cuv, N4);
-        //clear_tensor4d(arr->hlr, N4); clear_tensor4d(arr->clr, N4);
-        for (size_t i4=0; i4<N4; i4++){
-            arr->huv[0][0][0][i4] = arr->cuv[0][0][0][i4] = huv_save[0][0][0][i4];
-        }
-
-        for (int istep=0; istep<sys->stepmax_rism; istep++){
-            while (sys->suspend_calculation){ usleep(100); sys->is_suspend_calculation = true; continue; }
-            sys->is_suspend_calculation = false;
-          // SCF iteration
-            perform_rism_equation(sys, arr, arr->cuv, arr->huv, arr->res); // no scaling scheme at here
-            for (size_t i4=0; i4<N4; i4++){
-                if (1+huv_save[0][0][0][i4]<MACHINE_REASONABLE_ERROR) arr->huv[0][0][0][i4] = -1;
-                arr->res[0][0][0][i4] = huv_save[0][0][0][i4] - arr->huv[0][0][0][i4];
-
-            }
-          // step in
-            if (sys->ndiis_rism<=1){
-                for (size_t i4=0; i4<N4; i4++){
-                    double res = arr->res[0][0][0][i4];
-                    err += res * res;
-                    arr->cuv[0][0][0][i4] += res * sys->delrism;
-                }
-                err = sqrt(fabs(err)/N4);
-            } else {
-                arr->diis_current = &arr->diis_rism;
-                err = arr->diis_rism.advance(sys, &arr->cuv[0][0][0][0], &arr->res[0][0][0][0], sys->delrism, true);
-            }
-          // report and loop control
-            bool stop_loop = false;
-                if (err <= sys->errtolrism){ success = true; stop_loop = true; }
-                if (err < 0 || err > 1e7){ success = false; stop_loop = true; }
-                if (istep+1 >= sys->stepmax_rism) stop_loop = true;
-            //if (flog && (sys->detail_level>=1 || istep+1>=sys->stepmax_rism || stop_loop)){
-            if (flog && (sys->detail_level>=1 || stop_loop)){
-                fprintf(flog, "  %s step %d,", IETAL_name[sys->ietal], istep+1);
-                fprintf(flog, " stdev:"); fprintf(flog, (err<1e-3?" %.1e":" %.4f"), err);
-                if (sys->ndiis_rism>1) fprintf(flog, " (%dx%d DIIS)", arr->diis_rism.ndiis, arr->diis_rism.ndiis);
-                if (sys->debug_level>=3||sys->detail_level>=3){ char time_buffer[64]; fprintf(flog, " (%s)", get_current_time_text(time_buffer)); }
-                fprintf(flog, "  %s", stop_loop? "\n" : (istep<sys->stepmax_rism&&is_out_tty&&sys->detail_level==1)?"  \r":"  \n");
-                fflush(flog);
-            }
-
         }
 
         return success;
@@ -602,12 +532,9 @@ namespace RISMHI3D_RISMNS {
         if (sys->ietal==IETAL_SSOZ){
             if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: perform_3drism(algorithm=SSOZ)\n");
             return perform_3drism(flog, sys, arr, guess_init_n);
-        } else if (sys->ietal==IETAL_RRISM || sys->ietal==IETAL_VRISM){
+        } else if (sys->ietal==IETAL_RRISM){
             if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: perform_3drism(algorithm=RISM)\n");
             return perform_3drism(flog, sys, arr, guess_init_n);
-        } else if (sys->ietal==IETAL_IRISM){
-            if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: perform_inverse_3drism()\n");
-            return perform_inverse_3drism(flog, sys, arr);
         } else {
             return false;
         }

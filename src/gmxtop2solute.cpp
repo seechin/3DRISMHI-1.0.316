@@ -1,5 +1,5 @@
 const char * software_name = "gmxtop2solute";
-const char * software_version = "0.249.1496";
+const char * software_version = "0.274.1685";
 const char * copyright_string = "(c) Cao Siqin";
 
 #include    <errno.h>
@@ -93,7 +93,7 @@ const char * szHelp = "\
     -use-atom-name        (-an) use atom name, not atom type (default)\n\
     -use-atom-type        (-at) use atom type, not atom name\n\
     -solvent-format       (-for-gensolvent) output as solvent format\n\
-    -bond, -no-bond[s]    show/hide bond information, default no bond\n\
+    -bond, -no-bond[s]    show/hide bond information, default on\n\
     -no-index             (-ni) don't output atom and molecule index\n\
     -abbreviate           (-ab) allow #repeat commands, default off\n\
     -old-format           = -abbreviate -no-bond -no-index\n\
@@ -103,7 +103,7 @@ const char * szHelp = "\
 ";
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 bool debug = false; bool show_atom_spc_name = true; bool solvent_format = false;
-    bool abbreviate_format = false; bool allow_bond = false; bool allow_index = true;
+    bool abbreviate_format = false; bool allow_bond = true; bool allow_index = true;
 char * info_file_name = (char*)"";
 char szfn_top[MAX_PATH];
 char szfn_ffgmxt[PRE_PATHS][MAX_PATH];
@@ -258,7 +258,7 @@ bool analysis_top(char * filename, char * last_file_name, int last_line){
             } else if (sl[1] == "molecules"){ on_compile = 4;
                 fprintf(fout, "# %s %s\n", software_name, software_version);
                 if (solvent_format) fprintf(fout, "[atom]\n"); else fprintf(fout, "[solute]\n");
-                fprintf(fout, "# "); for (int i=0; i<software_argc; i++) fprintf(fout, "%s", software_argv[i]); fprintf(fout, "\n");
+                fprintf(fout, "#"); for (int i=0; i<software_argc; i++) fprintf(fout, " %s", software_argv[i]); fprintf(fout, "\n");
             } else if (sl[1] == "system"){ on_compile = 5;
             } else if (sl[1] == "bonds"){ on_compile = 6;
             } else { on_compile = false;

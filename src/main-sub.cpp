@@ -1,30 +1,34 @@
 
 const char * get_command_name(int cmd){
     switch (cmd) {
-        case IETCMD_NOP          : return "nop";
-        case IETCMD_END          : return "end";
-        case IETCMD_DONE         : return "done";
-        case IETCMD_CLEAR        : return "clear";
-        case IETCMD_RESET        : return "reset";
-        case IETCMD_SET          : return "set";
-        case IETCMD_SCALE        : return "scale";
-        case IETCMD_LOAD         : return "load";
-        case IETCMD_SAVE         : return "save";
-        case IETCMD_SAVE_EXIST   : return "savee";
-        case IETCMD_SAVE_FILTER  : return "save-filter";
-        case IETCMD_DISPLAY      : return "display";
-        case IETCMD_REPORT       : return "report";
-        case IETCMD_CLOSURE      : return "closure";
-        case IETCMD_CLOSURE_A    : return "closure-a";
-        case IETCMD_CF           : return "cf";
-        case IETCMD_CF_A         : return "cf-a";
-        case IETCMD_dielect      : return "dielect";
-        case IETCMD_density      : return "density";
-        case IETCMD_BUILD_FF     : return "build-ff";
-        case -IETCMD_BUILD_FF    : return "skip-ff";
-        case IETCMD_TI           : return "TI";
-        case IETCMD_TEST         : return "test";
-        case IETCMD_TEST_SAVE    : return "test-and-save";
+        case IETCMD_NOP         : return "nop";
+        case IETCMD_END         : return "end";
+        case IETCMD_DONE        : return "done";
+        case IETCMD_CLEAR       : return "clear";
+        case IETCMD_RESET       : return "reset";
+        case IETCMD_SET         : return "set";
+        case IETCMD_SCALE       : return "scale";
+        case IETCMD_LOAD        : return "load";
+        case IETCMD_SAVE        : return "save";
+        case IETCMD_SAVE_EXIST  : return "savee";
+        case IETCMD_SAVE_FILTER : return "save-filter";
+        case IETCMD_DISPLAY     : return "display";
+        case IETCMD_REPORT      : return "report";
+        case IETCMD_HI_SOLVER   : return "hi-solver (internal command)";
+        case IETCMD_LSE         : return "lse";
+        case IETCMD_CLOSURE     : return "closure";
+        case IETCMD_CLOSURE_A   : return "closure-a";
+        case IETCMD_CF          : return "cf";
+        case IETCMD_CF_A        : return "cf-a";
+        case IETCMD_DIELECT     : return "dielect";
+        case IETCMD_DENSITY     : return "density";
+        case IETCMD_BUILD_FF    : return "build-ff";
+        case -IETCMD_BUILD_FF   : return "skip-ff";
+        case IETCMD_BUILD_UUV   : return "build-uuv";
+        case IETCMD_TI          : return "TI";
+        case IETCMD_HOLD        : return "hold";
+        case IETCMD_TEST        : return "test";
+        case IETCMD_TEST_SAVE   : return "test-and-save";
         default:
             if (cmd>=2000 && cmd<2000+sizeof(HIAL_name)/sizeof(HIAL_name[0])){
                 return HIAL_name[cmd-2000];
@@ -36,12 +40,12 @@ const char * get_command_name(int cmd){
 
 const char * get_variable_name(int var){
     switch (var) {
-        case IETCMD_v_box         : return "box";
         case IETCMD_v_temperature : return "temperature";
         case IETCMD_v_Coulomb     : return "Coulomb";
         case IETCMD_v_dielect_y   : return "dielect-y";
         case IETCMD_v_rbohr       : return "rbohr";
         case IETCMD_v_cmd         : return "cmd";
+        case IETCMD_v_mass        : return "mass";
         case IETCMD_v_uuv         : return "uuv";
         case IETCMD_v_ulr         : return "ulr";
         case IETCMD_v_ulj         : return "lj";
@@ -58,24 +62,33 @@ const char * get_variable_name(int var){
         case IETCMD_v_rmin        : return "rmin";
         case IETCMD_v_rdf         : return "rdf";
         case IETCMD_v_Euv         : return "Euv";
-        case IETCMD_v_Ef          : return "Ef";
-        case IETCMD_v_EuvDetail   : return "energy";
+        case IETCMD_v_Ef          : return "EF";
         case IETCMD_v_DeltaN      : return "dN";
         case IETCMD_v_DeltaN0     : return "dN0";
         case IETCMD_v_TS          : return "TS";
         case IETCMD_v_rism_dielect: return "rism-dielect";
         case IETCMD_v_HFE         : return "HFE";
-        case IETCMD_v_Chandler_G  : return "GGF";
-        case IETCMD_v_Mayer       : return "f";
         case IETCMD_v_ddp         : return "ddp";
+        case IETCMD_v_ld          : return "ld";
         case IETCMD_v_Yukawa      : return "Yukawa";
         case IETCMD_v_LocalCoulomb: return "local-coul";
+        case IETCMD_v_PMV:          return "Volume";
+        case IETCMD_v_Ef1:          return "Hef1";
+        case IETCMD_v_csr:          return "csr";
+        case -IETCMD_v_cuv:         return "chuv";
+        case -IETCMD_v_clr:         return "chlr";
+        case IETCMD_v_excess_GF:    return "exGF";
+        case IETCMD_v_excess_RISM:  return "excess";
+        case IETCMD_v_excess_hyb:   return "exHyb";
+        case IETCMD_v_zeta_hnc:     return "zetaHNC";
+        case IETCMD_v_zeta_closure: return "zetaClos";
         default: return "(unknown)";
     }
 }
 void print_command_vname_and_vvalues(FILE * out, IET_command * cmd){ for (int i=0; cmd->command_params_int[i]&&i<MAX_CMD_PARAMS; i++) fprintf(out, i==0?"%s=%g":",%s=%g", get_variable_name(cmd->command_params_int[i]), cmd->command_params_double[i]); }
 void print_command_vnames(FILE * out, IET_command * cmd){ for (int i=0; cmd->command_params_int[i]&&i<MAX_CMD_PARAMS; i++) fprintf(out, i==0?"%s":",%s", get_variable_name(cmd->command_params_int[i])); }
 void print_command_vvalues(FILE * out, IET_command * cmd){ for (int i=0; cmd->command_params_int[i]&&i<MAX_CMD_PARAMS; i++) fprintf(out, i==0?"%g":",%g", cmd->command_params_double[i]); }
+void print_command_ivalues(FILE * out, IET_command * cmd){ for (int i=0; cmd->command_params_int[i]&&i<MAX_CMD_PARAMS; i++) fprintf(out, i==0?"%d":",%d", cmd->command_params_int[i]); }
 const char * print_command(FILE * out, int command_id, IET_command * cmd, const char * prefix, const char * surfix){
     const char * command_name = get_command_name(cmd->command);
     fprintf(out, "%scmd[%d] = %s", prefix, command_id, command_name);
@@ -87,8 +100,10 @@ const char * print_command(FILE * out, int command_id, IET_command * cmd, const 
         case IETCMD_CLOSURE: case IETCMD_CLOSURE_A:
             fprintf(out, "("); for (int i=0; i<cmd->step&&i<MAX_CMD_PARAMS; i++) fprintf(out, i==0?"%s":",%s", CLOSURE_name[cmd->command_params_int[i]]); fprintf(out, ")");
             break;
-        case IETCMD_CF: case IETCMD_CF_A: case IETCMD_dielect: case IETCMD_density:
-            print_command_vvalues(out, cmd); break;
+        case IETCMD_CF: case IETCMD_CF_A: case IETCMD_DIELECT: case IETCMD_DENSITY:
+            fprintf(out, "("); print_command_vvalues(out, cmd); fprintf(out, ")"); break;
+        case IETCMD_HOLD:
+            fprintf(out, "("); print_command_ivalues(out, cmd); fprintf(out, ")"); break;
         case IETCMD_TI:
             fprintf(out, ",step=%d", cmd->step);
     }
@@ -195,22 +210,12 @@ void build_force_field_auto(IET_Param * sys, IET_arrays * arr, FILE * flog, int 
         arr->uuv_is_ready = true;
     }
 }
-void build_uuv_base_on_force_field(IET_Param * sys, IET_arrays * arr){
-    if (sys->esal==CoulAL_YukawaFFT){
+void build_uuv_base_on_force_field(IET_Param * sys, IET_arrays * arr, int es_algorithm=-1){
+    if (es_algorithm<0) es_algorithm = sys->esal;
+    if (es_algorithm==CoulAL_YukawaFFT){
         if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: build_force_field_uuv_YukawaFFT(kappa=%g)\n", 1/sys->rc_yukawafft);
         build_force_field_uuv_YukawaFFT(sys, arr);
-  #ifdef _EXPERIMENTAL_
-    } else if (sys->esal==CoulAL_Dipole){
-        if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: build_force_field_uuv_Dipole()\n");
-        build_force_field_uuv_Dipole(sys, arr);
-    } else if (sys->esal==CoulAL_Local_Dielect){
-        if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: build_force_field_uuv_ur_local(dielect=%g)\n", sys->mean_dielect);
-        build_force_field_uuv_ur_local(sys, arr, sys->mean_dielect);
-    } else if (sys->esal==CoulAL_Local){
-        if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: build_force_field_uuv_ur()\n");
-        build_force_field_uuv_ur_local(sys, arr);
-  #endif
-    } else if (sys->esal==CoulAL_Dielect){
+    } else if (es_algorithm==CoulAL_Dielect){
         if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: build_force_field_uuv_ur(dielect=%g)\n", sys->mean_dielect);
         build_force_field_uuv_ur(sys, arr, sys->mean_dielect);
     } else {
@@ -292,9 +297,12 @@ void calculate_rdf(IET_Param * sys, IET_arrays * arr, RDF_data * rdf, double r_m
         }
     } else if (sys->rdf_content==IETCMD_v_ulj){
         for (size_t i4=0; i4<N4; i4++) arr->res[0][0][0][i4] = arr->ulj[0][0][0][i4]>sys->ccutoff? 0 : arr->ulj[0][0][0][i4];
-    } else if (sys->rdf_content==IETCMD_v_Mayer){
-        double beta = sys->default_temperature / sys->temperature;
-        for (size_t i4=0; i4<N4; i4++) arr->res[0][0][0][i4] = exp(-beta*arr->ulj[0][0][0][i4]);
+    } else if (sys->rdf_content==IETCMD_v_guv){
+        for (int iv=0; iv<sys->nv; iv++){
+            __REAL__ * res1 = &arr->res[iv][0][0][0];
+            __REAL__ * huv1 = &arr->huv[iv][0][0][0];
+            for (size_t i3=0; i3<N3; i3++) res1[i3] = huv1[i3] + 1;
+        }
     } else if (sys->rdf_content==IETCMD_v_uuv || sys->rdf_content==IETCMD_v_huv || sys->rdf_content==-IETCMD_v_huv){
         for (int iv=0; iv<sys->nv; iv++){
             __REAL__ * res1 = &arr->res[iv][0][0][0];
@@ -323,7 +331,7 @@ void calculate_rdf(IET_Param * sys, IET_arrays * arr, RDF_data * rdf, double r_m
         int is = rdf[ig].is; int iv = rdf[ig].iv;
           if (iv<0 || iv>=sys->nv) continue;
           if (is>=sys->nas) continue;
-        if (is<0){
+        if (is<0 && arr->r2uvmin){
             for (int iz=0; iz<sys->nr[2]; iz++) for (int iy=0; iy<sys->nr[1]; iy++) for (int ix=0; ix<sys->nr[0]; ix++){
                 double r = sqrt(fabs(arr->r2uvmin[iz][iy][ix]));
                 int ithis = (int)(floor(r/dr)); if (ithis>=0 && ithis<N1){
@@ -373,21 +381,21 @@ bool print_rdf(FILE * file, IET_Param * sys, IET_arrays * arr, RDF_data * rdf, d
       if (sys->output_significant_digits==-4) mask64 = generate_double_sig_dig_mask(7);
       if (sys->output_significant_digits==-8) mask64 = generate_double_sig_dig_mask(15);
 
-    fprintf(file, "%8s", "r"); for (int ig=0; ig<sys->n_rdf_grps; ig++){
+    fprintf(file, "%11s", "r"); for (int ig=0; ig<sys->n_rdf_grps; ig++){
         char buffer[MAX_NAME];
         if (rdf[ig].is<0){
             snprintf(buffer, sizeof(buffer), "all-%d%s", rdf[ig].iv+1, sys->av[rdf[ig].iv].name);
         } else {
             snprintf(buffer, sizeof(buffer), "%d%s-%d%s", rdf[ig].is+1, sys->as[rdf[ig].is].name, rdf[ig].iv+1, sys->av[rdf[ig].iv].nele);
         }
-        fprintf(file, " %8s", buffer);
+        fprintf(file, " %11s", buffer);
     }; fprintf(file, "\n");
     for (int i1=0; i1<N1; i1++){
-        fprintf(file, "%8.4f", (i1+0.5)*dr);
+        fprintf(file, "%11.4f", (i1+0.5)*dr);
         for (int ig=0; ig<sys->n_rdf_grps; ig++){
             double value = rdf[ig].n[i1]!=0? rdf[ig].g[i1]/rdf[ig].n[i1] : rdf[ig].g[i1];
             //bit_and(&value, &value, &mask64, 8);
-            fprintf(file, " %8.4f", value);
+            fprintf(file, " %11.4f", value);
         }
         fprintf(file, "\n");
     }
@@ -415,41 +423,188 @@ bool print_rdf(const char * filename, IET_Param * sys, IET_arrays * arr, RDF_dat
         fprintf(sys->log(), "  save %s to %s%s%s, totally %s\n", "rdf", sys->is_log_tty?prompt_path_prefix:"\"", filename, sys->is_log_tty?prompt_path_suffix:"\"", print_memory_value(save_items_mem_buffer, sizeof(save_items_mem_buffer), rdf_file_size));
     }
     return ret;
-    /*
-    if (!rdf || sys->n_rdf_grps<=0) return false;
-    if (!filename) return false;
-    double dr = r_max_rdf / n_rdf_bins; int N1 = n_rdf_bins;
-    FILE * file = stdout; StringNS::string fn = filename;
-    if (fn=="stdout" || fn=="screen" || fn=="con"){ file = stdout;
-    } else if (fn=="stderr"){   file = stderr;
-    } else {    file = fopen(filename, "w");
-    }
-    if (!file){ fprintf(sys->log(), "%s : error : cannot write RDF to %s\n", software_name, filename); return false; }
-
-    fprintf(file, "%7s", "r"); for (int ig=0; ig<sys->n_rdf_grps; ig++){
-        char buffer[MAX_NAME];
-        if (rdf[ig].is<0){
-            snprintf(buffer, sizeof(buffer), "all-%d%s", rdf[ig].iv+1, sys->av[rdf[ig].iv].nele);
-        } else {
-            snprintf(buffer, sizeof(buffer), "%d%s-%d%s", rdf[ig].is+1, sys->as[rdf[ig].is].nele, rdf[ig].iv+1, sys->av[rdf[ig].iv].nele);
-        }
-        fprintf(file, " %7s", buffer);
-    }; fprintf(file, "\n");
-    for (int i1=0; i1<N1; i1++){
-        fprintf(file, "%7.3f", (i1+0.5)*dr);
-        for (int ig=0; ig<sys->n_rdf_grps; ig++) fprintf(file, " %7.3f", rdf[ig].n[i1]>0? rdf[ig].g[i1]/rdf[ig].n[i1] : rdf[ig].g[i1]);
-        fprintf(file, "\n");
-    }
-
-
-    if (file!=stdout && file!=stderr) fclose(file);
-    return true;
-     */
 }
 
 
-void recalculate_energy(IET_Param * sys, IET_arrays * arr){
-    arr->solvation_energy(sys, sys->ccutoff);
+const char * get_report_title(int print_item){
+    switch (print_item) {
+        case IETCMD_v_mass:         return "mass";
+        case IETCMD_v_ulj :         return "LJSR";
+        case IETCMD_v_ucoul:        return "Coul";
+        case IETCMD_v_TS:           return "-TS";
+        case IETCMD_v_DeltaN:       return "DN";
+        case IETCMD_v_DeltaN0:      return "DN_vac";
+        case IETCMD_v_PMV:          return "Volume";
+        case IETCMD_v_Ef:           return "Hef0";
+        case IETCMD_v_Ef1:          return "Hef1";
+        case IETCMD_v_cuv:          return "cuv";
+        case IETCMD_v_csr:          return "csr";
+        case IETCMD_v_clr:          return "clr";
+        case -IETCMD_v_cuv:         return "chuv";
+        case -IETCMD_v_clr:         return "chlr";
+        case IETCMD_v_excess_GF:    return "exGF";
+        case IETCMD_v_excess_RISM:  return "excess";
+        case IETCMD_v_excess_hyb:   return "exHyb";
+        case IETCMD_v_zeta_hnc:     return "zetaHNC";
+        case IETCMD_v_zeta_closure: return "zetaClos";
+    }
+    return "";
+}
+double get_report_value(IET_Report * report, int print_item){
+    switch (print_item) {
+        case IETCMD_v_mass:         return report->mass;
+        case IETCMD_v_ulj :         return report->lj;
+        case IETCMD_v_ucoul:        return report->coulsr + report->coullr;
+        case IETCMD_v_TS:           return report->entropy;
+        case IETCMD_v_DeltaN:       return report->dN;
+        case IETCMD_v_DeltaN0:      return report->dNg;
+        case IETCMD_v_PMV:          return report->dN;
+        case IETCMD_v_Ef:           return report->Uef0;
+        case IETCMD_v_Ef1:          return report->Uef1;
+        case IETCMD_v_cuv:          return report->cuv + report->clr;
+        case IETCMD_v_csr:          return report->cuv;
+        case IETCMD_v_clr:          return report->clr;
+        case -IETCMD_v_cuv:         return report->chuv + report->chlr;
+        case -IETCMD_v_csr:         return report->chuv;
+        case -IETCMD_v_clr:         return report->chlr;
+        case IETCMD_v_excess_GF:    return report->excess_chem[0];
+        case IETCMD_v_excess_RISM:  return report->excess_chem[1];
+        case IETCMD_v_excess_hyb:   return report->excess_chem[2];
+        case IETCMD_v_zeta_hnc:     return report->zeta[0];
+        case IETCMD_v_zeta_closure: return report->zeta[2];
+    }
+    return 0;
+}
+
+void display_IET_report(IET_Param * sys, IET_arrays * arr, IET_command * cmd, int ic, const char * total_title="total"){
+    FILE * flog = sys->log();
+    bool ex_display_rdf = false;
+
+    double average_mass = 0; double total_volume = 0;
+    for (int iv=0; iv<sys->nv; iv++){
+        average_mass += sys->av[iv].mass * sys->av[iv].multi * sys->nbulk[sys->av[iv].iaa];
+        total_volume -= arr->report_sites[iv].dN / sys->bulk_density_mv[sys->av[iv].iaa] * arr->report_sites[iv].mass / arr->report_sites[iv].mass_mol;
+    }
+  // print title
+    int n_print_count = 0; for (int is=0; is<cmd[ic].step && is<MAX_CMD_PARAMS; is++) if (cmd[ic].command_params_int[is]==IETCMD_v_rdf); else n_print_count ++;
+    if (sys->detail_level>=1 && n_print_count>0){
+        fprintf(flog, "%9s", "#item");
+        fprintf(flog, sys->output_title_format, total_title);
+        for (int iv=0; iv<sys->nv; iv++) fprintf(flog, sys->output_title_format, sys->av[iv].name);
+        fprintf(flog, "\n");
+    }
+    for (int is=0; is<cmd[ic].step && is<MAX_CMD_PARAMS; is++){
+      // print item name
+        if (get_report_title(cmd[ic].command_params_int[is])[0]) fprintf(flog, "%9s", get_report_title(cmd[ic].command_params_int[is]));
+      // first display total
+        if (cmd[ic].command_params_int[is]==IETCMD_v_rdf){
+            ex_display_rdf = true;
+            continue;
+        } else if (cmd[ic].command_params_int[is]==IETCMD_v_mass){
+            fprintf(flog, sys->output_realnumber_format, average_mass);
+        } else if (cmd[ic].command_params_int[is]==IETCMD_v_PMV){
+            fprintf(flog, sys->output_realnumber_format, total_volume);
+        } else {
+            double value = get_report_value(arr->report_total, cmd[ic].command_params_int[is]);
+            fprintf(flog, sys->output_realnumber_format, value);
+        }
+      // then display all sites
+        for (int iv=0; iv<sys->nv; iv++){
+            if (cmd[ic].command_params_int[is]==IETCMD_v_rdf){
+                ex_display_rdf = true;
+            } else if (cmd[ic].command_params_int[is]==IETCMD_v_mass){
+                char mass_string[32];
+                snprintf(mass_string, sizeof(mass_string), "%.0fx%d", sys->av[iv].mass, sys->av[iv].multi);
+                fprintf(flog, sys->output_realnumber_format, mass_string);
+                average_mass += sys->av[iv].mass * sys->av[iv].multi * sys->nbulk[sys->av[iv].iaa];
+            } else if (cmd[ic].command_params_int[is]==IETCMD_v_PMV){
+                double this_volume = - arr->report_sites[iv].dN / sys->bulk_density_mv[sys->av[iv].iaa];
+                fprintf(flog, sys->output_realnumber_format, this_volume);
+                total_volume += this_volume * arr->report_sites[iv].mass / arr->report_sites[iv].mass_mol;
+            } else {
+                double value = get_report_value(&arr->report_sites[iv], cmd[ic].command_params_int[is]);
+                fprintf(flog, sys->output_realnumber_format, value);
+            }
+        }
+      // finally
+        fprintf(flog, "\n");
+    }
+}
+
+void print_IET_report(IET_Param * sys, IET_arrays * arr, IET_command * cmd, int ic, const char * total_title="total"){
+    FILE * flog = sys->log();
+    bool ex_display_rdf = false;
+
+    double average_mass = 0; double total_volume = 0;
+    for (int iv=0; iv<sys->nv; iv++){
+        average_mass += sys->av[iv].mass * sys->av[iv].multi * sys->nbulk[sys->av[iv].iaa];
+        total_volume -= arr->report_sites[iv].dN / sys->bulk_density_mv[sys->av[iv].iaa] * arr->report_sites[iv].mass / arr->report_sites[iv].mass_mol;
+    }
+
+    int n_print_count = 0; for (int is=0; is<cmd[ic].step && is<MAX_CMD_PARAMS; is++) if (cmd[ic].command_params_int[is]==IETCMD_v_rdf); else n_print_count ++;
+
+    if (n_print_count>0){
+        fprintf(flog, "%7s", "Atom");
+        for (int is=0; is<cmd[ic].step && is<MAX_CMD_PARAMS; is++){
+            if (cmd[ic].command_params_int[is]==IETCMD_v_rdf){
+                ex_display_rdf = true;
+            } else if (cmd[ic].command_params_int[is]==IETCMD_v_mass){
+                fprintf(flog, " %7s", "mass");
+            } else {
+                fprintf(flog, sys->output_title_format, get_report_title(cmd[ic].command_params_int[is]));
+            }
+        }
+        fprintf(flog, "\n");
+    }
+  // print each sites
+    for (int iv=0; iv<sys->nv; iv++){
+        if (n_print_count>0) fprintf(flog, "%7s", sys->av[iv].name);
+        for (int is=0; is<cmd[ic].step && is<MAX_CMD_PARAMS; is++){
+            if (cmd[ic].command_params_int[is]==IETCMD_v_rdf){
+                ex_display_rdf = true;
+            } else if (cmd[ic].command_params_int[is]==IETCMD_v_mass){
+                char mass_string[32];
+                snprintf(mass_string, sizeof(mass_string), "%.0fx%d", sys->av[iv].mass, sys->av[iv].multi);
+                fprintf(flog, " %7s", mass_string);
+            } else if (cmd[ic].command_params_int[is]==IETCMD_v_PMV){
+                double this_volume = - arr->report_sites[iv].dN / sys->bulk_density_mv[sys->av[iv].iaa];
+                fprintf(flog, sys->output_realnumber_format, this_volume);
+            } else {
+                double value = get_report_value(&arr->report_sites[iv], cmd[ic].command_params_int[is]);
+                fprintf(flog, sys->output_realnumber_format, value);
+            }
+        }
+        if (n_print_count>0) fprintf(flog, "\n");
+    }
+  // print total
+    if (n_print_count>0) fprintf(flog, "%7s", total_title);
+    for (int is=0; is<cmd[ic].step && is<MAX_CMD_PARAMS; is++){
+        if (cmd[ic].command_params_int[is]==IETCMD_v_rdf){
+            ex_display_rdf = true;
+        } else if (cmd[ic].command_params_int[is]==IETCMD_v_mass){
+            fprintf(flog, " %7g", average_mass);
+        } else if (cmd[ic].command_params_int[is]==IETCMD_v_PMV){
+            fprintf(flog, sys->output_realnumber_format, total_volume);
+        } else {
+            double value = get_report_value(arr->report_total, cmd[ic].command_params_int[is]);
+            fprintf(flog, sys->output_realnumber_format, value);
+        }
+    }
+    if (n_print_count>0) fprintf(flog, "\n");
+}
+
+void print_default_IET_report(IET_Param * sys, IET_arrays * arr, const char * total_title="total"){
+    FILE * flog = sys->log();
+    IET_command cmd;
+    cmd.command = IETCMD_REPORT; cmd.step = 0;
+    cmd.command_params_int[cmd.step++] = IETCMD_v_mass;
+    cmd.command_params_int[cmd.step++] = IETCMD_v_DeltaN;
+    cmd.command_params_int[cmd.step++] = IETCMD_v_DeltaN0;
+    cmd.command_params_int[cmd.step++] = IETCMD_v_TS;
+    cmd.command_params_int[cmd.step++] = IETCMD_v_ulj;
+    cmd.command_params_int[cmd.step++] = IETCMD_v_ucoul;
+    cmd.command_params_int[cmd.step++] = IETCMD_v_PMV;
+    print_IET_report(sys, arr, &cmd, 0, total_title);
 }
 
 void apply_dielect_from_dipole(IET_Param * sys){
@@ -497,18 +652,20 @@ void main_print_header(IET_Param * sys, IET_arrays * arr, FILE * flog, int argc,
         for (int i=0; i<argc; i++) fprintf(flog, "%s ", argv[i]); fprintf(flog, "\n");
         fprintf(flog, "---------------------------------------------------------------------------- \n");
 }
-void main_print_tailer(IET_Param * sys, IET_arrays * arr){
+void main_print_tailer(IET_Param * sys, IET_arrays * arr, bool success=true){
     FILE * flog = sys->log();
     char time_buffer[2][40];
-  #ifdef _LOCALPARALLEL_
-    if (sys->nt>1){
-        fprintf(flog, "%s ends at %s (%d %s, %s s)\n", software_name, get_current_time_text(time_buffer[0]), sys->nt, sys->mp_by_fork?"forks":"threads", display_time(__total_timer, time_buffer[1]));
-    } else {
+    if (success){
+      #ifdef _LOCALPARALLEL_
+        if (sys->nt>1){
+            fprintf(flog, "%s ends at %s (%d %s, %s s)\n", software_name, get_current_time_text(time_buffer[0]), sys->nt, sys->mp_by_fork?"forks":"threads", display_time(__total_timer, time_buffer[1]));
+        } else {
+            fprintf(flog, "%s ends at %s (%s s)\n", software_name, get_current_time_text(time_buffer[0]), display_time(__total_timer, time_buffer[1]));
+        }
+      #else
         fprintf(flog, "%s ends at %s (%s s)\n", software_name, get_current_time_text(time_buffer[0]), display_time(__total_timer, time_buffer[1]));
+      #endif
     }
-  #else
-    fprintf(flog, "%s ends at %s (%s s)\n", software_name, get_current_time_text(time_buffer[0]), display_time(__total_timer, time_buffer[1]));
-  #endif
     fprintf(flog, "============================================================================ \n");
 }
 
@@ -531,9 +688,11 @@ bool main_prepair_rdf_grps_to_pairs(IET_Param * sys, IET_arrays * arr, RDF_data 
         if (npr_mapped<0) success = false;
     } else success = false;
     if (!success){
-        fprintf(sys->log(), "%s : please use the following groups to calculate RDF:\n", software_name);
+        fprintf(sys->log(), "%s : please use the following indicators to specify RDF groups: %s\n", software_name, (sys->debug_level>=3)?"":"(-debug 3 for full lists)");
         int max_display_items = 10;
+        if (sys->debug_level>=3) max_display_items = sys->nas;
         fprintf(sys->log(), "  solutes:"); for (int i=0; i<sys->nas && i<max_display_items; i++) fprintf(sys->log(), " %d/%s:%s", i+1, sys->as[i].mole, sys->as[i].name); fprintf(sys->log(), sys->nas>max_display_items?" ...\n":"\n");
+        if (sys->debug_level>=3) max_display_items = sys->nv;
         fprintf(sys->log(), "  solvents:"); for (int i=0; i<sys->nv && i<max_display_items; i++) fprintf(sys->log(), " %d/%s:%s", i+1, sys->av[i].mole, sys->av[i].name); fprintf(sys->log(), sys->nv>max_display_items?" ...\n":"\n");
     }
 
@@ -619,17 +778,6 @@ size_t select_append_save_data(int * filter, int nfilter, __REAL__ **** temp, si
     return *total_size;
 }
 
-size_t append_save_data_immediately(IET_Param * sys, IET_arrays * arr, FILE * flog, __REAL__ * data1, int nx, int ny, int nz, int nv, FILE ** pfout, const char * _filename, const char * title=nullptr, const char * text=nullptr, double time_stamp=0, int * filter_array=nullptr, int filter_size=0){
-    if (!sys || !arr || !flog || !data1 || !_filename) return 0;
-    char filename[MAX_PATH]; memset(filename, 0, sizeof(filename)); strncpy(filename, _filename, sizeof(filename));
-    return append_save_data(pfout, filename, flog, title, text, nx, ny, nz, nv, data1, time_stamp, sys, arr->compress_buffer, arr->compress_buffer_size);
-}
-
-
-
-
-
-
 void perform_sub_test(IET_Param * sys, IET_arrays * arr, IET_command * cmd){
     if (!cmd) return;
     PDBAtom * ia = sys->traj.atom; SoluteAtomSite * as = sys->as;
@@ -692,15 +840,217 @@ fprintf(sys->log(), "\33[31msave hlr\n\33[0m");
     }
 
     return ;
-
-
-
-
-
-
 }
 
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+void generate_batch_command_1(char * buffer, int len_buffer, IET_Param * sys, IET_arrays * arr, int argc, char * argv[]){
+
+}
+
+void search_solutes_and_run(IET_Param * sys, IET_arrays * arr, int argc, char * argv[]){
+  // szfn_solute and szfn_xtc: both exist and confirmed to be directories
+  // scan the solute folder
+    struct dirent ** file_list_entry;
+    int n_files_in_solute = scandir(szfn_solute, &file_list_entry, NULL, alphasort);
+
+    if (n_files_in_solute<=0){
+        if (file_list_entry) free(file_list_entry); return ;
+    }
+
+  // allocate memory for command line
+    int command_line_buffer_length = MAX_PATH*2;
+    for (int i=0; i<argc; i++) command_line_buffer_length += strlen(argv[i]) + 1;
+    sys->len_batch_cmd = command_line_buffer_length;
+    sys->len_batch_out = 4*1024*1024; // 4 MB screen buffer at the most
+
+  #ifdef _LOCALPARALLEL_
+    for (int i=0; i<sys->ntb; i++){
+        sys->batch_cmd[i] = (char *)memalloc(sys->len_batch_cmd);
+        sys->batch_out[i] = (char *)memalloc(sys->len_batch_out);
+    }
+    char * command_line_buffer = sys->batch_cmd[0];
+  #else
+    char * command_line_buffer = (char *)memalloc(command_line_buffer_length);
+  #endif
+    //printf("command_line_buffer_length = %d\n", command_line_buffer_length);
+
+  // create threads or forks
+    int sys_nt = sys->nt; sys->nt = sys->ntb;
+  #ifdef _LOCALPARALLEL_
+    if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: create_subroutines(%s=%d)\n", sys->mp_by_fork?"np":"nt", sys->nt);
+    create_subroutines(sys, arr);
+    if (sys->debug_level>=0){
+        if (sys->nt<=1){
+            fprintf(sys->log(), "%s : master process %d (nice %d)\n", software_name, sys->pid, getpriority(PRIO_PROCESS, __forkpid[0]));
+        } else if (sys->mp_by_fork){
+            fprintf(sys->log(), "%s : master process %d (nice %d), %d process%s:", software_name, sys->pid, getpriority(PRIO_PROCESS, __forkpid[0]), sys->nt, sys->nt>1?"es":"");
+            for (int i=0; i<sys->nt; i++) fprintf(sys->log(), " %d", __forkpid[i]);
+            fprintf(sys->log(), "\n");
+        } else {
+            fprintf(sys->log(), "%s : master process %d (nice %d), %d thread%s\n", software_name, sys->pid, getpriority(PRIO_PROCESS, __forkpid[0]), sys->nt, sys->nt>1?"s":"");
+        }
+    }
+  #else
+    fprintf(sys->log(), "%s : master process %d (nice %d)\n", software_name, sys->pid, getpriority(PRIO_PROCESS, sys->pid));
+  #endif
+    sys->nt = sys_nt;
+
+  // run all tasks
+
+    bool mp_memory_cleared[MAX_THREADS]; for (int i=0; i<MAX_THREADS; i++) mp_memory_cleared[i] = true;
+
+    for (int i=0; i<n_files_in_solute; i++){
+        StringNS::string fn = file_list_entry[i]->d_name;
+        StringNS::string ext = file_extension(fn);
+
+        if (ext=="solute" || ext=="prmtop"){
+            StringNS::string fn_no_ext = file_without_extension(fn);
+                char filename_no_ext[MAX_PATH]; memset(filename_no_ext, 0, sizeof(filename_no_ext)); memcpy(filename_no_ext, fn_no_ext.text, fn_no_ext.length);
+
+            char solute_name[MAX_PATH]; memset(solute_name, 0, sizeof(solute_name));
+            bool append_solute_path = !szfn_solute[0]? false : StringNS::string(szfn_solute)=="."? false : true;
+            snprintf(solute_name, sizeof(solute_name), "%s%s%s.%s", append_solute_path?get_second_fn(szfn_solute):"", append_solute_path?"/":"", filename_no_ext, ext.text);
+
+            char xtc_name[MAX_PATH]; memset(xtc_name, 0, sizeof(xtc_name));
+            bool append_xtc_path = !szfn_xtc[0]? false : StringNS::string(szfn_xtc)=="."? false : true;
+
+            if (!xtc_name[0]) snprintf(xtc_name, sizeof(xtc_name), "%s%s%s.pdb", append_xtc_path?get_second_fn(szfn_xtc):"", append_xtc_path?"/":"", filename_no_ext);
+            if (access(xtc_name, F_OK) != -1){
+            } else xtc_name[0] = 0;
+
+            if (!xtc_name[0]) snprintf(xtc_name, sizeof(xtc_name), "%s%s%s.gro", append_xtc_path?get_second_fn(szfn_xtc):"", append_xtc_path?"/":"", filename_no_ext);
+            if (access(xtc_name, F_OK) != -1){
+            } else xtc_name[0] = 0;
+
+            if (!xtc_name[0]) snprintf(xtc_name, sizeof(xtc_name), "%s%s%s.xtc", append_xtc_path?get_second_fn(szfn_xtc):"", append_xtc_path?"/":"", filename_no_ext);
+            if (access(xtc_name, F_OK) != -1){
+            } else xtc_name[0] = 0;
+
+            if (xtc_name[0] && !is_dir(solute_name) && !is_dir(xtc_name)){
+                memset(command_line_buffer, 0, command_line_buffer_length);
+                // strcpy(command_line_buffer, "echo ");
+                for (int j=0; j<argc; j++){
+                    int len_buffer = strnlen(command_line_buffer, command_line_buffer_length);
+                    char * current_buffer = &command_line_buffer[len_buffer];
+
+                    StringNS::string key = argv[j];
+                    if (key == "-s" || key == "--s" || key == "-solute" || key == "--solute" || key == "solute"){
+                        strcat(current_buffer, "-s ");
+                        strcat(current_buffer, solute_name);
+                        strcat(current_buffer, " ");
+                        j++;
+                    } else if (key == "-f" || key == "--f" || key == "traj" || key == "-traj" || key == "conf" || key == "-conf" || key == "conformation" || key == "-conformation" || key == "conformations" || key == "-conformations"){
+                        strcat(current_buffer, "-f ");
+                        strcat(current_buffer, xtc_name);
+                        strcat(current_buffer, " ");
+                        j++;
+                    } else if (key == "-log" || key == "--log" || key == "log"){
+                        j++;
+                    } else {
+                        strcat(current_buffer, key.text);
+                        strcat(current_buffer, " ");
+                    }
+                }
+                // printf("command: %s\n", command_line_buffer);
+
+              // run the new command
+              // followings are substitution of: system(command_line_buffer);
+                #ifdef _LOCALPARALLEL_
+                    if (sys->ntb<=1){
+                        FILE * fd = popen(command_line_buffer, "r"); if (fd){
+                            while (fgets(sys->batch_out[0], sys->len_batch_out, fd)){
+                                fprintf(sys->log(), "%s", sys->batch_out[0]);
+                                fflush(sys->log());
+                            }
+                            pclose(fd);
+                        }
+                    } else {
+                      // assign jobs to thread: thread 1 ~ max
+                        bool job_assigned = false;
+                        if (i+1<n_files_in_solute){     // the last job will be assigned to the main thread
+                            for (int j=1; j<sys->ntb && !job_assigned; j++){
+                                if (__mp_tasks[j] == MPTASK_NONE && mp_memory_cleared[j]){
+                                    strncpy(sys->batch_cmd[j], command_line_buffer, sys->len_batch_cmd);
+                                    mp_memory_cleared[j] = false;
+                                    __mp_tasks[j] = MPTASK_RUN;
+                                    job_assigned = true;
+                                }
+                            }
+                        }
+                        if (job_assigned) continue;
+                      // assign job to main thread: thread 0
+                        if (!job_assigned){ int id = 0;
+                            FILE * fd = popen(sys->batch_cmd[id], "r"); if (fd){
+                                memset(sys->batch_out[id], 0, sys->len_batch_out);
+                                // sprintf(sys->batch_out[id], "id %d :", id);
+                                while (true){
+                                    size_t len_now = strnlen(sys->batch_out[id], sys->len_batch_out);
+                                    if (!fgets(&sys->batch_out[id][len_now], sys->len_batch_out-len_now-1, fd)) break;
+                                }
+                                //printf("%s", sys->batch_out[id]);
+                                pclose(fd);
+                            }
+                        }
+                      // wait for everyone
+                        while (true){
+                            int nbusy = 0; for (int j=1; j<sys->ntb; j++) if (__mp_tasks[j] != MPTASK_NONE) nbusy++;
+                            if (nbusy>0){
+                                usleep(100);
+                            } else {
+                                for (int i=1; i<sys->ntb && !mp_memory_cleared[i]; i++){
+                                    fprintf(sys->log(), "%s", sys->batch_out[i]);
+                                    mp_memory_cleared[i] = true;
+                                }
+                                fprintf(sys->log(), "%s", sys->batch_out[0]);
+                                fflush(sys->log());
+                                break;
+                            }
+                        }
+                    }
+                #else
+                    FILE * fd = popen(command_line_buffer, "r"); if (fd){
+                        while (fgets(sys->batch_out[0], sys->len_batch_out, fd)){
+                            fprintf(sys->log(), "%s", sys->batch_out[0]);
+                        }
+                        pclose(fd);
+                    }
+                #endif
+
+            }
+        }
+    }
+
+  // end all subroutines
+      sys_nt = sys->nt; sys->nt = sys->ntb;
+    #ifdef _LOCALPARALLEL_
+      if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: send stop signal to subroutines\n");
+      for (int i=1; i<MAX_THREADS; i++) __mp_tasks[i] = MPTASK_TERMINATE;
+      //wait_subroutines_end(sys);
+      wait_subroutines(sys);
+      if (sys->debug_level>=2){ char buffer[1024];
+          fprintf(sys->log(), "DEBUG:: %s done in %s sec\n", sys->mp_by_fork?"process":"thread[0]", display_time(__total_timer, buffer));
+      }
+    #endif
+      sys->nt = sys_nt;
+
+  // release memory
+    if (file_list_entry) free(file_list_entry);
+
+  // clean up everything and exit
+    FILE * flog =sys->log();
+    sys_nt = sys->nt; sys->nt = sys->ntb;
+    display_memory_cost(flog, _memory_blk_total, _memory_total);
+    main_print_tailer(sys, arr, true);
+    sys->nt = sys_nt;
+  #ifdef _FFTWMPPARALLEL_
+    fftw_cleanup_threads();
+  #endif
+    mem_dispose_all(); lap_timer_alloc_memory();
+    if (flog && flog!=stdout && flog!=stderr){ FILE * flog_close = flog; flog = nullptr; fclose(flog_close); }
+    if (file_out && file_out!=stdout && file_out!=stderr) fclose(file_out);
+
+    exit(0);
+}

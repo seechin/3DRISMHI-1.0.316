@@ -8,8 +8,10 @@ bool load_pdb(PDBAtomSet* atom, char* pdb){
     fseek(file, 0, SEEK_SET);
     start_record = true;
     while (fgets(input, sizeof(input), file)){
-        int idx = 0; StringNS::string s = StringNS::seek_first_word(StringNS::string(input), &idx);
-        if (s=="ATOM"){ if (start_record) atom->count ++;
+        int idx = 0; StringNS::string s6 = StringNS::string(input, 6);//StringNS::seek_first_word(StringNS::string(input), &idx);
+        StringNS::string s = StringNS::seek_first_word(s6, &idx);
+        idx = 6;
+        if (s=="ATOM" || s=="HETATM"){ if (start_record) atom->count ++; start_record = true;
         } else if (s>="CRYST1"){
             box_size_got = true;
             StringNS::string swx = StringNS::seek_first_word(StringNS::string(input), &idx);
@@ -31,10 +33,13 @@ bool load_pdb(PDBAtomSet* atom, char* pdb){
     fseek(file, 0, SEEK_SET);
     int ia = 0; start_record = false;
     while (fgets(input, sizeof(input), file)){
-        int idx = 0; StringNS::string s = StringNS::seek_first_word(StringNS::string(input), &idx);
-        if (s=="ATOM"){
+        int idx = 0; StringNS::string s6 = StringNS::string(input, 6);//StringNS::seek_first_word(StringNS::string(input), &idx);
+        StringNS::string s = StringNS::seek_first_word(s6, &idx);
+        idx = 6;
+        if (s=="ATOM" || s=="HETATM"){
             atom->atom[ia].read_pdb_line(StringNS::string(input));
             ia++;
+            start_record = true;
         } else if (s=="MODEL"){  start_record = true;
         } else if (s=="TER"){    break;
         } else if (s=="ENDMDL"){ start_record = false; break;
