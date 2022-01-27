@@ -2,7 +2,7 @@
 
 The original release of 3DRISM-HI
 
-3DRISMHI 0.310, (c) 2022 Cao Siqin
+3DRISMHI 0.311, (c) 2022 Cao Siqin
 
 # Licence
 
