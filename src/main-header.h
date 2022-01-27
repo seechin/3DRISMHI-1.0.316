@@ -12,15 +12,15 @@
     #define MAX_SOL             100     // Max atom site number
 #endif
 #ifndef MAX_CMD_PARAMS
-    #define MAX_CMD_PARAMS      100     // Max parameter number for a command
+    #define MAX_CMD_PARAMS      MAX_SOL // Max parameter number for a command
 #endif
 #ifndef MAX_THREADS
-    #define MAX_THREADS         100     // Max number of forks or threads
+    #define MAX_THREADS         500     // Max number of forks or threads
 #endif
 #ifndef MAX_DIIS
     #define MAX_DIIS            100     // Max DIIS steps
 #endif
-#define MAX_INCLUDE_RECURSIVE   20      // maximum include recursive levels
+#define MAX_INCLUDE_RECURSIVE   100     // maximum include recursive levels
 
 
 #define MAX_PATH                1024    // Maximum length of filename/path strings
@@ -28,3 +28,4 @@
 #define MAX_WORD                1000    // Maximum number of words in line analysis
 
 #define MAX_RENAME_COUNT        10000   // Maximum number of renames
+#define MAX_GVV_FILES           3

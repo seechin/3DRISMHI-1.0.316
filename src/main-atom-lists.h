@@ -48,11 +48,11 @@ class SoluteAtomSite { public:
 class RDFGroup { public:
   // index: >0: index; ==0: mathces anything; <0: ignore.
   // mol and atom name: can be string; or leave blank ("") or use "*" to match anything
-    int is, iv; // index of solute and solvent. Begin with 1.
+    int is, iv, grp; // index of solute and solvent. Begin with 1.
     char ms[MAX_NAME], mv[MAX_NAME], as[MAX_NAME], av[MAX_NAME]; // mol and atom name, ignored if
-    void init(int _is, int _iv, StringNS::string _ms, StringNS::string _as, StringNS::string _mv, StringNS::string _av){
+    void init(int _is, int _iv, StringNS::string _ms, StringNS::string _as, StringNS::string _mv, StringNS::string _av, int _grp=-1){
         memset(this, 0, sizeof(RDFGroup));
-        is = _is; iv = _iv;
+        is = _is; iv = _iv; grp = _grp;
         memcpy(ms, _ms.text, _ms.length>(MAX_NAME-1)?(MAX_NAME-1):_ms.length);
         memcpy(as, _as.text, _as.length>(MAX_NAME-1)?(MAX_NAME-1):_as.length);
         memcpy(mv, _mv.text, _mv.length>(MAX_NAME-1)?(MAX_NAME-1):_mv.length);
@@ -188,15 +188,18 @@ class SYSITEM_ZetaList {
       int iaai, iaaj; double deltaG_in_Kelvin, rc_zeta0;
 };
 //-------------------------------------
-int search_atom_list(int return_col, SYSITEM_AtomNameList * al, int begin, int nal, const char * sz_mole, const char * sz_atom, int default_ret){
-    StringNS::string mole = sz_mole? sz_mole : "*";
-    StringNS::string atom = sz_atom? sz_atom : "*";
+int search_atom_list(int return_col, SYSITEM_AtomNameList * al, int begin, int nal, StringNS::string mole, StringNS::string atom, int default_ret){
     for (int i=begin; i<nal; i++){
         bool mole_match = mole=="*" || mole==al[i].mole;
         bool atom_match = atom=="*" || atom==al[i].name;
         if (mole_match && atom_match) return return_col==1? al[i].index : return_col==2? al[i].grp : return_col==3? al[i].iaa : i;
     }
     return default_ret;
+}
+int search_atom_list(int return_col, SYSITEM_AtomNameList * al, int begin, int nal, const char * sz_mole, const char * sz_atom, int default_ret){
+    StringNS::string mole = sz_mole? sz_mole : "*";
+    StringNS::string atom = sz_atom? sz_atom : "*";
+    return search_atom_list(return_col, al, begin, nal, mole, atom, default_ret);
 }
 int search_atom_list(int return_col, SYSITEM_AtomNameList * al, int begin, int nal, const char * compond, int default_ret){
     char mole_name[MAX_NAME]; char atom_name[MAX_NAME]; memset(mole_name, 0, sizeof(mole_name)); memset(atom_name, 0, sizeof(atom_name));
@@ -218,6 +221,24 @@ int search_atom_list(int return_col, SYSITEM_AtomNameList * al, int begin, int n
     if (atom_name[0]=='*') return default_ret;
     return search_atom_list(return_col, al, begin, nal, mole_name, atom_name, default_ret);
 }
+
+/*int search_atom_list_2(int return_col, SYSITEM_AtomNameList * al, int begin, int nal, StringNS::string compound, int default_ret){
+    StringNS::string search_strings[2] = { "", "" };
+    char sep_sv[4] = { '.', ':', '.', ':' };
+    int nw = analysis_general_line(sep_sv, compound, search_strings, 2, false, true);
+    if (nw==1){
+        int imole = search_atom_list(return_col, al, begin, nal, search_strings[0], "*", -1);
+        int iatom = search_atom_list(return_col, al, begin, nal, "*", search_strings[0], -1);
+        if (iatom>=0) return iatom;
+        else if (imole>=0) return imole;
+        else return default_ret;
+    } else if (nw==2){
+        return search_atom_list(return_col, al, begin, nal, search_strings[0], search_strings[1], default_ret);
+    }
+    return default_ret;
+}*/
+
+
 int search_atom_list_index(SYSITEM_AtomNameList * al, int begin, int nal, const char * compond, int default_ret){
     return search_atom_list(1, al, begin, nal, compond, default_ret);
 }

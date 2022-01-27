@@ -43,7 +43,7 @@ class IET_Param {
         char * batch_out[MAX_THREADS]; int len_batch_out;
     bool suspend_calculation; bool is_suspend_calculation; bool listonly, listall;
   public:   // force field global params
-    int forcefield_prefix;
+    int forcefield_prefix; bool rism_coulomb_renormalization;
     bool mixingrule_sigma_geometric; bool mixingrule_sigma_geometric_specified;
     double rvdw, rcoul, rlocal_coul; double gamma_erf; bool gamma_auto_generate; double ccutoff;
     double rbohr, rbcharge; double epsilon_bohr;
@@ -62,7 +62,7 @@ class IET_Param {
     double time_begin, time_end, time_step; bool handling_xtc;
     bool mode_test;
     int detail_level, debug_level; bool ignore_memory_capacity;
-        bool debug_show_crc; bool debug_xvv;
+        bool debug_show_crc; bool debug_xvv; int debug_xvv_terms;
    #ifdef _INTERACTIVE_
     bool allow_interactive;
    #endif
@@ -85,6 +85,7 @@ class IET_Param {
     double llambda[MAX_SOL]; int nllambda; // ln\lambda is the integral constants
     double lse_a, lse_b; int calc_ab_automatically, calc_nbulk_automatically;
     double nbulk[MAX_SOL]; int nnbulk; // atomised mole fraction
+        double nbulk_rism[MAX_SOL]; bool enable_nbulk_rism;
     double ccutoff_hi;
     #ifdef _EXPERIMENTAL_
       IET_Param_Exp ex; // experimental features
@@ -154,12 +155,13 @@ class IET_Param {
         memset(batch_out, 0, sizeof(batch_out)); len_batch_out = 0;
 
         forcefield_prefix = 0;
+        rism_coulomb_renormalization = true;
         mixingrule_sigma_geometric = false; mixingrule_sigma_geometric_specified = false;
         suspend_calculation = false; is_suspend_calculation = false;
         listonly = false; listall = false;
 
         for (int i=0; i<MAX_SOL; i++){ closures[i] = CLOSURE_HNC; closure_factors[i] = 1; }
-        drrism = drhi = 0; nr[0] = nr[1] = nr[2] = 0; nv = nvm = 0;
+        drrism = drhi = 0; nr[0] = nr[1] = nr[2] = 100; nv = nvm = 0;
         //output_significant_digits = 160;
         output_significant_digits = 7;
         rbohr = 0.052911; rbcharge = 0; epsilon_bohr = 1/MACHINE_REASONABLE_ERROR;
@@ -178,7 +180,7 @@ class IET_Param {
         pbc_x = pbc_y = pbc_z = true;
         scale_lj = scale_coul = scale_hs = 1;
         time_begin = time_end = time_step = 0; handling_xtc = false;
-        detail_level = 1; debug_level = 0; mode_test = false; ignore_memory_capacity = false; debug_show_crc = false; debug_xvv = false;
+        detail_level = 1; debug_level = 0; mode_test = false; ignore_memory_capacity = false; debug_show_crc = false; debug_xvv = false; debug_xvv_terms = 4;
        #ifdef _INTERACTIVE_
         allow_interactive = false;
        #endif
@@ -193,9 +195,10 @@ class IET_Param {
         nmvam = 0; density_hi = 33.4;
         ndipole = 0;
         for (int i=0; i<MAX_SOL; i++) zeta_scaling_factor[i] = 1; n_zeta_scaling_factor = 0;
-        check_zero_xvv = false;
+        check_zero_xvv = true;
         for (int i=0; i<MAX_SOL; i++) degree_of_freedom[i] = 3; n_degree_of_freedom = 0;
         for (int i=0; i<MAX_SOL; i++) llambda[i] = 0; nllambda = 0; nbulk[0] = 1; nnbulk = 0;
+            enable_nbulk_rism = false; for (int i=0; i<MAX_SOL; i++) nbulk_rism[0] = 1;
         ccutoff_hi = 3;
         lse_a = 0.3; lse_b = 54; calc_ab_automatically = 2; calc_nbulk_automatically = false;
         #ifdef _EXPERIMENTAL_
@@ -214,7 +217,7 @@ class IET_Param {
         atom_list = nullptr; n_atom_list = nmax_atom_list = 0;
         bond_list = nullptr; n_bond_list = nmax_bond_list = 0;
         gvv_map = nullptr; n_gvv_map = nmax_gvv_map = 0;
-        zeta_list = nullptr; n_zeta_list = nmax_zeta_list = 0; zeta_list_allow_missing = false;
+        zeta_list = nullptr; n_zeta_list = nmax_zeta_list = 0; zeta_list_allow_missing = true;
         sigma_list = nullptr; n_sigma_list = 0; nmax_sigma_list = 0;
         epsilon_list = nullptr; n_epsilon_list = 0; nmax_epsilon_list = 0;
 
@@ -338,10 +341,14 @@ class IET_Param {
         fprintf(o, "%sbulk-density       ", lineprefix); for (int i=0; i<nmv; i++) fprintf(o, " %g", bulk_density_mv[i]); fprintf(o, "\n");
           fprintf(o, "%sdrrism              %g\n", lineprefix, drrism);
           if (gvv_specification==0){
-          } else if (gvv_specification>0){
-              if (szfn_gvv[0]) fprintf(o, "%sgvv                 %s%s%s\n", lineprefix, istty?prompt_path_prefix:"", (szfn_gvv), istty?prompt_path_suffix:"");
+          } else if (gvv_specification>0 && n_szfn_gvvs>0){
+              fprintf(o, "%sgvv                 %g", lineprefix, drrism);
+              for (int j=0; j<n_szfn_gvvs; j++) fprintf(o, " %s%s%s", istty?prompt_path_prefix:"", &szfn_gvvs[j*MAX_PATH], istty?prompt_path_suffix:"");
+              fprintf(o, "\n");
           } else if (gvv_specification<0){
-              if (szfn_gvv[0]) fprintf(o, "%shvv                 %s%s%s\n", lineprefix, istty?prompt_path_prefix:"", (szfn_gvv), istty?prompt_path_suffix:"");
+              fprintf(o, "%sgvv                 %g", lineprefix, drrism);
+              for (int j=0; j<n_szfn_gvvs; j++) fprintf(o, " %s%s%s", istty?prompt_path_prefix:"", &szfn_gvvs[j*MAX_PATH], istty?prompt_path_suffix:"");
+              fprintf(o, "\n");
           }
           //fprintf(o, "%s  steps     max RISM: %d, max DIIS: %d\n", lineprefix, stepmax_rism, ndiis_rism);
       if (listall){

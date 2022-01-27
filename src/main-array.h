@@ -13,13 +13,21 @@ class IET_arrays {
     double dx, dy, dz; double dkx, dky, dkz; Vector box;
   public:  // const k-space functions
     __REAL__ *** gvv_data;
-    __REAL__ *** gvv;                   // 1D gvv grid
-    __REAL__ *** wvv, *** wvv_hlr;      // 1D wvv grid
-    __REAL__ *** nhkvv, *** nhkvv_hlr;  // 1D nhkvv grid
-    __REAL__ *** zeta;                  // 1D zetavv grid
+    __REAL__ *** gvv;           // 1D gvv grid, pointing to gvvs[0] by default
+    __REAL__ *** wvv;           // 1D wvv grid
+    __REAL__ *** nhkvv;         // 1D nhkvv grid, pointing to nhkvvs[0] by default
+    __REAL__ *** zeta;          // 1D zetavv grid
     __REAL__ *** convolution_wvv, *** convolution_nhkvv, *** convolution_zeta;
     double ** wvv_zero_indicator, ** nhkvv_zero_indicator, ** zeta_zero_indicator;
     __REAL__ *** yukawa_kernel, *** ld_kernel;
+  public: // advanced: multiple solvent correlations
+    int n_gvv_files;
+    int n_gvvs[MAX_GVV_FILES]; double dk_gvvs[MAX_GVV_FILES];
+    int n_nhkvvs[MAX_GVV_FILES]; double dk_nhkvvs[MAX_GVV_FILES];
+    __REAL__ *** gvv_datas[MAX_GVV_FILES];
+    __REAL__ *** gvvs[MAX_GVV_FILES];
+    __REAL__ *** nhkvvs[MAX_GVV_FILES];
+    __REAL__ *** convolution_nhkvvs[MAX_GVV_FILES];
   public:  // force field
     int frame_stamp;
     __REAL__ *** r2uvmin;   // nearest solute-solvent distance^2
@@ -134,12 +142,12 @@ class IET_arrays {
     }
     static __REAL__ *** debug_trace_init3d(IET_Param * sys, const char * title, __REAL__ *** in){
         char buffer[64];
-        if (sys->debug_level>=3) fprintf(sys->log(), "DEBUG:: init_tensor3d(%s) (%s)\n", title, print_memory_value(buffer, sizeof(buffer), _memory_total));
+        if (sys->debug_level>=3) fprintf(sys->log(), "DEBUG:: init_tensor3d(%s) (%s)\n", title, print_memory_value(buffer, sizeof(buffer), _memory_last_allocated));
         return in;
     }
     static __REAL__ **** debug_trace_init4d(IET_Param * sys, const char * title, __REAL__ **** in){
         char buffer[64];
-        if (sys->debug_level>=3) fprintf(sys->log(), "DEBUG:: init_tensor4d(%s) (%s)\n", title, print_memory_value(buffer, sizeof(buffer), _memory_total));
+        if (sys->debug_level>=3) fprintf(sys->log(), "DEBUG:: init_tensor4d(%s) (%s)\n", title, print_memory_value(buffer, sizeof(buffer), _memory_last_allocated));
         return in;
     }
     void debug_trace_memory_allocation(IET_Param * sys, const char * title){
@@ -157,7 +165,11 @@ class IET_arrays {
     }
     void alloc(IET_Param * sys, int _nv, int _nvm, int _nx, int _ny, int _nz, int nsolute){
         nv = _nv; nvm = _nvm; nz = _nz; ny = _ny; nx = _nx;
-        gvv_data = gvv = wvv = wvv_hlr = nhkvv = nhkvv_hlr = zeta = yukawa_kernel = ld_kernel = nullptr; // cvvlj = cvvb = cvvc = cvvcb = nullptr;
+        gvv_data = gvv = wvv = nhkvv = zeta = yukawa_kernel = ld_kernel = nullptr; // cvvlj = cvvb = cvvc = cvvcb = nullptr;
+
+        n_gvv_files = 0;
+        for (int i=0; i<MAX_GVV_FILES; i++){ n_gvvs[i] = n_nhkvvs[i] = 0; dk_gvvs[i] = dk_nhkvvs[i] = 0; gvv_datas[i] = gvvs[i] = nhkvvs[i] = convolution_nhkvvs[i] = nullptr; }
+
         convolution_wvv = convolution_nhkvv = convolution_zeta = nullptr;
         box = Vector(0, 0, 0); // xvvi = nullptr
         frame_stamp = -1;
