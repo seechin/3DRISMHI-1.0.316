@@ -1,5 +1,5 @@
 const char * software_name = "ts4sdump";
-const char * software_version = "0.296.1749";
+const char * software_version = "0.311.2375";
 const char * copyright_string = "(c) Cao Siqin";
 
 #define     __REAL__    double
@@ -82,6 +82,9 @@ void print_uncompress_page_error(FILE * fout, int uret, int nframe){
 
 int main(int argc, char * argv[]){
     bool success = true;
+    #ifdef DISTRIBUTE_VERSION
+        software_version = DISTRIBUTE_VERSION;
+    #endif
     int work = WORK_LIST_HEADERS; const char * identifier_string = nullptr;
     int identifier_frame = 0; double identifier_time = 0; StringNS::string identifier_title = "";
     char * filename = nullptr; char * output_format = nullptr;
@@ -92,7 +95,7 @@ int main(int argc, char * argv[]){
         if (argv[i][0] == '-'){
             StringNS::string key = argv[i];
             if (key=="-h" || key=="--h" || key=="-help" || key=="--help"){
-                printf("%s %s %s\n%s", software_name, software_version, copyright_string, szHelp); success = false;
+                printf("%s %s %s\n%s%s", software_name, software_version, copyright_string, szHelp, szLicence); success = false;
             } else if (key=="-version" || key=="--version"){
                 printf("%s\n", software_version); success = false;
             } else if (key=="-no-check-when-extract" || key=="--no-check-when-extract" || key=="-no_check_when_extract" || key=="--no_check_when_extract" || key=="-no-check-on-extract" || key=="--no-check-on-extract" || key=="-no_check_on_extract" || key=="--no_check_on_extract"){

@@ -17,7 +17,7 @@ class IETSPageHeader {
     unsigned int crc32; // CRC32 of stored data
     size_t data_offset; // begin of data from begin of this header
     size_t data_length; // length of data
-    size_t data_original_length; // length of original data, data_length=data_original_length implies no compression
+    size_t data_original_length; // length of original data. If data_length==data_original_length, then data is not compressed
     unsigned short compressor_version[4]; // {"un",0,0,0} means uncompressed; {"zl",1,2,11} means zlib v 1.2.11
     unsigned int compressor_page_size;
 };
@@ -25,7 +25,7 @@ class IETSPageHeader {
 class CompressPageHeader : public IETSPageHeader {
   public:
     unsigned int dimensions[4]; // nx, ny, nz, nv: from low to high dimension
-    double time_stamp; // frame number of frame time
+    double time_stamp; // frame number or frame time
 };
 
 void get_version_array_from_string(unsigned short array[4], const char * string){

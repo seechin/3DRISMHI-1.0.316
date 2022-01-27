@@ -29,3 +29,14 @@
 
 #define MAX_RENAME_COUNT        10000   // Maximum number of renames
 #define MAX_GVV_FILES           3
+
+#define DISTRIBUTE_VERSION      "0.311"
+#ifndef DISTRIBUTE_VERSION
+    const char * szLicence = "";
+#else
+  const char * szLicence = "\
+  # 3DRISM-HI is free software for non-commercial use. You can use, modify \n\
+  # or redistribute for non-commercial purposes under the terms of the GNU \n\
+  # General Public License version 3.\n";
+#endif
+

@@ -698,6 +698,7 @@ void main_print_header(IET_Param * sys, IET_arrays * arr, FILE * flog, int argc,
     bool islogtty = isatty(fileno(flog));
         fprintf(flog, "============================================================================ \n");
         fprintf(flog, "%s %s\n", software_name, software_version);
+        fprintf(flog, "%s", szLicence);
         char time_buffer[40];
         fprintf(flog, "%s begins at %s\n%s@%s: %s%s%s\n", software_name, get_current_time_text(time_buffer), username, hostname, islogtty?prompt_path_prefix:"", szfn_path, islogtty?prompt_path_suffix:"");
         for (int i=0; i<argc; i++) fprintf(flog, "%s ", argv[i]); fprintf(flog, "\n");

@@ -1,5 +1,5 @@
 const char * software_name = "gmxtop2solute";
-const char * software_version = "0.296.1746";
+const char * software_version = "0.311.2375";
 const char * copyright_string = "(c) Cao Siqin";
 
 #include    <errno.h>
@@ -169,6 +169,7 @@ int analysis_params(int argc, char * argv[]){
     if (error == 2){
         printf("%s %s %s\n", software_name, software_version, copyright_string);
         printf("%s", szHelp);
+        printf("%s", szLicence);
         return 0;
     } else if (error == 3){
         printf("%s\n", software_version);
@@ -262,6 +263,7 @@ bool analysis_top(char * filename, char * last_file_name, int last_line){
             } else if (sl[1] == "atoms"){ on_compile = 3;
             } else if (sl[1] == "molecules"){ on_compile = 4;
                 fprintf(fout, "# %s %s\n", software_name, software_version);
+                fprintf(fout, "%s", szLicence);
                 if (solvent_format) fprintf(fout, "[atom]\n"); else fprintf(fout, "[solute]\n");
                 fprintf(fout, "#"); for (int i=0; i<software_argc; i++) fprintf(fout, " %s", software_argv[i]); fprintf(fout, "\n");
             } else if (sl[1] == "system"){ on_compile = 5;
@@ -399,6 +401,9 @@ bool analysis_top(char * filename, char * last_file_name, int last_line){
 int main(int argc, char * argv[]){
     software_argc = argc; software_argv = argv;
     bool success = true; int error = 0; strcpy(excl_grp, ""); szfn_out[0] = 0;
+    #ifdef DISTRIBUTE_VERSION
+        software_version = DISTRIBUTE_VERSION;
+    #endif
 
     error = analysis_params(argc, argv); if (error) return error;
     if (error) success = false;

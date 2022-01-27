@@ -1,5 +1,5 @@
 const char * software_name = "rismhi3d";
-const char * software_version = "0.310";
+const char * software_version = "0.311.2375";
 const char * copyright_string = "(c) Cao Siqin";
 
 #include    "header.h"
@@ -839,6 +839,9 @@ bool main_run_finalizing_commands(IET_Param * sys, IET_arrays * arr, FILE * flog
 //---------------------------------------------------------------------------------
 int main(int argc, char * argv[]){
     bool success = true; //FILE * flog = stdout;
+    #ifdef DISTRIBUTE_VERSION
+        software_version = DISTRIBUTE_VERSION;
+    #endif
   // initialization
     if (success){
         bool syntax_error = false; int error = 0;

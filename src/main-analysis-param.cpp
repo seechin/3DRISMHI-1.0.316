@@ -1580,6 +1580,7 @@ int analysis_params(IET_Param * sys, int argc, char * argv[]){
                 }
                 if (!found) printf("%s : no help entry for %s\n", software_name, help_search_str);
             }
+            if (error!=2) printf("%s", szLicence);
             return 1;
         }
     }

@@ -44,8 +44,10 @@ template <class DT> DT * append_memory(DT * src, int nsrc, DT * append, int napp
 char software_version_experimental[sizeof(software_version)+10];
 
 void init_experimental_contants(){
-    snprintf(software_version_experimental, sizeof(software_version_experimental), "%se", software_version);
-    software_version = software_version_experimental;
+    #ifndef DISTRIBUTE_VERSION
+        snprintf(software_version_experimental, sizeof(software_version_experimental), "%se", software_version);
+        software_version = software_version_experimental;
+    #endif
 
   // append experimental closures to the closure list
     /*int n_CLOSURE_alias_experimental = sizeof(CLOSURE_alias_experimental)/sizeof(CLOSURE_alias_experimental[0]);
