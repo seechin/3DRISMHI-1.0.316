@@ -1,5 +1,5 @@
 const char * software_name = "gmxtop2solute";
-const char * software_version = "0.274.1685";
+const char * software_version = "0.296.1746";
 const char * copyright_string = "(c) Cao Siqin";
 
 #include    <errno.h>
@@ -114,6 +114,7 @@ int analysis_parameter_line(char * argv[], int * argi, int argc, char * script_n
     int ret = 0; int i = *argi; bool analysis_script = !script_name? false : (!script_name[0]? false : true);
     StringNS::string key = argv[i];
     if (!analysis_script && (key == "-h" || key == "-help" || key == "--h" || key == "--help")){ ret = 2;
+    } else if (!analysis_script && (key == "-version" || key == "--version")){ ret = 3;
     } else if (key == "-p" || key == "--p" || key == "-top" || key == "--top"){ if (i+1<argc){ i++; strcpy(szfn_top, argv[i]); }
     } else if (key == "-o" || key == "--o"){ if (i+1<argc){ i++; strcpy(szfn_out, argv[i]); }
     } else if (key == "-excl"){ if (i+1<argc){ i++; strcpy(excl_grp, argv[i]); }
@@ -168,6 +169,10 @@ int analysis_params(int argc, char * argv[]){
     if (error == 2){
         printf("%s %s %s\n", software_name, software_version, copyright_string);
         printf("%s", szHelp);
+        return 0;
+    } else if (error == 3){
+        printf("%s\n", software_version);
+        return 0;
     }
     if (!success) return error;
   // prepare other params

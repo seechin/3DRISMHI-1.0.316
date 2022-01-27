@@ -1,5 +1,5 @@
 const char * software_name = "gensolvent";
-const char * software_version = "0.295.1743";
+const char * software_version = "0.296.1746";
 const char * copyright_string = "(c) Cao Siqin";
 
 #define     __REAL__    double
@@ -200,6 +200,9 @@ bool analysis_args(int argc, char *argv[], int first_argv){
                 } else if (key == "-h" || key == "-help" || key == "--help"){
                     printf("%s %s %s\n", software_name, software_version, copyright_string);
                     printf("%s", szHelp);
+                    exit_on_help = true;
+                } else if (key == "-version" || key == "--version"){
+                    printf("%s\n", software_version);
                     exit_on_help = true;
                 } else if (key == "-p" || key == "-top" || key == "--top"){
                     if (i+1<argc && argv[i+1][0]!='-'){

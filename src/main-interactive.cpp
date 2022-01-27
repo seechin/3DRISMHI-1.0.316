@@ -1,4 +1,4 @@
-const char * szHelpInteractive = "\
+const char * szHelpInteractiveDetails = "\
   Interactive mode command:\n\
     help, ha/-ha/-h/-help           show help\n\
     end, complete, finalize         end the calculation\n\
@@ -33,7 +33,7 @@ void subroutine_interactive(void * _id){
         while (!sys->is_suspend_calculation) usleep(100);
         lap_timer_none();
 
-        if (run_first_time){ run_first_time = false; fprintf(fout, "%s", szHelpInteractive); }
+        if (run_first_time){ run_first_time = false; fprintf(fout, "%s", szHelpInteractiveDetails); }
         if (interupt_main_loop){
             recalculate_energy(sys, arr); //arr->display_solvation_energy_full(sys, fout, nullptr);
             print_default_IET_report(sys, arr);
@@ -45,18 +45,17 @@ void subroutine_interactive(void * _id){
 
         StringNS::string sl[20]; int nw = analysis_line(input, sl, 20, true);
         if (sl[0]=="help"){
-            fprintf(fout, "%s", szHelpInteractive);
+            fprintf(fout, "%s", szHelpInteractiveDetails);
         } else if (sl[0]=="-h" || sl[0]=="--h" || sl[0]=="-help" || sl[0]=="--help" || sl[0]=="-ha" || sl[0]=="--ha" || sl[0]=="ha"){
             char * help_search_str = nullptr;
             if (nw<=1 || sl[1]=="all"){
                 fprintf(fout, "%s %s\n", software_name, software_version);
-                fprintf(fout, "%s", szHelpMore);
                 printf("%s%s%s%s%s", szHelp1, szHelpXTC, szHelpMP, szHelp2, szHelpLibZ);
                 fprintf(fout, szHelpSecRISM3D_RISM, check_error_tol(0), check_error_tol(0));
                 fprintf(fout, szHelpSecRISM3D_HI, check_error_tol(0), check_error_tol(0));
                 fprintf(fout, "%s", szHelpSecATOM);
                 fprintf(fout, "%s", szHelpSecRISM3DS);
-                fprintf(fout, "%s%s", szHelpAdvanced, szHelpAdvancedOthers);
+                fprintf(fout, "%s%s", szHelpAdvanced, szHelpInteractive);
                 fprintf(fout, "%s", szHelpNote);
             } else if (sl[1]=="sects"||sl[1]=="sections"){
                 fprintf(fout, szHelpSecRISM3D_RISM, check_error_tol(0), check_error_tol(0));
@@ -70,7 +69,7 @@ void subroutine_interactive(void * _id){
                 }
             } else for (int iw=1; iw<nw; iw++){
                 help_search_str = sl[iw].text;
-                const char * helps[] = { szHelp1, szHelpXTC, szHelpMP, szHelp2, szHelpLibZ, szHelpMore, szHelpAdvanced, szHelpAdvancedOthers, szHelpSecRISM3D_RISM, szHelpSecRISM3D_HI, szHelpSecRISM3DS, szHelpSecATOM, szHelpNote };
+                const char * helps[] = { szHelp1, szHelpXTC, szHelpMP, szHelp2, szHelpLibZ, szHelpAdvanced, szHelpInteractive, szHelpInternal, szHelpSecRISM3D_RISM, szHelpSecRISM3D_HI, szHelpSecRISM3DS, szHelpSecATOM, szHelpNote };
                 bool found = false; StringNS::string hkey = help_search_str;
                 for (int ih=0; ih<sizeof(helps)/sizeof(helps[0]); ih++){
                     int im = 0; StringNS::string templ = helps[ih];

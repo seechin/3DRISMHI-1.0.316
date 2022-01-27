@@ -22,10 +22,10 @@ double calculate_excessive_chemical_potential(int closure, double closure_factor
         case CLOSURE_HNC            : return excessive_GF + 0.5*huv*huv;
         case CLOSURE_PLHNC          : return excessive_GF + (huv<exp(ccutoff)? 0.5*huv*huv : 0);
         case CLOSURE_MHNC           :
-        case CLOSURE_MSA            :
-        case CLOSURE_KGK            :
-        case CLOSURE_PY             :
-        case CLOSURE_D2             : return excessive_GF;
+        case CLOSURE_MSA            : return excessive_GF; // confirmed
+        case CLOSURE_KGK            : return excessive_GF; // confirmed
+        case CLOSURE_PY             : return t==0? -(cuv+clr) : (cuv+clr)*ln(1 + fabs(t))/t; // experimental, not finished
+        case CLOSURE_D2             : return excessive_GF + 0.5*huv*huv; // HNC used. Should include: - 0.5*t*t - huv*t*t/3;
         case CLOSURE_HNCB           : return excessive_GF + 0.5*huv*huv; // not finished
         case CLOSURE_KH             : return excessive_GF + (huv<0? 0.5*huv*huv : 0);
         case CLOSURE_PSE2           : return excessive_GF + 0.5*huv*huv - (tz>0? tz*tz*tz/6 : 0);
@@ -57,7 +57,7 @@ void generate_report_data(IET_Param * sys, IET_arrays * arr, IET_Report & total,
 
   // step 2. site dependent terms
     for (int iv=0; iv<sys->nv; iv++){
-        int ivm = sys->av[iv].iaa; double q = sys->av[iv].charge_esp / dielect; double dN = dV * sys->density_av[iv];
+        int ivm = sys->av[iv].iaa; double q = sys->av[iv].charge_esp / dielect; double dN = dV * sys->density_av[iv] / sys->nbulk_rism[sys->av[iv].iaa];
         __REAL__ * uuv1 = &arr->uuv[iv][0][0][0];
         __REAL__ * huv1 = &arr->huv[iv][0][0][0];
         __REAL__ * hlr1 = &arr->hlr[iv][0][0][0];
@@ -73,7 +73,7 @@ void generate_report_data(IET_Param * sys, IET_arrays * arr, IET_Report & total,
             double dn = g * dN * sys->av[iv].multi;
           // potential energy terms
             sites[iv].N += g * dN;
-            if (dn>MACHINE_REASONABLE_ERROR) sites[iv].Ng += dN;
+            if (dn>MACHINE_REASONABLE_ERROR) sites[iv].Ng += dN * sys->nbulk_rism[sys->av[iv].iaa];
             sites[iv].lj += arr->ulj[iv][0][0][i3] * dn * scale_lj;
             sites[iv].coulsr += (arr->ucoulsr[0][0][i3]) * q * dn * scale_coul;
             sites[iv].coullr += (arr->ucoullr[0][0][i3]) * q * dn * scale_coul;
@@ -104,7 +104,8 @@ void generate_report_data(IET_Param * sys, IET_arrays * arr, IET_Report & total,
         //sites[iv].pmv_from_cuv = sys->av[iv].multi * (dd1?dd1[i3]/nbulk : 1) *
     }
   // step 3. space dependent terms
-    double total_Uef0_share = 0; for (int iv=0; iv<sys->nv; iv++) total_Uef0_share += fabs(sys->av[iv].charge_esp*sys->av[iv].multi) * sys->density_av[iv];
+    //double total_Uef0_share = 0; for (int iv=0; iv<sys->nv; iv++) total_Uef0_share += fabs(sys->av[iv].charge_esp*sys->av[iv].multi) * sys->density_av[iv];
+    double total_Uef0_share = 0; for (int iv=0; iv<sys->nv; iv++) total_Uef0_share += fabs(sys->av[iv].charge_esp*sys->av[iv].multi*sys->av[iv].sigma*sys->av[iv].sigma*sys->av[iv].sigma) * sys->density_av[iv];
     if (arr->Ecoul0) for (size_t i3=0; i3<N3; i3++){
         Vector Eef0 = Vector(arr->Ecoul0[0][0][0][i3], arr->Ecoul0[1][0][0][i3], arr->Ecoul0[2][0][0][i3]);
         double Eef02 = Eef0.pow2();
@@ -113,7 +114,7 @@ void generate_report_data(IET_Param * sys, IET_arrays * arr, IET_Report & total,
         for (int iv=0; iv<sys->nv; iv++){
             int ivm = sys->av[iv].iaa;
             double g = (1+arr->huv[iv][0][0][i3]) * (arr->dd? arr->dd[ivm][0][0][i3]/sys->nbulk[ivm] : 1);
-            double share_of_Uef0 = total_Uef0_share==0? 1/sys->nv : fabs(sys->av[iv].charge_esp*sys->av[iv].multi) * sys->density_av[iv] / total_Uef0_share;
+            double share_of_Uef0 = total_Uef0_share==0? 1/sys->nv : fabs(sys->av[iv].charge_esp*sys->av[iv].multi*sys->av[iv].sigma*sys->av[iv].sigma*sys->av[iv].sigma) * sys->density_av[iv] / total_Uef0_share;
             if (g>sys->gcutoff_ef_occupation){
                 sites[iv].Uef0 += this_Uef0 * share_of_Uef0;
                 sites[iv].Uef1 += this_Delta_Uef0 * share_of_Uef0;

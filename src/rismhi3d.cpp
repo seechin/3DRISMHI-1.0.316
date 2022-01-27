@@ -1,5 +1,5 @@
 const char * software_name = "rismhi3d";
-const char * software_version = "0.295.1743";
+const char * software_version = "0.310";
 const char * copyright_string = "(c) Cao Siqin";
 
 #include    "header.h"
@@ -218,12 +218,7 @@ const char * IETAL_name[] = { "", "SSOZ", "RISM" };
 #define HIAL_NOHI           0
 #define HIAL_HI             1
 #define HIAL_HSHI           1
-#define HIAL_H2HI           2
-#define HIAL_EEHI           3
-#define HIAL_E2HI           4
-#define HIAL_DPHI           5
-#define HIAL_DNHI           6
-const char * HIAL_name[] = { "noHI", "HSHI", "H2HI", "EEHI", "E2HI", "DPHI", "DNHI" };
+const char * HIAL_name[] = { "noHI", "HSHI" };
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 // for BG: integration pathway
 #define PERFORM_3DBG_PATHWAY_LJ         1
@@ -258,6 +253,8 @@ const char * HIAL_name[] = { "noHI", "HSHI", "H2HI", "EEHI", "E2HI", "DPHI", "DN
 #define IETCMD_BUILD_UUV        28
 #define IETCMD_TI               29
 #define IETCMD_HOLD             30
+#define IETCMD_RDF_CONTENT      32
+#define IETCMD_TEMPERATURE      33
 #define IETCMD_TEST             98
 #define IETCMD_TEST_SAVE        99
 #define IETCMD_v_temperature    101
@@ -313,7 +310,7 @@ char hostname[MAX_PATH], username[MAX_PATH];
 // input file
 char szfn_xtc[MAX_PATH];
 char szfn_solute[MAX_PATH];
-char szfn_gvv[MAX_PATH];
+char szfn_gvvs[MAX_GVV_FILES*MAX_PATH]; int n_szfn_gvvs = 0;
 char szfn_zeta[MAX_PATH];
 // log file
 char szfn_log[MAX_PATH];
@@ -434,6 +431,14 @@ bool main_initialization(int argc, char * argv[], IET_Param ** _sys, IET_arrays 
     if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: analysis_params_post()\n");
     error = analysis_params_post(sys); if (error){ if (flog) fclose(flog); if (_error) *_error = error; if (_syntax_error) *_syntax_error = true; return false; }
     error = analysis_params_post_commands(sys); if (error){ if (flog) fclose(flog); if (_error) *_error = error; if (_syntax_error) *_syntax_error = true; return false; }
+    if (sys->debug_level>=3 && sys->zeta_list && sys->n_zeta_list>0){
+        printf("DEBUG:: [zeta]\n");
+        for (int i=0; i<sys->n_zeta_list; i++){
+            const char * molei = nullptr; for (int j=0; j<sys->n_atom_list && !molei; j++) if (sys->atom_list[j].iaa==sys->zeta_list[i].iaai) molei = sys->atom_list[j].mole;
+            const char * molej = nullptr; for (int j=0; j<sys->n_atom_list && !molej; j++) if (sys->atom_list[j].iaa==sys->zeta_list[i].iaaj) molej = sys->atom_list[j].mole;
+            printf("DEBUG::   %s %s %g %g kJ/mol\n", molei?molei:"(unknown)", molej?molej:"(unknown)", sys->zeta_list[i].rc_zeta0, sys->zeta_list[i].deltaG_in_Kelvin/120.27);
+        }
+    }
   // set priority
     if (sys->nice_level>0){
         if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: set priority to %d\n", sys->nice_level);
@@ -563,12 +568,26 @@ bool main_initialization(int argc, char * argv[], IET_Param ** _sys, IET_arrays 
       // load solvent self correlations, and generate K space correlations
         bool b_read_solvent_xvv = true;
         if (sys->gvv_specification!=0){
-            if (sys->debug_level>=1) fprintf(sys->log(), "debug:: read_solvent_gvv(%s%s%s)\n", sys->is_log_tty?prompt_path_prefix:"\"", szfn_gvv, sys->is_log_tty?prompt_path_suffix:"\"");
-            b_read_solvent_xvv &= read_solvent_gvv(sys, arr, szfn_gvv, sys->nv, sys->nv);
-            if (b_read_solvent_xvv && sys->debug_level>=2){
-                if (sys->xvv_extend<=1) fprintf(sys->log(), "DEBUG:: generate_solvent_xvv(nv=%d, n_gvv=%d)\n", sys->nv, arr->n_gvv); else fprintf(sys->log(), "DEBUG:: generate_solvent_xvv(nv=%d, n_gvv=%gx%g)\n", sys->nv, arr->n_gvv/sys->xvv_extend, sys->xvv_extend);
+            //if (sys->debug_level>=1) fprintf(sys->log(), "debug:: read_solvent_gvv(%s%s%s)\n", sys->is_log_tty?prompt_path_prefix:"\"", szfn_gvv, sys->is_log_tty?prompt_path_suffix:"\"");
+            if (sys->debug_level>=1){
+                fprintf(sys->log(), "debug:: read_solvent_gvv(");
+                for (int i=0; i<n_szfn_gvvs; i++) fprintf(sys->log(), i==0?"%s%s%s":", %s%s%s", sys->is_log_tty?prompt_path_prefix:"\"", &szfn_gvvs[i*MAX_PATH], sys->is_log_tty?prompt_path_suffix:"\"");
+                fprintf(sys->log(), ", dr=%g)\n", sys->drrism);
             }
-            if (b_read_solvent_xvv) b_read_solvent_xvv &= generate_solvent_xvv(sys, arr, szfn_gvv, sys->nv, sys->nv, arr->n_gvv, sys->xvv_extend);
+            b_read_solvent_xvv &= read_solvent_gvv(sys, arr, szfn_gvvs, n_szfn_gvvs, sys->nv, sys->nv);
+            if (b_read_solvent_xvv && sys->debug_level>=2){
+                if (sys->xvv_extend<=1){
+                    fprintf(sys->log(), "DEBUG:: generate_solvent_xvv(nv=%d, n_gvv=%d", sys->nv, arr->n_gvv);
+                    if (n_szfn_gvvs>1) for (int i=1; i<n_szfn_gvvs; i++) fprintf(sys->log(), ", n_gvv%d=%d", i, arr->n_gvvs[i]);
+                    fprintf(sys->log(), ")\n");
+                } else {
+                    fprintf(sys->log(), "DEBUG:: generate_solvent_xvv(nv=%d, n_gvv=%gx%g", sys->nv, arr->n_gvv/sys->xvv_extend, sys->xvv_extend);
+                    if (n_szfn_gvvs>1) for (int i=1; i<n_szfn_gvvs; i++) fprintf(sys->log(), ", n_gvv%d=%gx%g", i+1, arr->n_gvvs[i]/sys->xvv_extend, sys->xvv_extend);
+                    fprintf(sys->log(), ")\n");
+                }
+            }
+            if (b_read_solvent_xvv) b_read_solvent_xvv &= generate_solvent_xvv(sys, arr, szfn_gvvs, sys->nv, sys->nv, arr->n_gvv, sys->xvv_extend);
+            // if (b_read_solvent_xvv) b_read_solvent_xvv &= generate_solvent_xvv(sys, arr, szfn_gvvs, n_szfn_gvvs, sys->nv, sys->nv, arr->n_gvvs, sys->xvv_extend);
         }
         //if (sys->b_save_original_xvv && (arr->wvv && arr->nhkvv)) backup_solvent_xvv_with_shift_only(sys, arr);
 
@@ -594,13 +613,18 @@ bool main_initialization(int argc, char * argv[], IET_Param ** _sys, IET_arrays 
     if (success && sys->check_zero_xvv){ // build gvv zero indicator
         if (sys->debug_level>=2) fprintf(sys->log(), "Debug:: build_xvv_pointer_skip_missing(%s%s%s)\n", arr->wvv?"wvv":"", arr->nhkvv?arr->wvv?",nhkvv":"nhkvv":"", arr->zeta?(arr->wvv||arr->nhkvv)?",zeta":"zeta":"");
         if (arr->wvv)   arr->convolution_wvv = build_xvv_pointer_skip_missing(arr->wvv, sys->nv, sys->nv, arr->n_wvv, sys, "wvv");
-        if (arr->nhkvv) arr->convolution_nhkvv = build_xvv_pointer_skip_missing(arr->nhkvv, sys->nv, sys->nv, arr->n_nhkvv, sys, "nhkvv");
+        if (arr->nhkvv){
+            for (int i=0; i<n_szfn_gvvs; i++){
+                arr->convolution_nhkvvs[i] = build_xvv_pointer_skip_missing(arr->nhkvvs[i], sys->nv, sys->nv, arr->n_nhkvvs[i], sys, "nhkvv");
+            }
+            arr->convolution_nhkvv = arr->convolution_nhkvvs[0];
+        }
         if (arr->zeta)  arr->convolution_zeta = build_xvv_pointer_skip_missing(arr->zeta, sys->nvm, sys->nvm, arr->n_zeta, sys, "zeta");
     }
     if (success && arr->nhkvv){
         success &= perform_xvv_enhancement(sys, arr);
     }
-    if (success && sys->mode_test && arr->wvv && arr->nhkvv) debug_show_rism_xvv_matrix(sys, arr, sys->nv, sys->nvm);
+    if (success && (sys->mode_test || sys->debug_level>=3) && arr->wvv && arr->nhkvv) debug_show_rism_xvv_matrix(sys, arr, sys->nv, sys->nvm);
   lap_timer_analysis_param();
 
   // create threads or forks
@@ -706,8 +730,8 @@ void main_dispose(IET_Param * sys, IET_arrays * arr, FILE ** _flog, bool success
 //------------------------------   running commands   -----------------------------
 //---------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------
-bool main_run_empty_command_queue(IET_Param * sys, IET_arrays * arr, FILE * flog, int * _error=NULL){
-    bool success = true; int error = 0;
+bool main_run_empty_command_queue(IET_Param * sys, IET_arrays * arr, FILE * flog){
+    bool success = true;
 
   // list only: display setups
     if (sys->listonly){
@@ -727,8 +751,6 @@ bool main_run_empty_command_queue(IET_Param * sys, IET_arrays * arr, FILE * flog
         success = false;
     }
 
-
-    if (_error) *_error = error;
     return success;
 }
 bool main_prepare_to_run_commands(IET_Param * sys, IET_arrays * arr, FILE * flog){
@@ -816,10 +838,10 @@ bool main_run_finalizing_commands(IET_Param * sys, IET_arrays * arr, FILE * flog
 //---------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------
 int main(int argc, char * argv[]){
-    bool success = true; int error = 0; //FILE * flog = stdout;
+    bool success = true; //FILE * flog = stdout;
   // initialization
     if (success){
-        bool syntax_error = false;
+        bool syntax_error = false; int error = 0;
         success &= main_initialization(argc, argv, &global_sys, &global_arr, &global_flog, &global_rdf_datas, &error, &syntax_error);
         if (!success && syntax_error) return 0;
     }
@@ -831,7 +853,7 @@ int main(int argc, char * argv[]){
 
   // the commands to run when the command queue is empty
     if (success){
-        success &= main_run_empty_command_queue(sys, arr, global_flog, &error);
+        success &= main_run_empty_command_queue(sys, arr, global_flog);
     }
 
   // prepare to run commands

@@ -111,9 +111,10 @@ void build_force_field_sr_1(int i_begin, int i_end, int * i_now, IET_Param * sys
         double rbcharge = sys->rbcharge<=0? (sys->as[ja].sigma/2<dbohr?dbohr:sys->as[ja].sigma/2/(sys->rbcharge>-MACHINE_REASONABLE_ERROR?1:-sys->rbcharge)) : sys->rbcharge;
         //double rbcharge = sys->rbcharge<=0? (sys->as[ja].sigma<dbohr?dbohr:sys->as[ja].sigma/(sys->rbcharge>-MACHINE_REASONABLE_ERROR?1:-sys->rbcharge)) : sys->rbcharge;
         double charge = sys->as[ja].charge;
-        double charge_mb = sys->as[ja].charge; if (sys->as[ja].nbond>0){ charge_mb = sys->as[ja].charge * 0.5;
+        /*double charge_mb = sys->as[ja].charge; if (sys->as[ja].nbond>0){ charge_mb = sys->as[ja].charge * 0.5;
             for (int i=0; i<sys->as[ja].nbond; i++){ int ii = ja+sys->as[ja].ibond[i]; if (ii>=0&&ii<sys->nas) charge_mb += sys->as[ii].charge*(1-0.5) / (sys->as[ii].nbond<1?1:sys->as[ii].nbond); }
         } // fprintf(sys->log(), "ATOM %3d\33[31m%6s\33[0m:%3d\33[34m%6s\33[0m has charge %12f and %s%12f\33[0m\n", sys->as[ja].index, sys->as[ja].name, sys->as[ja].iaa, sys->as[ja].mole, charge, charge_mb>0.6?"\33[34m":charge_mb<-0.6?"\33[31m":charge_mb>0.3?"\33[32m":charge_mb<-0.3?"\33[35m":"\33[37m", charge_mb);
+        */
       // 2.1 short range interaction
         for (int _iz=-gcz_max; _iz<=gcz_max; _iz++) for (int _iy=-gcy_max; _iy<=gcy_max; _iy++) for (int _ix=-gcx_max; _ix<=gcx_max; _ix++){
             int ix = _ix + gx; if (sys->pbc_x) ix = ff_pbc_i(ix, nx); if (ix<0 || ix>=nx) continue;

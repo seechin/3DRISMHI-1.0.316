@@ -174,7 +174,7 @@ bool is_a_text_file(char * filename){
 //---------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------
 #define MAX_MEMORYS 65536
-int _memory_blk_total = 0; size_t _memory_total = 0; bool _ignore_memory_capacity = false;
+int _memory_blk_total = 0; size_t _memory_total = 0; size_t _memory_last_allocated = 0; bool _ignore_memory_capacity = false;
 void * _memory_pointers[MAX_MEMORYS]; size_t _memory_size[MAX_MEMORYS];
 size_t get_total_physical_memory(){
     size_t pages = sysconf(_SC_PHYS_PAGES);
@@ -236,7 +236,7 @@ void * memalloc(size_t size){
             _memory_pointers[_memory_blk_total] = p;
             _memory_size[_memory_blk_total] = size;
         }
-        _memory_blk_total ++; _memory_total += size;
+        _memory_blk_total ++; _memory_total += size; _memory_last_allocated = size;
         memset(p, 0, size);
     }
 

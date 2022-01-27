@@ -69,7 +69,10 @@ bool prepare_phi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, do
     bool success = false;
   // step 2: preparation, majorly phi
     size_t N3 = arr->nx * arr->ny * arr->nz; size_t N4 = sys->nv * N3; size_t N4m = sys->nvm * N3;
-    if (sys->hial==HIAL_DPHI){   // dipole HI
+    if (sys->hial == HIAL_HSHI){
+        if (arr->phi&&arr->phi[0]) clear_tensor4d(arr->phi, N4m);
+        if (arr->nphi&&arr->nphi[0]) clear_tensor4d(arr->nphi, N4m);
+    /*} else if (sys->hial==HIAL_DPHI){   // dipole HI
         if (arr->phi && arr->phi[0]){
             double beta = sys->default_temperature/sys->temperature;
             //double nphi_unit = fabs(arr->zeta[0][0][0] *sys->density_mv[0]);
@@ -97,9 +100,7 @@ bool prepare_phi(IET_Param * sys, IET_arrays * arr, int * hi_param_indicator, do
             }
         }
         if (arr->phi&&arr->phi[0]) clear_tensor4d(arr->phi, N4m);
-    } else if (sys->hial == HIAL_HSHI){
-        if (arr->phi&&arr->phi[0]) clear_tensor4d(arr->phi, N4m);
-        if (arr->nphi&&arr->nphi[0]) clear_tensor4d(arr->nphi, N4m);
+    */
     } else {
         if (arr->phi&&arr->phi[0]) clear_tensor4d(arr->phi, N4m);
         if (arr->nphi&&arr->nphi[0]) clear_tensor4d(arr->nphi, N4m);

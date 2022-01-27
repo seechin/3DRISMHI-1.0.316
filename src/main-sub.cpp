@@ -27,6 +27,8 @@ const char * get_command_name(int cmd){
         case IETCMD_BUILD_UUV   : return "build-uuv";
         case IETCMD_TI          : return "TI";
         case IETCMD_HOLD        : return "hold";
+        case IETCMD_RDF_CONTENT : return "rdf-content";
+        case IETCMD_TEMPERATURE : return "temperature";
         case IETCMD_TEST        : return "test";
         case IETCMD_TEST_SAVE   : return "test-and-save";
         default:
@@ -223,9 +225,15 @@ void build_uuv_base_on_force_field(IET_Param * sys, IET_arrays * arr, int es_alg
         build_force_field_uuv_ur(sys, arr);
     }
 
-    if (sys->ietal==IETAL_SSOZ){
-        if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: build_force_field_uuv_post_merge()\n");
+    //if (sys->ietal==IETAL_SSOZ){
+    if (!sys->rism_coulomb_renormalization){
+        if (sys->debug_level>=2){
+            fprintf(sys->log(), "DEBUG:: electric field renormalization disabled for RISM\n");
+            fprintf(sys->log(), "DEBUG:: build_force_field_uuv_post_merge()\n");
+        }
         build_force_field_uuv_post_merge(sys, arr);
+    } else {
+        if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: electric field renormalization enabled for RISM\n");
     }
 
 
@@ -322,7 +330,8 @@ void calculate_rdf(IET_Param * sys, IET_arrays * arr, RDF_data * rdf, double r_m
             __REAL__ * huv1 = &arr->huv[iv][0][0][0];
             __REAL__ * dd1 = arr->dd? &arr->dd[sys->av[iv].iaa][0][0][0] : nullptr;
             double nbulk = sys->nbulk[sys->av[iv].iaa];
-            for (size_t i3=0; i3<N3; i3++) res1[i3] = (1+huv1[i3]) * (dd1? dd1[i3] : nbulk) / nbulk;
+            double nbulk_rism = sys->nbulk_rism[sys->av[iv].iaa];
+            for (size_t i3=0; i3<N3; i3++) res1[i3] = (1+huv1[i3]) * (dd1? dd1[i3] : nbulk) / nbulk_rism;
         }
     }
 
@@ -381,24 +390,66 @@ bool print_rdf(FILE * file, IET_Param * sys, IET_arrays * arr, RDF_data * rdf, d
       if (sys->output_significant_digits==-4) mask64 = generate_double_sig_dig_mask(7);
       if (sys->output_significant_digits==-8) mask64 = generate_double_sig_dig_mask(15);
 
-    fprintf(file, "%11s", "r"); for (int ig=0; ig<sys->n_rdf_grps; ig++){
+    int grp_min = sys->rdf_grps[0].grp; int grp_max = sys->rdf_grps[0].grp;
+    for (int i=1; i<sys->n_rdf_grps; i++){ if (sys->rdf_grps[i].grp<grp_min) grp_min = sys->rdf_grps[i].grp; if (sys->rdf_grps[i].grp>grp_max) grp_max = sys->rdf_grps[i].grp; }
+
+  // 1. print titles
+    fprintf(file, sys->output_title_format, "r");
+    for (int igrp=grp_min; igrp<=grp_max; igrp++){
+        char buffer[MAX_NAME];
+        for (int ig=0; ig<sys->n_rdf_grps; ig++) if (sys->rdf_grps[ig].grp==igrp){
+            if (rdf[ig].is<0){
+                snprintf(buffer, sizeof(buffer), "all-%d/%s.%s", rdf[ig].iv+1, sys->av[rdf[ig].iv].mole, sys->av[rdf[ig].iv].name);
+            } else {
+                snprintf(buffer, sizeof(buffer), "%d/%s.%s-%d/%s.%s", rdf[ig].is+1, sys->as[rdf[ig].is].mole, sys->as[rdf[ig].is].name, rdf[ig].iv+1, sys->av[rdf[ig].iv].mole, sys->av[rdf[ig].iv].name);
+            }
+            fprintf(file, sys->output_title_format, buffer);
+            break;
+        }
+    }; fprintf(file, "\n");
+  // 2. print the RDF data
+    for (int i1=0; i1<N1; i1++){
+        fprintf(file, sys->output_realnumber_format, (i1+0.5)*dr);
+        for (int igrp=grp_min; igrp<=grp_max; igrp++){
+            double value = 0; double n_value = 0; int encounter_times = 0;
+            for (int ig=0; ig<sys->n_rdf_grps; ig++) if (sys->rdf_grps[ig].grp==igrp){
+                value += rdf[ig].g[i1];
+                n_value += rdf[ig].n[i1];
+                encounter_times ++;
+
+                //value += rdf[ig].n[i1]!=0? rdf[ig].g[i1]/rdf[ig].n[i1] : rdf[ig].g[i1];
+                //n_value ++;
+            }
+            if (encounter_times>0) fprintf(file, sys->output_realnumber_format, n_value!=0? value/n_value : value);
+        }
+        fprintf(file, "\n");
+    }
+
+  /*
+    //fprintf(file, "%11s", "r");
+    fprintf(file, sys->output_title_format, "r");
+    for (int ig=0; ig<sys->n_rdf_grps; ig++){
         char buffer[MAX_NAME];
         if (rdf[ig].is<0){
             snprintf(buffer, sizeof(buffer), "all-%d%s", rdf[ig].iv+1, sys->av[rdf[ig].iv].name);
         } else {
             snprintf(buffer, sizeof(buffer), "%d%s-%d%s", rdf[ig].is+1, sys->as[rdf[ig].is].name, rdf[ig].iv+1, sys->av[rdf[ig].iv].nele);
         }
-        fprintf(file, " %11s", buffer);
+        //fprintf(file, " %11s", buffer);
+        fprintf(file, sys->output_title_format, buffer);
     }; fprintf(file, "\n");
     for (int i1=0; i1<N1; i1++){
-        fprintf(file, "%11.4f", (i1+0.5)*dr);
+        //fprintf(file, "%11.4f", (i1+0.5)*dr);
+        fprintf(file, sys->output_realnumber_format, (i1+0.5)*dr);
         for (int ig=0; ig<sys->n_rdf_grps; ig++){
             double value = rdf[ig].n[i1]!=0? rdf[ig].g[i1]/rdf[ig].n[i1] : rdf[ig].g[i1];
             //bit_and(&value, &value, &mask64, 8);
-            fprintf(file, " %11.4f", value);
+            //fprintf(file, " %11.4f", value);
+            fprintf(file, sys->output_realnumber_format, value);
         }
         fprintf(file, "\n");
     }
+  */
 
     return true;
 }

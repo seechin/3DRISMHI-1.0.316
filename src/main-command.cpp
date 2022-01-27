@@ -464,11 +464,22 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
             sys->dielect_yukawa = yukawa_dielect_save;
             sys->rc_yukawafft = yukawa_rc_save;
         } else if (cmd[ic].command==IETCMD_HOLD){
-            if (cmd[ic].step <=0){
+            if (cmd[ic].step <=0){  // hold:none or hold:clear
                 sys->_n_hold_list = 0;
             } else {
                 sys->_n_hold_list = cmd[ic].step;
                 for (int i=0; i<sys->nv && i<cmd[ic].step; i++) sys->_hold_list[i] = cmd[ic].command_params_int[i];
+            }
+        } else if (cmd[ic].command==IETCMD_RDF_CONTENT){
+            if (cmd[ic].step > 0){
+                sys->rdf_content = cmd[ic].command_params_int[0];
+                arr->is_rdf_calculated = false;
+                fprintf(sys->log(), "%s : RDF content changed to %s\n", software_name, get_variable_name(sys->rdf_content));
+            }
+        } else if (cmd[ic].command==IETCMD_TEMPERATURE){
+            if (cmd[ic].step > 0){
+                sys->temperature = cmd[ic].command_params_double[0];
+                fprintf(sys->log(), "%s : system temperature changed to %.15g\n", software_name, sys->temperature);
             }
       // running HI
         } else if (cmd[ic].command>=2000 && cmd[ic].command<2500){  // HI
@@ -537,7 +548,7 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
 
                 //if (sys->debug_level>=2) fprintf(sys->log(), "DEBUG:: perform_3d_iet()\n");
                 arr->diis_rism.ndiis = 0;
-                bool rism_converged = RISMHI3D_RISMNS::perform_3d_iet(flog, sys, arr, true);
+                bool rism_converged = perform_3d_iet(flog, sys, arr, true);
                 //if (sys->detail_level>=1&&!rism_converged) fprintf(flog, "  %s not converged\n", IETAL_name[sys->ietal]);
                 if (sys->debug_level>=3||sys->debug_show_crc) fprintf(sys->log(), "DEBUG:: (debug only) check_real_crc(huv)        = %08X\n", check_real_crc(&arr->huv[0][0][0][0], sys->nv*arr->nx*arr->ny*arr->nz));
             }
