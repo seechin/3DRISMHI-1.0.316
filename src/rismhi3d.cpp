@@ -1,5 +1,5 @@
 const char * software_name = "rismhi3d";
-const char * software_version = "0.311.2375";
+const char * software_version = "0.313.2431";
 const char * copyright_string = "(c) Cao Siqin";
 
 #include    "header.h"

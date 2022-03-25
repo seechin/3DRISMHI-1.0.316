@@ -1,11 +1,26 @@
+#include "../config.h"
 
-#define     _GROMACS4_
-#define     _LOCALPARALLEL_                 // general local paralleling
-#define     _LOCALPARALLEL_PTHREAD_
-//#define     _FFTWMPPARALLEL_                // fftw multithreading
-#define     _LIBZ_                          // use libz to compress TENSOR4D
-#define     _INTERACTIVE_                   // allow interactive mode, undef this will disable main-interactive.cpp
+// Linux libraries
+#ifndef HAVE_PTHREAD_H 
+  #define   _LOCALPARALLEL_                 // general local paralleling
+#else
+  #define   _LOCALPARALLEL_PTHREAD_
+#endif
+#ifdef HAVE_ZLIB_H
+  #define   _LIBZ_                          // use libz to compress TENSOR4D
+#endif
 
-#define     _EXPERIMENTAL_
-#define     _TTYPROMPTCOLOR_
+// Third party libraries
+// Gromacs for XTC
+#ifdef GROMACS4
+  #define   _GROMACS4_
+#endif
+#ifdef GROMACS16
+  #define   _GROMACS2016_
+#endif
+
+// Features
+//#define     _INTERACTIVE_                 // allow interactive mode, undef this will disable main-interactive.cpp
+#define     _TTYPROMPTCOLOR                 // allow color text in terminal_
 //#define     _FUNCTION_EXPORT_
+//#define     _FFTWMPPARALLEL_              // fftw multithreading

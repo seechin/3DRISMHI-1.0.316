@@ -1,0 +1,6 @@
+RISMHI3D is free software for non-commercial use. You can use, modify or redist-
+ribute for non-commercial purposes under the terms of the GNU General Public Li-
+cense version 3.
+
+Release Update Jan. 26, 2022
+    Release of the first verion 1.0.311.

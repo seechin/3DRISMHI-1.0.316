@@ -47,7 +47,7 @@ const char * szHelpMP = "\
 #endif
 const char * szHelp2 = "\
     -nice[-level] 0         nice level of this process\n\
-    -nr 100x100x100         grid number(s). Default: 100, or 100 100 100 \n\
+    -nr -grid 100x100x100   grid number(s). Default: 100, or 100 100 100 \n\
     -rc 1                   interaction cutoff for LJ and Coulomb\n\
     -pwd, -cwd              directory for output, default: current folder\n\
     -log                    log file, could be stdout/con/screen/stderr\n\
@@ -135,8 +135,6 @@ const char * szHelpAdvanced = "\
     -significant-digits     (-sd), digits for IETS output, can be float/double\n\
     -dynamic-delvv 1        (-closure-enhance) dynamic factor for convergence\n\
     -xvv-extend 0           number of times to extend wvv&nhkvv\n\
-    -xvv-scheme so          scheme for xvv, can be so=amber/no/sc/sx/s1\n\
-    -xvv-scale              factors to scale hvv, order: columns in [gvv_map]\n\
     -allow/-forbid          turn on/off options:\n\
         pme                 allow/forbid to perform PME, default on\n\
         [Coulomb-]renorm[alization] allow/forbid Coulomb renormalization in RISM\n\
@@ -146,7 +144,6 @@ const char * szHelpAdvanced = "\
         alloc-rmin/Ef       * allow/forbid to generate rmin/Ef\n\
     -page[-]size 4096       page size in compressed TS4S file\n\
     -zeta-line/term/item    define a zeta term, see [zeta] for details\n\
-    -dielect-hi             dielect const for Coulomb based HI theories\n\
     -ccutoff 5              cutoff for hybrid closures\n\
     -cceil 148              (-gceil) = exp(ccutoff), cutoff for hybrid closures\n\
     -dielect-y[ukawa] 1     dielectric const for Yukawa\n\
@@ -155,6 +152,10 @@ const char * szHelpAdvanced = "\
     -Tdef 120.27            (-default_temperature) T of forcefield energy unit\n\
     -external-electrofield  external electric field in eV/nm, default: 0 0 0\n\
 ";
+//  -xvv-scheme so          scheme for xvv, can be so=amber/no/sc/sx/s1\n\
+//  -xvv-scale              factors to scale hvv, order: columns in [gvv_map]\n\
+//  -dielect-hi             dielect const for Coulomb based HI theories\n\
+
 
 #ifdef _INTERACTIVE_
   const char * szHelpInteractive = "\
@@ -957,7 +958,7 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
             if (sys->drhi>0 && sys->drhi!=atof(argv[i+1])){ fprintf(sys->log(), "%s%s : %s[%d] : %sdrhi%s changed to %s from %g%s\n", istty?color_string_of_synerr:"", software_name, get_second_fn(script_name), script_line, istty?prompt_highlight_prefix:"", istty?prompt_highlight_suffix:"", argv[i+1], sys->drhi, istty?color_string_end:""); ret = 1; }
             sys->drhi = atof(argv[++i]);
         }
-    } else if (key == "-nr" || key == "nr" || key == "--nr"){
+    } else if (key == "-nr" || key == "nr" || key == "--nr" || key == "-grid" || key == "grid" || key == "--grid"){
         if (i+1<argc && argv[i+1][0]!='-'){
             bool analysis_compact = false;
             for (int j=0; argv[i+1][j] && !analysis_compact; j++) if (argv[i+1][j]==',' || argv[i+1][j]=='x' || argv[i+1][j]=='X') analysis_compact = true;
@@ -1264,10 +1265,14 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
         sys->detail_level = 2;
     } else if (key=="-debug-level" || key=="debug-level"  || key=="--debug-level" || key=="-debug_level" || key=="debug_level"  || key=="--debug_level"){
         if (i+1<argc && StringNS::is_string_number(argv[i+1])){ i++; sys->debug_level = atoi(argv[i]); }
-    } else if (key=="-debugging" || key=="debugging"  || key=="--debugging" || key=="-debuging" || key=="debuging"  || key=="--debuging"){
-        sys->debug_level = 2;
     } else if (key=="-debug" || key=="debug"  || key=="--debug"){
         sys->debug_level = 1; if (i+1<argc && StringNS::is_string_number(argv[i+1])){ i++; sys->debug_level = atoi(argv[i]); }
+    } else if (key=="-debug-level-1" || key=="debug-level-1"  || key=="--debug-level-1" || key=="-debug_level_1" || key=="debug_level_1"  || key=="--debug_level_1"){
+        sys->debug_level = 1;
+    } else if (key=="-debug-level-2" || key=="debug-level-2"  || key=="--debug-level-2" || key=="-debug_level_2" || key=="debug_level_2"  || key=="--debug_level_2"){
+        sys->debug_level = 2;
+    } else if (key=="-debug-level-3" || key=="debug-level-3"  || key=="--debug-level-3" || key=="-debug_level_3" || key=="debug_level_3"  || key=="--debug_level_3"){
+        sys->debug_level = 3;
     } else if (key=="-debug-crc" || key=="debug-crc" || key=="--debug-crc" || key=="-debug_crc" || key=="debug_crc" || key=="--debug_crc" || key=="-check-crc" || key=="check-crc" || key=="--check-crc" || key=="-check_crc" || key=="check_crc" || key=="--check_crc"){
         sys->debug_show_crc = true;
     } else if (key=="-no-debug-crc" || key=="no-debug-crc" || key=="--no-debug-crc" || key=="-no_debug_crc" || key=="no_debug_crc" || key=="--no_debug_crc"){

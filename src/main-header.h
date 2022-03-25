@@ -1,9 +1,6 @@
 #define __REAL__  double
 #define MACHINE_REASONABLE_ERROR 1e-12
 
-//#define     _TTYPROMPTCOLOR_
-//#define     _FUNCTION_EXPORT_
-
 #define PI  3.1415926535897932384626433832795
 #define EE  2.7182818284590452353602874713527
 #define COULCOOEF 138.9354846
@@ -30,7 +27,9 @@
 #define MAX_RENAME_COUNT        10000   // Maximum number of renames
 #define MAX_GVV_FILES           3
 
-#define DISTRIBUTE_VERSION      "0.311"
+#ifdef VERSION
+    #define DISTRIBUTE_VERSION  VERSION
+#endif
 #ifndef DISTRIBUTE_VERSION
     const char * szLicence = "";
 #else

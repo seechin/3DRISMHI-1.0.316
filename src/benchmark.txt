@@ -1,0 +1,36 @@
+
+RAM benchmark performed on April 24, 2020
+
+    Grids,threads   benzene Chaperon    benzene Chaperon
+    ==============  ==== with-HI =====  === without-hi ===
+    218x164x164,1   3.526   3.535       3.046   3.054   GB
+    218x164x164,4   4.711   4.719       4.230   4.239   GB
+    218x164x164,16  9.45    9.46        8.970   8.978   GB
+    436x328x328,1   28.02   28.03       24.17   24.18   GB
+
+    DIIS,threads    benzene Chaperon
+    DIISx1,1        2.172   2.220   GB
+    DIISx2,1        2.828   2.876   GB
+    DIISx3,1        3.090   3.138   GB
+    DIISx4,1        3.353   3.400   GB
+    DIISx5,1        3.615   3.662   GB
+    DIISx1,4        3.621   3.668   GB
+    DIISx2,4        4.277   4.324   GB
+    DIISx3,4        4.539   4.586   GB
+    DIISx4,4        4.801   4.848   GB
+    DIISx5,4        5.063   5.110   GB
+
+    Conclusion:
+        a. mem(m_times_grids)/mem(1) = m
+        b. mem(n_threads)/mem(1)-1 is proportional to (n-1) :
+          b.1. with HI:     mem(n_threads) / mem(1) = 1 + 0.112 * (n-1)
+          b.2. without HI:  mem(n_threads) / mem(1) = 1 + 0.129 * (n-1)
+        c. mem(r_DIIS)-mem(1) is proportional to (r+1):
+            0.13GB
+            DIIS memory doesn't increase with threads
+
+    Estimation for chaperon (DIISX5, without HI):
+    436x328x328,4   33.54 GB
+    436x328x328,8   46.01 GB
+    436x328x328,12  54.49 GB
+    436x328x328,16  70.97 GB

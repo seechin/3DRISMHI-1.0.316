@@ -6,6 +6,7 @@ const char * copyright_string = "(c) Cao Siqin";
 #include    <stdlib.h>
 #include    <math.h>
 #include    <string.h>
+#include    "main-header.h"
 #pragma pack (1)
 
 #include    "String2.cpp"
@@ -52,7 +53,9 @@ typedef struct tagBITMAPINFOHEADER {
 #ifndef __REAL__
     #define __REAL__ double
 #endif
-#define MAX_WORD 100
+#ifndef MAX_WORD
+    #define MAX_WORD 100
+#endif
 int analysis_line_params(StringNS::string sline, StringNS::string * sl, int maxnw, bool separate_szstr = false){
     int nw = StringNS::analysis_line(sline, sl, maxnw, separate_szstr);
     for (int i=0; i<nw; i++){
@@ -97,6 +100,9 @@ typedef struct tagRGBColorLegend {
 
 int main (int argc, char * argv[]){
     bool success = true;
+    #ifdef DISTRIBUTE_VERSION
+        software_version = DISTRIBUTE_VERSION;
+    #endif
     int image_width = 0; int image_height = 0;
     int data_dim_x = 0; int data_dim_y = 0;
     int icol = 0;
