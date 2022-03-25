@@ -20,6 +20,19 @@ The 3DRISMHI can run on Linux, Mac OS, Windows Subsystem Linux and Windows Cygwi
 
 The 3DRISMHI can use multi cores (on the same computer) to speed up the calculation. 3DRISMHI doesn't provide MPI or GPU paralleling. The memory required to perform a 3DRISMHI calculation can be huge, so a large RAM is expected if the grid number is huge.
 
+# Installation
+
+./configure --with-fftw=FOLDER_OF_FFTW3 --prefix=INSTALL_FOLDER
+make
+make install
+
+If you want to read XTC and you have GROMACS 4 or 5.0, then you can try
+./configure --with-fftw=FOLDER_OF_FFTW3 --prefix=INSTALL_FOLDER --with-gmx=GROMACS_FOLDER
+make
+make install
+
+Or see the advanced installation guide in src/INSTALLATION_INSTRUCTIONS.txt
+
 # References
 
 [1] Matteo Frigo and Steven G. Johnson, “The design and implementation of FFTW3,” Proc. IEEE 93 (2), 216–231 (2005)
