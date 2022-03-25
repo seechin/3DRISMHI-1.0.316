@@ -22,16 +22,27 @@ The 3DRISMHI can use multi cores (on the same computer) to speed up the calculat
 
 # Installation
 
+-- The simplest installation:
+
 ./configure --with-fftw=FOLDER_OF_FFTW3 --prefix=INSTALL_FOLDER
+
 make
+
 make install
+
+-- Enable XTC reading:
 
 If you want to read XTC and you have GROMACS 4 or 5.0, then you can try
+
 ./configure --with-fftw=FOLDER_OF_FFTW3 --prefix=INSTALL_FOLDER --with-gmx=GROMACS_FOLDER
+
 make
+
 make install
 
-Or see the advanced installation guide in src/INSTALLATION_INSTRUCTIONS.txt
+-- Advanced
+
+Or see the advanced installation guide in src/INSTALLATION_INSTRUCTIONS.txt. You only need the files in src/ folder if you compile manually.
 
 # References
 
