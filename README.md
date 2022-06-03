@@ -2,7 +2,7 @@
 
 The original release of 3DRISM-HI
 
-3DRISMHI 1.0.313, (c) 2022 Cao Siqin
+3DRISMHI 1.0.316, (c) 2022 Cao Siqin
 
 # Licence
 
