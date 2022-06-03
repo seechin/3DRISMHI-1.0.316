@@ -10,7 +10,7 @@
 IFS=''
 
 if [ -z "$1" ]; then
-    echo generate-sigma-shrinking-2.sh solute_file_to_handle
+    echo generate-sigma-shrinking-3.sh solute_file_to_handle
     exit
 elif [ ! -e "$1" ]; then
     echo error: cannot open $1
@@ -34,12 +34,12 @@ cat $1 | awk -v q_v=$q_solvent -v q_v=$q_v -v q_ren=$q_ren -v b_ren=$b_ren -v di
     FS=" "; na=0; ntitle=0; kT=temperature/120.27; beta=1/kT;
     ee=2.71828182845904523536028747135;
 }{
-    if (substr($0,1,1)!="#"&&substr($0,1,1)!="["&&NF>=8){
+    if (substr($1,1,1)!="#"&&substr($1,1,1)!="["&&NF>=8){
         na++;
         id[na]=$1; name[na]=$2; iaa[na]=$3; mole[na]=$4; mass[na]=$5; charge[na]=$6; sigma_u[na]=$7; epsilon_u[na]=$8;
         if (substr($9,1,5)=="bond:"){ split(substr($9,6),ab,","); nbonds[na]=length(ab); for (i=1;i<=nbonds[na];i++)bonds[na,i]=ab[i]; }
         epsilon[na]=sqrt(epsilon_u[na] * epsilon_v);
-    } else if (substr($0,1,1)=="#"||substr($0,1,1)=="["){
+    } else if (substr($1,1,1)=="#"||substr($0,1,1)=="["){
         ntitle++; title[ntitle]=$0; title_na[ntitle]=na;
     }
 }END{
