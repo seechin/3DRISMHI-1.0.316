@@ -30,7 +30,7 @@
 #ifdef VERSION
     #define DISTRIBUTE_VERSION  VERSION
 #else
-    #define DISTRIBUTE_VERSION  "1.0.315"
+    #define DISTRIBUTE_VERSION  "1.0.316"
 #endif
 #ifndef DISTRIBUTE_VERSION
     const char * szLicence = "";
@@ -38,5 +38,6 @@
   const char * szLicence = "\
   # 3DRISM-HI is free software for non-commercial use. You can use, modify \n\
   # or redistribute for non-commercial purposes under the terms of the GNU \n\
-  # General Public License version 3.\n";
+  # Lesser General Public License version 3\n\
+";
 #endif

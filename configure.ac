@@ -1,5 +1,5 @@
 # Initialization of autoconf
-AC_INIT([rismhi3d], [1.0.315])
+AC_INIT([rismhi3d], [1.0.316])
 AC_CONFIG_AUX_DIR([config_aux])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign subdir-objects])
 
