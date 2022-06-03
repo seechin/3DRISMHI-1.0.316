@@ -303,6 +303,19 @@ void calculate_rdf(IET_Param * sys, IET_arrays * arr, RDF_data * rdf, double r_m
             __REAL__ * cuv1 = &arr->cuv[iv][0][0][0];
             for (size_t i3=0; i3<N3; i3++) res1[i3] = huv1[i3] - cuv1[i3] + hlr1[i3] + ulr1[i3];
         }
+    } else if (sys->rdf_content==IETCMD_v_csr){
+        for (int iv=0; iv<sys->nv; iv++){
+            __REAL__ * res1 = &arr->res[iv][0][0][0];
+            __REAL__ * cuv1 = &arr->cuv[iv][0][0][0];
+            for (size_t i3=0; i3<N3; i3++) res1[i3] = cuv1[i3];
+        }
+    } else if (sys->rdf_content==-IETCMD_v_csr){
+        for (int iv=0; iv<sys->nv; iv++){
+            __REAL__ * res1 = &arr->res[iv][0][0][0];
+            __REAL__ * huv1 = &arr->huv[iv][0][0][0];
+            __REAL__ * cuv1 = &arr->cuv[iv][0][0][0];
+            for (size_t i3=0; i3<N3; i3++) res1[i3] = huv1[i3] - cuv1[i3];
+        }
     } else if (sys->rdf_content==IETCMD_v_ulj){
         for (size_t i4=0; i4<N4; i4++) arr->res[0][0][0][i4] = arr->ulj[0][0][0][i4]>sys->ccutoff? 0 : arr->ulj[0][0][0][i4];
     } else if (sys->rdf_content==IETCMD_v_guv){

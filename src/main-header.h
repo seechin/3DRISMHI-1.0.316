@@ -29,6 +29,8 @@
 
 #ifdef VERSION
     #define DISTRIBUTE_VERSION  VERSION
+#else
+    #define DISTRIBUTE_VERSION  "1.0.315"
 #endif
 #ifndef DISTRIBUTE_VERSION
     const char * szLicence = "";
@@ -38,4 +40,3 @@
   # or redistribute for non-commercial purposes under the terms of the GNU \n\
   # General Public License version 3.\n";
 #endif
-

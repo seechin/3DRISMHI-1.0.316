@@ -306,7 +306,7 @@ namespace RISMHI3D_RISMNS {
               #endif
             }
 
-        // closure enhancement
+          // closure enhancement
             if (sys->closure_enhance_level==2){
                 for (size_t i3=i3begin; i3<i3end; i3++){
                     //double g = 1 + huv[i3]; res[i3] /= sqrt(1 + g*g);
@@ -320,6 +320,16 @@ namespace RISMHI3D_RISMNS {
             } else if (sys->closure_enhance_level>MACHINE_REASONABLE_ERROR){
                 for (size_t i3=i3begin; i3<i3end; i3++){
                     res[i3] /= pow(1 + huv[i3]*huv[i3], sys->closure_enhance_level/2);
+                }
+            }
+          // closure cutoff
+            if (sys->closure_enhance_cutoff>0){
+                for (size_t i3=i3begin; i3<i3end; i3++){
+                    if (res[i3]>sys->closure_enhance_cutoff){
+                        res[i3] = sys->closure_enhance_cutoff;
+                    } else if (res[i3]<-sys->closure_enhance_cutoff){
+                        res[i3] = -sys->closure_enhance_cutoff;
+                    }
                 }
             }
         }

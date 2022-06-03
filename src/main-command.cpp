@@ -204,6 +204,7 @@ int process_command_sequence(int time_of_run, IET_Param * sys, IET_arrays * arr,
                     case IETCMD_v_uuv: save_item = "uuv";     break;
                     case IETCMD_v_ulr: save_item = "ulr";     break;
                     case IETCMD_v_cuv: save_item = "cuv";     break;
+                    case IETCMD_v_csr: save_item = "csr";     break;
                     case IETCMD_v_clr: save_item = "clr";     break;
                     case IETCMD_v_huv: save_item = "huv";     break;
                     case IETCMD_v_hlr: save_item = "hlr";     break;

@@ -1,5 +1,5 @@
 const char * software_name = "rismhi3d";
-const char * software_version = "0.313.2431";
+const char * software_version = "0.315.2472";
 const char * copyright_string = "(c) Cao Siqin";
 
 #include    "header.h"
@@ -27,7 +27,7 @@ const char * copyright_string = "(c) Cao Siqin";
 #include    <sys/stat.h>
 #include    <sys/mman.h>
 #include    <sys/resource.h>
-#if defined(_LOCALPARALLEL_PTHREAD_) || defined(_INTERACTIVE_)
+#if defined(_LOCALPARALLEL_PTHREAD_)
   #include    <pthread.h>
 #endif
 #include    "fftw3.h"

@@ -33,8 +33,8 @@ const char * szHelp1 = "\
 ";
  #else
   const char * szHelpMP = "\
-    -nt/thread, -np/fork   thread or process number for FF/IET calculations\n\
-   -j[obs], -ntb, -npb     thread or process number for batch mode\n\
+    -nt/thread, -np/fork    thread or process number for FF/IET calculations\n\
+    -j[obs], -ntb, -npb     thread or process number for batch mode\n\
 ";
  #endif
 #elif defined(_LOCALPARALLEL_)
@@ -844,6 +844,10 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
                 sys->rdf_content = IETCMD_v_cuv;
             } else if (rdf_content == "ch" || rdf_content == "chuv"){
                 sys->rdf_content = -IETCMD_v_cuv;
+            } else if (rdf_content == "csr"){
+                sys->rdf_content = IETCMD_v_csr;
+            } else if (rdf_content == "chsr"){
+                sys->rdf_content = -IETCMD_v_csr;
             } else if (rdf_content == "lj"){
                 sys->rdf_content = IETCMD_v_ulj;
             } else if (rdf_content == "coul" || rdf_content == "coulomb"){
@@ -1101,10 +1105,19 @@ int analysis_parameter_line(IET_Param * sys, char * argv[], int * argi, int argc
             if (exp_cutoff>0) sys->ccutoff = log(exp_cutoff);
             else { fprintf(sys->log(), "%s%s : %s[%d] : invalid HNC ceil %s%s\n", istty?color_string_of_synerr:"", software_name, get_second_fn(script_name), script_line, argv[i], istty?color_string_end:""); ret = 1; }
         }
-    } else if (key=="-dynamic-delvv" || key=="--dynamic-delvv" || key=="dynamic-delvv" || key=="-dynamic_delvv" || key=="--dynamic_delvv" || key=="dynamic_delvv" || key=="-enhance-closure" || key=="--enhance-closure" || key=="enhance-closure" || key=="-enhance_closure" || key=="--enhance_closure" || key=="enhance_closure" || key=="-closure-enhance" || key=="--closure-enhance" || key=="closure-enhance" || key=="-closure_enhance" || key=="--closure_enhance" || key=="closure_enhance" || key=="-closure-enhancement" || key=="--closure-enhancement" || key=="closure-enhancement" || key=="-closure_enhancement" || key=="--closure_enhancement" || key=="closure_enhancement"){
+    } else if (key=="-dynamic-delvv" || key=="--dynamic-delvv" || key=="dynamic-delvv" || key=="-dynamic_delvv" || key=="--dynamic_delvv" || key=="dynamic_delvv"){
         sys->closure_enhance_level = 1;
         if (i+1<argc && StringNS::is_string_number(argv[i+1])){
             i++; sys->closure_enhance_level = atof(argv[i]);
+        }
+    } else if (key=="-enhance-closure" || key=="--enhance-closure" || key=="enhance-closure" || key=="-enhance_closure" || key=="--enhance_closure" || key=="enhance_closure" || key=="-closure-enhance" || key=="--closure-enhance" || key=="closure-enhance" || key=="-closure_enhance" || key=="--closure_enhance" || key=="closure_enhance" || key=="-closure-enhancement" || key=="--closure-enhancement" || key=="closure-enhancement" || key=="-closure_enhancement" || key=="--closure_enhancement" || key=="closure_enhancement"){
+        sys->closure_enhance_level = 1;
+        if (i+1<argc && StringNS::is_string_number(argv[i+1])){
+            i++; sys->closure_enhance_level = atof(argv[i]);
+        }
+    } else if (key=="-closure-cutoff" || key=="--closure-cutoff" || key=="-closure_cutoff" || key=="--closure_cutoff"){
+        if (i+1<argc && StringNS::is_string_number(argv[i+1])){
+            i++; sys->closure_enhance_cutoff = atof(argv[i]);
         }
     } else if (key=="-no-dynamic-delvv" || key=="--no-dynamic-delvv" || key=="no-dynamic-delvv" || key=="-no_dynamic_delvv" || key=="--no_dynamic_delvv" || key=="no_dynamic_delvv" || key=="-no-enhance-closure" || key=="--no-enhance-closure" || key=="no-enhance-closure" || key=="-no_enhance_closure" || key=="--no_enhance_closure" || key=="no_enhance_closure" || key=="-no-closure-enhance" || key=="--no-closure-enhance" || key=="no-closure-enhance" || key=="-no_closure_enhance" || key=="--no_closure_enhance" || key=="no_closure_enhance" || key=="-no-closure-enhancement" || key=="--no-closure-enhancement" || key=="no-closure-enhancement" || key=="-no_closure_enhancement" || key=="--no_closure_enhancement" || key=="no_closure_enhancement"){
         sys->closure_enhance_level = 0;
@@ -2186,6 +2199,7 @@ bool analysis_command(IET_Param * sys, char * line, const char * line_orig, cons
                 } else if (sl[i]=="electrostatic-field" || sl[i]=="electrostatic_field" || sl[i]=="electric-field" || sl[i]=="electric_field" || sl[i]=="ef"){
                     if (i_param_list < MAX_CMD_PARAMS)  cmd.command_params_int[i_param_list++] = IETCMD_v_ucoul2;
                 } else if (sl[i]=="cuv"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_cuv;
+                } else if (sl[i]=="csr"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_csr;
                 } else if (sl[i]=="huv"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_huv;
                 } else if (sl[i]=="hlr"){       if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_hlr;
                 } else if (sl[i]=="dd"){        if (i_param_list<MAX_CMD_PARAMS) cmd.command_params_int[i_param_list++] = IETCMD_v_dd;

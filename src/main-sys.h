@@ -98,7 +98,7 @@ class IET_Param {
   public:   // experimental features
     bool hlr_no_hi;
     bool use_homogeneous_rism;
-    double closure_enhance_level;
+    double closure_enhance_level; double closure_enhance_cutoff;
     Vector external_electrostatic_field; bool do_external_electrostatic_field;
   public:   // name list and mappings
     SYSITEM_AtomNameList * atom_list; int n_atom_list; int nmax_atom_list;
@@ -211,7 +211,7 @@ class IET_Param {
 
         hlr_no_hi = false;
         use_homogeneous_rism = false;
-        closure_enhance_level = 1;
+        closure_enhance_level = 1; closure_enhance_cutoff = -1;
         external_electrostatic_field = Vector(0, 0, 0); do_external_electrostatic_field = false;
 
         atom_list = nullptr; n_atom_list = nmax_atom_list = 0;

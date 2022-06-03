@@ -1,5 +1,5 @@
 # Initialization of autoconf
-AC_INIT([rismhi3d], [1.0.313])
+AC_INIT([rismhi3d], [1.0.315])
 AC_CONFIG_AUX_DIR([config_aux])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign subdir-objects])
 
@@ -40,13 +40,13 @@ if (test "x$with_gmx" == "x") then
   if (test "$GROMACS_VER" == 0) then
     AC_CHECK_HEADERS([gromacs/xtcio.h], [GROMACS_VER=4],[],[])
     if (test "$GROMACS_VER" != 0) then
-      EXTRA_LDFLAGS="$EXTRA_LDFLAGS -lgmx"
+      EXTRA_LDFLAGS="$EXTRA_LDFLAGS -lgmx -ldl"
     fi
   fi
   if (test "$GROMACS_VER" == 0) then
     AC_CHECK_HEADERS([gromacs/fileio/xtcio.h], [GROMACS_VER=16],[],[])
     if (test "$GROMACS_VER" != 0) then
-      EXTRA_LDFLAGS="$EXTRA_LDFLAGS -lgromacs"
+      EXTRA_LDFLAGS="$EXTRA_LDFLAGS -lgromacs -ldl"
     fi
   fi
 else
@@ -54,14 +54,14 @@ else
     AC_CHECK_HEADERS([$with_gmx/include/gromacs/xtcio.h], [GROMACS_VER=4],[],[])
     if (test "$GROMACS_VER" != 0) then
       EXTRA_CFLAGS="$EXTRA_CFLAGS -I$with_gmx/include"
-      EXTRA_LDFLAGS="$EXTRA_LDFLAGS -L$with_gmx/lib -lgmx"
+      EXTRA_LDFLAGS="$EXTRA_LDFLAGS -L$with_gmx/lib -lgmx -ldl"
     fi
   fi
   if (test "$GROMACS_VER" == 0) then
     AC_CHECK_HEADERS([$with_gmx/include/gromacs/fileio/xtcio.h], GROMACS_VER=16[],[],[])
     if (test "$GROMACS_VER" != 0) then
       EXTRA_CFLAGS="$EXTRA_CFLAGS -I$with_gmx/include"
-      EXTRA_LDFLAGS="$EXTRA_LDFLAGS -L$with_gmx/lib -lgromacs"
+      EXTRA_LDFLAGS="$EXTRA_LDFLAGS -L$with_gmx/lib -lgromacs -ldl"
     fi
   fi
 fi
