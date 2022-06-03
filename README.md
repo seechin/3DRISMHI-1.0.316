@@ -6,7 +6,7 @@ The original release of 3DRISM-HI
 
 # Licence
 
-3DRISM-HI is free software for non-commercial use. You can use, modify or redistribute for non-commercial purposes under terms of the GNU General Public (GPL) License version 3 as published by the Free Software Foundation. A GNU GPL3 Licence is attached to this program.
+3DRISM-HI is free software for non-commercial use. You can use, modify or redistribute for non-commercial purposes under the terms of the GNU Lesser General Public License version 3. The GNU GPL3 and LGPL3 Licences are attached to this program.
 
 3DRISM-HI uses FFTW 3 for fast Fourier transformations [1].
 
