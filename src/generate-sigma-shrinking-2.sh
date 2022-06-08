@@ -10,7 +10,7 @@
 IFS=''
 
 if [ -z "$1" ]; then
-    echo generate-sigma-shrinking-3.sh solute_file_to_handle
+    echo generate-sigma-shrinking-2.sh solute_file_to_handle
     exit
 elif [ ! -e "$1" ]; then
     echo error: cannot open $1
@@ -50,11 +50,12 @@ cat $1 | awk -v q_v=$q_solvent -v q_v=$q_v -v q_ren=$q_ren -v b_ren=$b_ren -v di
 
         if (nbonds[ia]>=1){
             for (i=1;i<=nbonds[ia];i++){
-                charge_ia += charge[ia+bonds[ia,i]] / (nbonds[ia+bonds[ia,i]]<=1? 1 : ia+bonds[ia,i]);
+                charge_ia += charge[ia+bonds[ia,i]] / (nbonds[ia+bonds[ia,i]]<=1? 1 : nbonds[ia+bonds[ia,i]]);
                 if (sigma_u[ia+bonds[ia,i]]>sigma_u[ia]/2 || nbonds[ia+bonds[ia,i]]>1) bond_ia ++;
             }
-            # printf("# %s : %d : charge %g -> %g\n",name[ia],nbonds[ia],charge[ia],charge_ia);
-            #wd = (bond_ia<4? 4-bond_ia : 1) / 4;
+
+            #printf("# %s : %d : charge %g -> %g\n",name[ia],nbonds[ia],charge[ia],charge_ia);
+            #wd = (bond_ia<3? 3-bond_ia : 1) / 3;
             #dielect_here = dielect * wd + dielect_u * (1-wd);
             #printf("# %s : %d : bond_ia=%d wd=%g dielect= %g (%g,%g)\n",name[ia],nbonds[ia],bond_ia,wd,dielect_here,dielect,dielect_u);
         }
@@ -62,7 +63,7 @@ cat $1 | awk -v q_v=$q_solvent -v q_v=$q_v -v q_ren=$q_ren -v b_ren=$b_ren -v di
         sigma=(sigma_u[ia]+sigma_v)/2;
         x=1;
         if (charge_ia*q_v>0 && sigma>0 && epsilon[ia]>0){
-          wd = (bond_ia<4? 4-bond_ia : 1) / 4;
+          wd = (bond_ia<3? 3-bond_ia : 1) / 3;
           dielect_here = dielect * wd + dielect_u * (1-wd);
           for (iscf=0;iscf<10;iscf++){
             coul=sqrt((138.9*charge_ia*q_ren*((1/(sigma/x-b_ren))-1/(sigma/x))/dielect_here)^2);
