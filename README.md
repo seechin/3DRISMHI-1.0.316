@@ -1,4 +1,4 @@
-# 3DRISMHI
+<img src="https://github.com/seechin/3DRISMHI/blob/master/logo.png" height=80></img>
 
 The original release of 3DRISM-HI
 
