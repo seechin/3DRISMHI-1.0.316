@@ -4,6 +4,8 @@ The original release of 3DRISM-HI
 
 3DRISMHI 1.0.316, (c) 2022 Cao Siqin
 
+(The 3DRISMHI is continued by [EPRISM](https://github.com/seechin/eprism) and will not be updated)
+
 # Licence
 
 3DRISM-HI is free software for non-commercial use. You can use, modify or redistribute for non-commercial purposes under the terms of the GNU Lesser General Public License version 3. The GNU GPL3 and LGPL3 Licences are attached to this program.
