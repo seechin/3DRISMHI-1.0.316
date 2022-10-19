@@ -1,10 +1,10 @@
 <img src="https://github.com/seechin/3DRISMHI/blob/master/logo.png" height=80></img>
 
+Continued by [EPRISM](https://github.com/seechin/eprism). No further update for this repository.
+
 The original release of 3DRISM-HI
 
 3DRISMHI 1.0.316, (c) 2022 Cao Siqin
-
-(The 3DRISMHI is continued by [EPRISM](https://github.com/seechin/eprism) and will not be updated)
 
 # Licence
 
